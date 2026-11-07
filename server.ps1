@@ -1,6 +1,10 @@
 # Enhanced PowerShell HTTP Server for AlphaChart AI
 $port = 8080
-$root = (Get-Item $PSScriptRoot).FullName
+if ([string]::IsNullOrWhiteSpace($PSScriptRoot)) {
+    $root = (Get-Location).Path
+} else {
+    $root = (Get-Item $PSScriptRoot).FullName
+}
 
 $listener = New-Object System.Net.HttpListener
 $listener.Prefixes.Add("http://localhost:$port/")
