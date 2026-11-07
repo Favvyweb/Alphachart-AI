@@ -116,48 +116,10 @@ window.JournalModule = {
   },
 
   /**
-   * Automatically invoked whenever a chart is analyzed in the Signal Scanner
+   * Called when user initiates logging from scanner: opens the manual log setup
    */
   addTradeFromAnalysis: function (analysisData) {
-    if (!analysisData) return;
-
-    const isLong = analysisData.signal === 'LONG';
-    const pair = analysisData.pair || 'UNKNOWN / ASSET';
-    const pattern = analysisData.pattern || 'Technical Breakout';
-    const entry = analysisData.entry || (analysisData.rawEntry ? `$${analysisData.rawEntry}` : '--');
-    const tp1 = analysisData.tp1 || '--';
-    const sl = analysisData.sl || '--';
-
-    // Prevent duplicate entries of the same scan in quick succession (within 5 seconds)
-    if (this.trades.length > 0) {
-      const recent = this.trades[0];
-      if (recent.pair === pair && (Date.now() - recent.id < 5000)) {
-        return;
-      }
-    }
-
-    const newTrade = {
-      id: Date.now(),
-      pair: pair.toUpperCase(),
-      market: analysisData.market || 'Crypto',
-      type: analysisData.signal || 'LONG',
-      time: 'Just now',
-      entryPrice: entry,
-      tp1: tp1,
-      sl: sl,
-      pnl: 'Pending Result',
-      isProfit: true,
-      notes: `Target ${tp1} (SL ${sl}) identified from ${pattern}.`,
-      userOutcomePnl: '',
-      userObservation: '',
-      feedbackSaved: false,
-      isAutoLogged: true
-    };
-
-    this.trades.unshift(newTrade);
-    this.saveToStorage();
-    this.renderTrades();
-    this.updateStats();
+    this.openManualLogModal(analysisData);
   },
 
   /**
@@ -221,8 +183,8 @@ window.JournalModule = {
 
     container.innerHTML = this.trades.map(t => {
       const isPending = t.pnl === 'Pending Result' && !t.userOutcomePnl;
-      const pnlDisplayClass = isPending 
-        ? 'text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded text-xs' 
+      const pnlDisplayClass = isPending
+        ? 'text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded text-xs'
         : (t.isProfit ? 'text-primary-fixed-dim' : 'text-error');
 
       return `
@@ -358,11 +320,32 @@ window.JournalModule = {
     }
   },
 
-  openManualLogModal: function () {
+  openManualLogModal: function (prefillData) {
+    this.pendingAnalysisData = prefillData || null;
+
+    const pairInput = document.getElementById('log-pair-input');
+    const typeSelect = document.getElementById('log-type-select');
+    const notesInput = document.getElementById('log-notes-input');
+    const pnlInput = document.getElementById('log-pnl-input');
+
+    if (prefillData) {
+      if (pairInput) pairInput.value = prefillData.pair || '';
+      if (typeSelect) typeSelect.value = prefillData.signal || 'LONG';
+      if (notesInput) notesInput.value = prefillData.pattern ? `Target: ${prefillData.tp1 || '--'}. Setup: ${prefillData.pattern}.` : '';
+      if (pnlInput) pnlInput.value = '';
+    } else {
+      if (pairInput) pairInput.value = '';
+      if (pnlInput) pnlInput.value = '';
+      if (notesInput) notesInput.value = '';
+    }
+
     const modal = document.getElementById('manual-log-modal');
     if (modal) {
       modal.classList.remove('hidden');
       modal.classList.add('flex');
+      setTimeout(() => {
+        if (pnlInput) pnlInput.focus();
+      }, 50);
     }
   },
 
@@ -377,20 +360,23 @@ window.JournalModule = {
   submitManualTrade: function () {
     const pair = document.getElementById('log-pair-input').value || 'BTC / USDT';
     const type = document.getElementById('log-type-select').value || 'LONG';
-    const pnl = document.getElementById('log-pnl-input').value || '+$500.00';
-    const observation = document.getElementById('log-notes-input').value || 'Executed based on AlphaChart signal.';
+    const pnl = document.getElementById('log-pnl-input').value || '+$0.00';
+    const observation = document.getElementById('log-notes-input').value || 'Manual trade entry.';
 
-    const isProfit = !pnl.startsWith('-');
+    const isProfit = !pnl.startsWith('-') && !pnl.toLowerCase().includes('loss');
+    const entryPrice = this.pendingAnalysisData && this.pendingAnalysisData.entry ? this.pendingAnalysisData.entry : '--';
+    const market = this.pendingAnalysisData && this.pendingAnalysisData.market ? this.pendingAnalysisData.market : 'Crypto';
+
     const newTrade = {
       id: Date.now(),
       pair: pair.toUpperCase(),
-      market: 'Manual',
+      market: market,
       type: type,
       time: 'Just now',
-      entryPrice: '--',
+      entryPrice: entryPrice,
       pnl: pnl,
       isProfit: isProfit,
-      notes: 'Manually logged execution.',
+      notes: observation,
       userOutcomePnl: pnl,
       userObservation: observation,
       feedbackSaved: true,
@@ -403,7 +389,12 @@ window.JournalModule = {
     this.updateStats();
     this.closeManualLogModal();
 
-    if (window.App) window.App.showToast('New trade added to your Journal!');
+    this.pendingAnalysisData = null;
+
+    if (window.App) {
+      window.App.navigateTo('trading-journal');
+      window.App.showToast('Trade logged & reflected in your Journal!');
+    }
   },
 
   openCoachChat: function () {
