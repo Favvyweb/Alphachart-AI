@@ -1,0 +1,132 @@
+/* Custom Styling for Alphachart AI - Mobile First Optimization */
+@import url('https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@600;700;800&family=Geist:wght@400;500;600&family=Inter:wght@400;500;600&family=Poppins:wght@400;500;600;700&display=swap');
+
+:root {
+  --surface: #000000;
+  --surface-container-low: #181c24;
+  --surface-container: #1c2028;
+  --surface-container-high: #262a33;
+  --primary-container: #00ff88;
+  --primary-fixed-dim: #00e479;
+  --error: #ffb4ab;
+  --error-bg: rgba(255, 180, 171, 0.1);
+  --on-surface: #ffffff;
+  --on-surface-variant: #b9cbb9;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  background-color: #000000;
+  color: var(--on-surface);
+  font-family: 'Poppins', sans-serif;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100vh;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+
+.pb-safe {
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 16px);
+}
+.pt-safe {
+  padding-top: max(env(safe-area-inset-top, 0px), 16px);
+}
+
+/* Mobile Frame Container */
+.mobile-app-wrapper {
+  max-width: 430px;
+  width: 100%;
+  min-height: 100vh;
+  margin: 0 auto;
+  position: relative;
+  background-color: #000000;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 0 50px rgba(0, 0, 0, 0.9);
+}
+
+@media (min-width: 431px) {
+  .mobile-app-wrapper {
+    border-left: 1px solid rgba(255, 255, 255, 0.08);
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+  }
+}
+
+/* Glassmorphism Navigation & Bar */
+.glass-nav {
+  background: rgba(10, 14, 22, 0.92);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-modal {
+  background: rgba(10, 14, 22, 0.96);
+  backdrop-filter: blur(32px);
+  -webkit-backdrop-filter: blur(32px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+/* Laser Scanner Beam */
+@keyframes laser-scan {
+  0% { top: 0%; opacity: 0; }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { top: 100%; opacity: 0; }
+}
+
+.laser-beam {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, transparent 0%, #00ff88 50%, transparent 100%);
+  box-shadow: 0 0 15px #00ff88, 0 0 30px #00ff88;
+  animation: laser-scan 2.2s ease-in-out infinite alternate;
+  z-index: 20;
+}
+
+.laser-grid {
+  background-size: 30px 30px;
+  background-image: 
+    linear-gradient(to right, rgba(0, 255, 136, 0.07) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 255, 136, 0.07) 1px, transparent 1px);
+}
+
+/* Scrollbars */
+::-webkit-scrollbar { display: none; }
+.hide-scrollbar::-webkit-scrollbar { display: none; }
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Pulse Animation */
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 15px rgba(0, 255, 136, 0.25); }
+  50% { box-shadow: 0 0 30px rgba(0, 255, 136, 0.6); }
+}
+
+.pulse-glow-btn {
+  animation: pulse-glow 3s infinite;
+}
+
+/* Tab Switching Animations */
+.tab-page {
+  display: none;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  width: 100%;
+}
+
+.tab-page.active {
+  display: block;
+  opacity: 1;
+  transform: translateY(0);
+}

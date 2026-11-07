@@ -1,0 +1,147 @@
+<!DOCTYPE html><html lang="en" style="width: 390px; height: 1080px; overflow: hidden; position: relative;"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@600;700&amp;family=Geist:wght@400;500&amp;family=Inter:wght@400&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { "colors": { "on-tertiary-fixed-variant": "#3f4850", "on-primary-container": "#007139", "surface-container-low": "#181c24", "tertiary": "#f9faff", "on-tertiary-fixed": "#141c24", "on-background": "#dfe2ee", "error": "#ffb4ab", "inverse-surface": "#dfe2ee", "surface": "#0f131c", "on-tertiary": "#29313a", "on-error-container": "#ffdad6", "tertiary-fixed-dim": "#bec7d2", "on-secondary-fixed-variant": "#42474f", "on-primary-fixed-variant": "#005228", "surface-container": "#1c2028", "on-secondary-container": "#b1b5bf", "on-secondary-fixed": "#171c23", "on-primary": "#003919", "tertiary-container": "#d6dfea", "on-secondary": "#2c3138", "on-tertiary-container": "#5a636c", "primary-container": "#00ff88", "surface-container-highest": "#31353e", "surface-variant": "#31353e", "inverse-primary": "#006d37", "on-error": "#690005", "secondary-fixed-dim": "#c2c7d0", "surface-container-lowest": "#0a0e16", "outline-variant": "#3b4b3d", "background": "#0f131c", "secondary": "#c2c7d0", "primary": "#f1ffef", "inverse-on-surface": "#2c3039", "on-primary-fixed": "#00210c", "surface-container-high": "#262a33", "error-container": "#93000a", "secondary-container": "#42474f", "tertiary-fixed": "#dae3ee", "surface-dim": "#0f131c", "on-surface-variant": "#b9cbb9", "surface-tint": "#00e479", "primary-fixed-dim": "#00e479", "secondary-fixed": "#dee2ec", "primary-fixed": "#60ff99", "surface-bright": "#353942", "on-surface": "#dfe2ee", "outline": "#849585" }, "spacing": { "gutter": "24px", "container-padding-desktop": "32px", "section-gap": "48px", "container-padding-mobile": "16px", "unit": "4px" }, "fontFamily": { "headline-lg": ["Hanken Grotesk"], "mono-data": ["Geist"], "display-lg": ["Hanken Grotesk"], "headline-lg-mobile": ["Hanken Grotesk"], "headline-md": ["Hanken Grotesk"], "label-sm": ["Geist"], "body-lg": ["Inter"], "body-md": ["Inter"], "label-md": ["Geist"] } } } }</script><style>@layer base { body { @apply bg-surface text-on-surface antialiased; -webkit-tap-highlight-color: transparent; } .pb-safe { padding-bottom: env(safe-area-inset-bottom); } .pt-safe { padding-top: env(safe-area-inset-top); } } .glass-nav { background: rgba(28, 32, 40, 0.8); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); } </style></head><body class="min-h-screen flex flex-col" style="background-color: rgb(0, 0, 0);"><header class="fixed top-0 w-full z-50 bg-surface/80 backdrop-blur-xl pt-safe" style="background-color: rgba(0, 0, 0, 0.8);"><div class="h-16 px-container-padding-mobile flex items-center justify-between"><div class="flex items-center gap-2"></div><div class="flex items-center gap-3"><button class="w-11 h-11 flex items-center justify-center"></button></div></div></header><main class="flex-1 pt-16 pb-24 bg-surface" style="background-color: rgb(0, 0, 0);"><div class="flex flex-col w-full px-container-padding-mobile">
+<!-- Profile Header Section -->
+<div class="relative py-8 flex flex-col items-center">
+<!-- Ambient Background Glow -->
+<div class="absolute inset-0 flex justify-center items-center pointer-events-none">
+<div class="w-32 h-32 bg-primary/10 rounded-full blur-[64px] animate-pulse"></div>
+</div>
+<!-- Profile Avatar with Glass Ring -->
+<div class="relative group">
+<div class="absolute -inset-1 bg-gradient-to-tr from-primary-container via-primary/50 to-transparent rounded-full opacity-75 blur-sm"></div>
+<div class="relative w-24 h-24 rounded-full p-1 bg-surface-container-highest">
+<img alt="Profile" class="w-full h-full rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDaJRKmuj8e7khu3DPcqVpJWaRivaROMYHJXP2sgrtErqrOtkd-ETV6gnlDGLulKYHl-CJBQF06DMXLnKbSFWUOTLYfucB_RzvMCue14GC1CLQhlf7QCS1FHa1uuiQU2eIioDMm_BgbAz16sBVLL3wEVbBLQ-kM_JXerV7H1WXaeK5GjUyZBluJaLGuqEEwXHt78ZE_hqnW_xqUBMz67HWdP309Ltb4HBw2DwBNWnaDxb3xpAMndR3S">
+<button class="absolute bottom-0 right-0 w-8 h-8 bg-primary rounded-full flex items-center justify-center shadow-lg active:scale-90 transition-transform">
+<span class="material-symbols-outlined text-on-primary text-[18px]">edit</span>
+</button>
+</div>
+</div>
+<!-- User Info -->
+<div class="mt-4 text-center">
+<div class="flex items-center justify-center gap-2">
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface">Alex Sterling</h1>
+<span class="bg-primary-container/20 text-primary-container px-2 py-0.5 rounded-full font-label-sm text-label-sm uppercase tracking-wider border border-primary-container/30">Pro</span>
+</div>
+<p class="font-body-md text-on-surface-variant mt-1">alex.sterling@alphachart.ai</p>
+</div>
+</div>
+<!-- Settings Groups -->
+<div class="flex flex-col gap-6 mb-8">
+<!-- Account Group -->
+<div class="flex flex-col gap-2">
+<h2 class="font-label-sm text-label-sm text-on-surface-variant/60 uppercase px-1 tracking-widest">Account</h2>
+<div class="rounded-2xl overflow-hidden transition-all duration-500 opacity-100 translate-y-0 bg-surface-container-lowest">
+<!-- Subscription -->
+<button class="w-full flex items-center justify-between p-4 hover:bg-surface-container-high transition-colors active:bg-surface-container-highest group">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary">workspace_premium</span>
+</div>
+<span class="font-body-md text-on-surface">Subscription Plan</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="font-label-md text-primary-container">Active</span>
+<span class="material-symbols-outlined text-on-surface-variant group-hover:translate-x-1 transition-transform">chevron_right</span>
+</div>
+</button>
+<div class="h-[1px] bg-surface-variant/30 mx-4"></div>
+<!-- Security -->
+<button class="w-full flex items-center justify-between p-4 hover:bg-surface-container-high transition-colors active:bg-surface-container-highest group">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-xl bg-on-secondary-container/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary">security</span>
+</div>
+<span class="font-body-md text-on-surface">Security</span>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant group-hover:translate-x-1 transition-transform">chevron_right</span>
+</button>
+</div>
+</div>
+<!-- Support Group -->
+<div class="flex flex-col gap-2">
+<h2 class="font-label-sm text-label-sm text-on-surface-variant/60 uppercase px-1 tracking-widest">Support</h2>
+<div class="rounded-2xl overflow-hidden transition-all duration-500 opacity-100 translate-y-0 bg-surface-container-lowest">
+<button class="w-full flex items-center justify-between p-4 hover:bg-surface-container-high transition-colors active:bg-surface-container-highest group">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-xl bg-tertiary-container/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-on-tertiary-container">contact_support</span>
+</div>
+<span class="font-body-md text-on-surface">Contact Support</span>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant group-hover:translate-x-1 transition-transform">chevron_right</span>
+</button>
+</div>
+</div>
+<!-- Legal Group -->
+<div class="flex flex-col gap-2">
+<h2 class="font-label-sm text-label-sm text-on-surface-variant/60 uppercase px-1 tracking-widest">Legal</h2>
+<div class="rounded-2xl overflow-hidden transition-all duration-500 opacity-100 translate-y-0 bg-surface-container-lowest">
+<button class="w-full flex items-center justify-between p-4 hover:bg-surface-container-high transition-colors active:bg-surface-container-highest group">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-xl bg-on-surface-variant/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-on-surface-variant">description</span>
+</div>
+<span class="font-body-md text-on-surface">Terms of Service</span>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant group-hover:translate-x-1 transition-transform">chevron_right</span>
+</button>
+<div class="h-[1px] bg-surface-variant/30 mx-4"></div>
+<button class="w-full flex items-center justify-between p-4 hover:bg-surface-container-high transition-colors active:bg-surface-container-highest group">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-xl bg-on-surface-variant/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-on-surface-variant">policy</span>
+</div>
+<span class="font-body-md text-on-surface">Privacy Policy</span>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant group-hover:translate-x-1 transition-transform">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Logout Section -->
+<div class="mt-auto pb-8">
+<button class="w-full py-4 rounded-2xl bg-error-container/10 border border-error/20 flex items-center justify-center gap-2 group active:scale-[0.98] transition-all" id="logout-btn">
+<span class="material-symbols-outlined text-error group-hover:rotate-12 transition-transform">logout</span>
+<span class="font-headline-md text-error text-[18px]">Sign Out</span>
+</button>
+<div class="mt-6 text-center">
+<p class="font-label-sm text-on-surface-variant/40">AlphaChart AI • Version 2.4.1</p>
+</div>
+</div>
+</div>
+<script>
+  document.getElementById('logout-btn').addEventListener('click', function() {
+    const btn = this;
+    btn.classList.add('scale-95', 'opacity-50');
+    setTimeout(() => {
+      btn.classList.remove('scale-95', 'opacity-50');
+      // Simple interaction feedback
+      const originalText = btn.innerHTML;
+      btn.innerHTML = '<span class="material-symbols-outlined animate-spin">refresh</span>';
+      setTimeout(() => {
+        btn.innerHTML = originalText;
+      }, 1000);
+    }, 150);
+  });
+
+  // Simple intersection observer for reveal effect
+  const observerOptions = {
+    threshold: 0.1
+  };
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('opacity-100', 'translate-y-0');
+        entry.target.classList.remove('opacity-0', 'translate-y-4');
+      }
+    });
+  }, observerOptions);
+
+  document.querySelectorAll('.bg-surface-container').forEach(el => {
+    el.classList.add('opacity-0', 'translate-y-4', 'transition-all', 'duration-500');
+    observer.observe(el);
+  });
+</script></main><nav class="fixed bottom-0 w-full z-50 pb-safe glass-nav" data-active-classes="text-primary-container" style="background-color: rgba(0, 0, 0, 0.9);"><div class="flex justify-around items-center h-20 px-2"><a class="flex flex-col items-center gap-1 min-w-[72px] text-on-surface-variant transition-colors duration-200" data-path="signal-scanner" href="#"><span class="material-symbols-outlined">monitoring</span><span class="font-label-sm text-label-sm">Signal</span></a><a class="flex flex-col items-center gap-1 min-w-[72px] text-on-surface-variant transition-colors duration-200" data-path="trading-journal" href="#"><span class="material-symbols-outlined">history_edu</span><span class="font-label-sm text-label-sm">Journal</span></a><a class="flex flex-col items-center gap-1 min-w-[72px] text-on-surface-variant transition-colors duration-200" data-path="market-news" href="#"><span class="material-symbols-outlined">newspaper</span><span class="font-label-sm text-label-sm">News</span></a><a aria-current="page" class="flex flex-col items-center gap-1 min-w-[72px] transition-colors duration-200 text-primary-container" data-path="user-profile" href="#"><span class="material-symbols-outlined">account_circle</span><span class="font-label-sm text-label-sm">Profile</span></a></div></nav>
+
+</body></html>

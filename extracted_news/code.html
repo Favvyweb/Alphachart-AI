@@ -1,0 +1,332 @@
+<!DOCTYPE html><html lang="en" style="width: 390px; height: 1148px; overflow: hidden; position: relative;"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary-fixed-variant": "#3f4850",
+                        "on-primary-container": "#003919", // Darkened for better contrast on green
+                        "surface-container-low": "#181c24",
+                        "tertiary": "#f9faff",
+                        "on-tertiary-fixed": "#141c24",
+                        "on-background": "#ffffff", // High contrast white
+                        "error": "#ffb4ab",
+                        "inverse-surface": "#dfe2ee",
+                        "surface": "#000000", // Forced black as requested
+                        "on-tertiary": "#29313a",
+                        "on-error-container": "#ffdad6",
+                        "tertiary-fixed-dim": "#bec7d2",
+                        "on-secondary-fixed-variant": "#42474f",
+                        "on-primary-fixed-variant": "#005228",
+                        "surface-container": "#1c2028",
+                        "on-secondary-container": "#b1b5bf",
+                        "on-secondary-fixed": "#171c23",
+                        "on-primary": "#003919",
+                        "tertiary-container": "#d6dfea",
+                        "on-secondary": "#2c3138",
+                        "on-tertiary-container": "#5a636c",
+                        "primary-container": "#00ff88",
+                        "surface-container-highest": "#31353e",
+                        "surface-variant": "#31353e",
+                        "inverse-primary": "#006d37",
+                        "on-error": "#690005",
+                        "secondary-fixed-dim": "#c2c7d0",
+                        "surface-container-lowest": "#0a0e16",
+                        "outline-variant": "#3b4b3d",
+                        "background": "#000000", // Forced black
+                        "secondary": "#c2c7d0",
+                        "primary": "#f1ffef",
+                        "inverse-on-surface": "#2c3039",
+                        "on-primary-fixed": "#00210c",
+                        "surface-container-high": "#262a33",
+                        "error-container": "#93000a",
+                        "secondary-container": "#42474f",
+                        "tertiary-fixed": "#dae3ee",
+                        "surface-dim": "#0f131c",
+                        "on-surface-variant": "#aeb9ae", // Improved contrast for metadata
+                        "surface-tint": "#00e479",
+                        "primary-fixed-dim": "#00e479",
+                        "secondary-fixed": "#dee2ec",
+                        "primary-fixed": "#60ff99",
+                        "surface-bright": "#353942",
+                        "on-surface": "#ffffff", // High contrast white for headings
+                        "outline": "#849585"
+                    },
+                    "spacing": {
+                        "gutter": "24px",
+                        "container-padding-desktop": "32px",
+                        "section-gap": "48px",
+                        "container-padding-mobile": "16px",
+                        "unit": "4px"
+                    },
+                    "fontFamily": {
+                        "headline-lg": ["Poppins"],
+                        "mono-data": ["Poppins"],
+                        "display-lg": ["Poppins"],
+                        "headline-lg-mobile": ["Poppins"],
+                        "headline-md": ["Poppins"],
+                        "label-sm": ["Poppins"],
+                        "body-lg": ["Poppins"],
+                        "body-md": ["Poppins"],
+                        "label-md": ["Poppins"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        @layer base {
+            body {
+                @apply bg-surface text-on-surface antialiased;
+                -webkit-tap-highlight-color: transparent;
+                font-family: 'Poppins', sans-serif;
+            }
+            .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+            .pt-safe { padding-top: env(safe-area-inset-top); }
+        }
+        .glass-nav {
+            background: rgba(28, 32, 40, 0.85);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+        }
+    </style>
+<style>
+        body {
+            min-height: max(884px, 100dvh);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col" style="background-color: #000000;">
+<header class="fixed top-0 w-full z-50 bg-black/80 backdrop-blur-xl pt-safe">
+<div class="h-16 px-container-padding-mobile flex items-center justify-between">
+<div class="flex items-center gap-3">
+<button class="w-11 h-11 flex items-center justify-center">
+
+</button>
+</div>
+<div class="flex items-center">
+
+</div>
+<div class="w-11"></div>
+</div>
+</header>
+<main class="flex-1 pt-16 pb-24" style="background-color: #000000;">
+<div class="flex flex-col w-full pb-8">
+<!-- Search and Filter Section -->
+<div class="px-container-padding-mobile mb-6 mt-4">
+<div class="relative group">
+<div class="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-on-surface-variant group-focus-within:text-primary-container transition-colors">search</span>
+</div>
+<input class="w-full h-12 border-none rounded-xl pl-12 pr-4 text-white font-body-md focus:ring-2 focus:ring-primary-container/30 transition-all outline-none placeholder:text-on-surface-variant/70 bg-surface-container-low" placeholder="Search market alpha..." type="text">
+<div class="absolute inset-y-0 right-3 flex items-center">
+<button class="p-1.5 bg-surface-container-high rounded-lg text-on-surface-variant">
+<span class="material-symbols-outlined text-[20px]">tune</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Category Tabs -->
+<div class="flex overflow-x-auto hide-scrollbar gap-3 px-container-padding-mobile mb-8">
+<button class="category-tab active flex-shrink-0 px-5 py-2 rounded-full bg-primary-container text-on-primary-container font-label-md text-sm font-semibold transition-all">All</button>
+<button class="category-tab flex-shrink-0 px-5 py-2 rounded-full text-on-surface-variant font-label-md text-sm font-medium hover:bg-surface-container-high transition-all bg-surface-container-low">Bitcoin</button>
+<button class="category-tab flex-shrink-0 px-5 py-2 rounded-full text-on-surface-variant font-label-md text-sm font-medium hover:bg-surface-container-high transition-all bg-surface-container-low">Altcoins</button>
+<button class="category-tab flex-shrink-0 px-5 py-2 rounded-full text-on-surface-variant font-label-md text-sm font-medium hover:bg-surface-container-high transition-all bg-surface-container-low">AI</button>
+<button class="category-tab flex-shrink-0 px-5 py-2 rounded-full text-on-surface-variant font-label-md text-sm font-medium hover:bg-surface-container-high transition-all bg-surface-container-low">Macro</button>
+</div>
+<!-- Featured News Card -->
+<div class="px-container-padding-mobile mb-10">
+<div class="relative overflow-hidden rounded-2xl group cursor-pointer active:scale-[0.98] transition-transform duration-200 bg-surface-container-low">
+<div class="aspect-[16/10] w-full relative">
+<img class="w-full h-full object-cover" data-alt="A cinematic, high-detail 3D rendering of a futuristic digital cityscape at night, glowing with neon green data streams and holographic crypto symbols." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBWf3h_tglmc7j2vDkTNQBIgxkHnk1NzK-60oWQLFImVkXxfuGT_26qe0ZvRss6g6rTvagxSyjuHgBSmBhgo7D1OiwJgEpp9JHxIIc__Y1KgkozVG8t5g_WWWHEHOLiTlZZy807TmIT3cx7w-kSGgZJ-QIzc9jOUqV8rcnhQAMC-dnx9AV8SG_o32ieyQBcrjlWOpATQTIFAStlZKka4TgDDTrtrn8zy3Ht0VGK27Da7AQc5t3eS2fD">
+<div class="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent"></div>
+<div class="absolute top-4 left-4">
+<div class="px-3 py-1 rounded-full bg-primary-container/20 backdrop-blur-md border border-primary-container/30 flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-primary-container animate-pulse"></span>
+<span class="text-primary-container font-semibold text-[10px] uppercase tracking-wider">Featured</span>
+</div>
+</div>
+</div>
+<div class="p-5 relative -mt-12">
+<div class="flex items-center gap-3 mb-2">
+<span class="text-primary-container font-semibold text-[12px]">2m ago</span>
+<span class="w-1 h-1 rounded-full bg-on-surface-variant/50"></span>
+<span class="text-on-surface-variant font-medium text-[12px]">CoinTelegraph</span>
+</div>
+<h2 class="font-semibold text-[22px] text-white line-clamp-2 leading-tight mb-4">
+                            Ethereum ETFs See Record Inflows as Layer 2 Adoption Hits All-Time High
+                        </h2>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary-container/10 border border-primary-container/20">
+<span class="material-symbols-outlined text-primary-container text-[18px]">trending_up</span>
+<span class="text-primary-container font-semibold text-[13px]">Bullish Sentiment</span>
+</div>
+<button class="w-10 h-10 flex items-center justify-center rounded-full bg-surface-container-highest/60 backdrop-blur-md text-white">
+<span class="material-symbols-outlined">bookmark</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- News List Section -->
+<div class="px-container-padding-mobile flex flex-col gap-6">
+<div class="flex items-center justify-between mb-2">
+<h3 class="font-bold text-[18px] text-white">Latest Intelligence</h3>
+<span class="font-semibold text-sm text-primary-container cursor-pointer">View All</span>
+</div>
+<!-- News Item 1 -->
+<div class="flex gap-4 group cursor-pointer">
+<div class="w-24 h-24 flex-shrink-0 rounded-xl overflow-hidden bg-surface-container">
+<img class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" data-alt="A macro close-up of a stylized silicon chip with glowing circuitry in neon green and deep blacks." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBr5eQyDv4P9SlsZRMRGVgJciW3JgNy1qK59RzEcd6DYwrT7oDzWyB6s789mV4NE9KCYE8X18Mtpd9mJ0x01AFyYmDhAFbwXAgJU06xkUBj40E0sYCzF04aBRNXQRVxUmIx0cKQOjVbMRrO2BtctTgqmsH-F5XCo-lBBq12NjKWUYfPTkweMcNhnOPvyaYr66f5AFwCZGobbpSHTAE_zVHe_FLuG9jX067shRwSoH39TYCRA7rPDhLe">
+</div>
+<div class="flex flex-col flex-1 min-w-0">
+<div class="flex items-center gap-2 mb-1">
+<span class="text-on-surface-variant font-medium text-[11px]">Decrypt</span>
+<span class="w-0.5 h-0.5 rounded-full bg-on-surface-variant/40"></span>
+<span class="text-on-surface-variant font-medium text-[11px]">15m ago</span>
+</div>
+<h4 class="font-semibold text-[15px] text-white line-clamp-2 mb-2 group-hover:text-primary-container transition-colors">
+                            AI-Driven Trading Bots Liquidate $200M in Leveraged BTC Positions
+                        </h4>
+<div class="flex items-center gap-3">
+<span class="flex items-center gap-1 text-error font-semibold text-[12px]">
+<span class="material-symbols-outlined text-[14px]">trending_down</span>
+                                Bearish
+                            </span>
+<span class="w-1 h-1 rounded-full bg-on-surface-variant/30"></span>
+<span class="text-on-surface-variant font-medium text-[12px] flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">mode_comment</span>
+                                42
+                            </span>
+</div>
+</div>
+</div>
+<!-- News Item 2 -->
+<div class="flex gap-4 group cursor-pointer">
+<div class="w-24 h-24 flex-shrink-0 rounded-xl overflow-hidden bg-surface-container">
+<img class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" data-alt="A minimalist artistic representation of the Bitcoin logo integrated into a golden circuit board pattern." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDAJAbE3AEveVEVDeUruJ7gis_SDIM-avcngXB_MAjQIotMnksKbBm7OBEfgVpBVxACR1nihllnz4WsKnKnuDailZE_Z7qLxK9nlbrgI4YeKOjnLb3oHoZDzvqgGqjr9Z1xpehsnFVrqtzX2RxUwICb_ruMPlU_So2rw3nCSK3RbKO9TAH_goupsjpmmsGSs3azHdZ7iLuWX10PlNEF-p-tKI771g2VacJW91jiFpfeIOWWMBvtWhfq">
+</div>
+<div class="flex flex-col flex-1 min-w-0">
+<div class="flex items-center gap-2 mb-1">
+<span class="text-on-surface-variant font-medium text-[11px]">Blockworks</span>
+<span class="w-0.5 h-0.5 rounded-full bg-on-surface-variant/40"></span>
+<span class="text-on-surface-variant font-medium text-[11px]">45m ago</span>
+</div>
+<h4 class="font-semibold text-[15px] text-white line-clamp-2 mb-2 group-hover:text-primary-container transition-colors">
+                            Federal Reserve Hints at Rate Pivot: What This Means for Crypto Markets
+                        </h4>
+<div class="flex items-center gap-3">
+<span class="flex items-center gap-1 text-on-surface-variant font-semibold text-[12px]">
+<span class="material-symbols-outlined text-[14px]">remove</span>
+                                Neutral
+                            </span>
+<span class="w-1 h-1 rounded-full bg-on-surface-variant/30"></span>
+<span class="text-on-surface-variant font-medium text-[12px] flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">mode_comment</span>
+                                128
+                            </span>
+</div>
+</div>
+</div>
+<!-- News Item 3 -->
+<div class="flex gap-4 group cursor-pointer">
+<div class="w-24 h-24 flex-shrink-0 rounded-xl overflow-hidden bg-surface-container">
+<img class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" data-alt="Dynamic 3D abstract visualization of data nodes connecting across a global map." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB4h0VqDcf9M-gEptcwFM-nD9NgngI8r-F7A7Qxqp8rQlekD6yLLXvFnhm2YPMgoV5gM9A-kAyZz_m8j-vmqfnyBm4j7WCYljTjOGF7xVSJyrUxRW7ipsFQScqJfgFoElfKCjnOU52cqJDqJjHO1l_LNYGD8lEpeBcUnux2qy3uKJrdyj2bn1LeGcX1k8Um85s5aGC8hZlkeYldiveQF-DYHEhctCoa34Ug56q3aw8pASNmYYCGV8OW">
+</div>
+<div class="flex flex-col flex-1 min-w-0">
+<div class="flex items-center gap-2 mb-1">
+<span class="text-on-surface-variant font-medium text-[11px]">Reuters</span>
+<span class="w-0.5 h-0.5 rounded-full bg-on-surface-variant/40"></span>
+<span class="text-on-surface-variant font-medium text-[11px]">1h ago</span>
+</div>
+<h4 class="font-semibold text-[15px] text-white line-clamp-2 mb-2 group-hover:text-primary-container transition-colors">
+                            Major European Banks Launch Joint Venture for Digital Asset Custody
+                        </h4>
+<div class="flex items-center gap-3">
+<span class="flex items-center gap-1 text-primary-container font-semibold text-[12px]">
+<span class="material-symbols-outlined text-[14px]" style="transition: transform 0.3s; transform: scale(1);">trending_up</span>
+                                Bullish
+                            </span>
+<span class="w-1 h-1 rounded-full bg-on-surface-variant/30"></span>
+<span class="text-on-surface-variant font-medium text-[12px] flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">mode_comment</span>
+                                18
+                            </span>
+</div>
+</div>
+</div>
+</div>
+<!-- Decorative Background Glow -->
+<div class="fixed top-1/4 -right-24 w-64 h-64 bg-primary-container/5 blur-[120px] pointer-events-none -z-10"></div>
+<div class="fixed bottom-1/4 -left-24 w-64 h-64 bg-primary-container/5 blur-[120px] pointer-events-none -z-10"></div>
+</div>
+<script>
+            // Simple interaction for category tabs
+            document.querySelectorAll('.category-tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    document.querySelectorAll('.category-tab').forEach(t => {
+                        t.classList.remove('bg-primary-container', 'text-on-primary-container', 'font-semibold');
+                        t.classList.add('bg-surface-container-low', 'text-on-surface-variant', 'font-medium');
+                    });
+                    tab.classList.remove('bg-surface-container-low', 'text-on-surface-variant', 'font-medium');
+                    tab.classList.add('bg-primary-container', 'text-on-primary-container', 'font-semibold');
+                    
+                    if (window.navigator.vibrate) {
+                        window.navigator.vibrate(5);
+                    }
+                });
+            });
+
+            // Pulse animation for sentiment indicator (Bullish only)
+            const pulseSentiment = () => {
+                const indicators = document.querySelectorAll('.text-primary-container .material-symbols-outlined');
+                indicators.forEach(icon => {
+                    icon.style.transition = 'transform 0.3s ease';
+                    icon.style.transform = 'scale(1.1)';
+                    setTimeout(() => {
+                        icon.style.transform = 'scale(1)';
+                    }, 300);
+                });
+            };
+            setInterval(pulseSentiment, 3000);
+        </script>
+<style>
+            .hide-scrollbar::-webkit-scrollbar {
+                display: none;
+            }
+            .hide-scrollbar {
+                -ms-overflow-style: none;
+                scrollbar-width: none;
+            }
+        </style>
+</main>
+<nav class="fixed bottom-0 w-full z-50 pb-safe glass-nav border-t border-white/5">
+<div class="flex justify-around items-center h-20 px-2">
+<a aria-current="page" class="flex flex-col items-center gap-1 min-w-[72px] transition-colors duration-200 text-primary-container" data-path="signal-scanner" href="#">
+<span class="material-symbols-outlined" style="transition: transform 0.3s; transform: scale(1);">monitoring</span>
+<span class="font-semibold text-[11px]">Signal</span>
+</a>
+<a class="flex flex-col items-center gap-1 min-w-[72px] text-on-surface-variant/80 transition-colors duration-200" data-path="trading-journal" href="#">
+<span class="material-symbols-outlined">history_edu</span>
+<span class="font-medium text-[11px]">Journal</span>
+</a>
+<a class="flex flex-col items-center gap-1 min-w-[72px] text-on-surface-variant/80 transition-colors duration-200" data-path="market-news" href="#">
+<span class="material-symbols-outlined">newspaper</span>
+<span class="font-medium text-[11px]">News</span>
+</a>
+<a class="flex flex-col items-center gap-1 min-w-[72px] text-on-surface-variant/80 transition-colors duration-200" data-path="user-profile" href="#">
+<span class="material-symbols-outlined">account_circle</span>
+<span class="font-medium text-[11px]">Profile</span>
+</a>
+</div>
+</nav>
+
+
+<div id="snapdom-sandbox" data-snapdom-sandbox="true" aria-hidden="true" style="position: absolute; left: -9999px; top: -9999px; width: 0px; height: 0px; overflow: hidden;"></div></body></html>
