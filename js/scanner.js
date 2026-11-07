@@ -127,13 +127,16 @@ window.ScannerModule = {
       });
     }
 
-    // Save to Journal button
+    // Save to Journal button - navigates to journal and shows feedback toast
     const saveJournalBtn = document.getElementById('save-journal-btn');
     if (saveJournalBtn) {
       saveJournalBtn.addEventListener('click', () => {
         if (self.lastAnalysisData && window.JournalModule) {
           window.JournalModule.addTradeFromAnalysis(self.lastAnalysisData);
-          if (window.App) window.App.showToast('Trade successfully saved to Journal!');
+        }
+        if (window.App) {
+          window.App.navigateTo('trading-journal');
+          window.App.showToast('Review trade & add your feedback below!');
         }
       });
     }
@@ -274,13 +277,18 @@ window.ScannerModule = {
 
     this.renderAnalysisResults(analysisData, imageSrc);
 
+    // Automatically add every analyzed trade into the Trading Journal log
+    if (window.JournalModule) {
+      window.JournalModule.addTradeFromAnalysis(analysisData);
+    }
+
     if (window.App) {
       if (analysisData.isPriceUnreadable) {
-        window.App.showToast('⚠️ Could not read price. Type exact price below.');
+        window.App.showToast('⚠️ Could not read price. Auto-logged to Journal!');
       } else if (analysisData.pair === 'UNKNOWN / CHART') {
-        window.App.showToast('Please confirm or adjust Ticker & Price if needed');
+        window.App.showToast('Trade auto-logged to Journal! Tap Journal to add feedback');
       } else {
-        window.App.showToast(`Scanned ${analysisData.pair} @ ${analysisData.entry}`);
+        window.App.showToast(`Auto-logged ${analysisData.pair} to Journal!`);
       }
     }
   },
