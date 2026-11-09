@@ -2,7 +2,8 @@
 $port = 8080
 if ([string]::IsNullOrWhiteSpace($PSScriptRoot)) {
     $root = (Get-Location).Path
-} else {
+}
+else {
     $root = (Get-Item $PSScriptRoot).FullName
 }
 
@@ -11,7 +12,8 @@ $listener.Prefixes.Add("http://localhost:$port/")
 
 try {
     $listener.Start()
-} catch {
+}
+catch {
     Write-Error "Failed to start listener on port $port. Check if port is already in use or run as administrator."
     exit 1
 }
@@ -78,7 +80,8 @@ while ($listener.IsListening) {
             $ext = [System.IO.Path]::GetExtension($localPath).ToLower()
             if ($mimeTypes.ContainsKey($ext)) {
                 $response.ContentType = $mimeTypes[$ext]
-            } else {
+            }
+            else {
                 $response.ContentType = "application/octet-stream"
             }
 
@@ -86,14 +89,16 @@ while ($listener.IsListening) {
             $response.ContentLength64 = $content.Length
             $response.StatusCode = 200
             $response.OutputStream.Write($content, 0, $content.Length)
-        } else {
+        }
+        else {
             $response.StatusCode = 404
             $notFound = [System.Text.Encoding]::UTF8.GetBytes("404 Not Found")
             $response.OutputStream.Write($notFound, 0, $notFound.Length)
         }
 
         $response.OutputStream.Close()
-    } catch {
+    }
+    catch {
         Write-Warning "Request handling error: $_"
         try { $response.OutputStream.Close() } catch {}
     }

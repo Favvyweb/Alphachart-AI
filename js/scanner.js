@@ -348,7 +348,7 @@ window.ScannerModule = {
         priceInput.className = 'w-full bg-black text-[#38bdf8] font-mono font-bold text-base border border-white/10 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-[#38bdf8]';
       }
     }
-    if (confidenceText) confidenceText.innerText = `${data.confidence}% AI Confidence`;
+    if (confidenceText) confidenceText.innerText = `${data.confidence}% Confluence`;
     if (timeframeText) timeframeText.innerText = `${data.market} • ${data.timeframe}`;
 
     // Entry Execution Recommendation Action Card (Sleek Minimal Design with 1-Sentence Rationale)
