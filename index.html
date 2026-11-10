@@ -989,13 +989,13 @@
           <div class="flex items-center gap-2 shrink-0">
             <!-- Engine View Tabs -->
             <div class="flex items-center bg-black/80 p-0.5 rounded-xl border border-white/10 text-xs">
-              <button id="full-chart-tab-ttr" type="button" class="px-2.5 py-1.5 rounded-lg font-bold transition-all bg-primary-container text-black shadow-sm flex items-center gap-1">
-                <span class="material-symbols-outlined text-[15px]">bolt</span>
-                <span class="hidden xs:inline">Trend Trader</span>
-              </button>
-              <button id="full-chart-tab-tv" type="button" class="px-2.5 py-1.5 rounded-lg font-bold transition-all text-on-surface-variant hover:text-white flex items-center gap-1">
+              <button id="full-chart-tab-tv" type="button" class="px-2.5 py-1.5 rounded-lg font-bold transition-all bg-primary-container text-black shadow-sm flex items-center gap-1">
                 <span class="material-symbols-outlined text-[15px]">public</span>
-                <span class="hidden xs:inline">TradingView</span>
+                <span>Full TradingView Tools</span>
+              </button>
+              <button id="full-chart-tab-ttr" type="button" class="px-2.5 py-1.5 rounded-lg font-bold transition-all text-on-surface-variant hover:text-white flex items-center gap-1">
+                <span class="material-symbols-outlined text-[15px]">bolt</span>
+                <span>Trend Trader (aybarsm)</span>
               </button>
             </div>
 
@@ -1047,21 +1047,20 @@
         <div class="flex-1 w-full relative bg-[#080a0f] overflow-hidden flex flex-col">
           
           <!-- Loader Overlay -->
-          <div id="full-chart-loader" class="absolute inset-0 flex items-center justify-center bg-black/90 gap-2 z-20 transition-opacity duration-300">
+          <div id="full-chart-loader" class="absolute inset-0 flex items-center justify-center bg-black/90 gap-2 z-20 transition-opacity duration-300 pointer-events-none opacity-0">
             <span class="material-symbols-outlined text-primary-container animate-spin text-[26px]">autorenew</span>
-            <span class="text-xs font-mono text-on-surface-variant">Streaming Real-time Trend Trader Candles...</span>
+            <span class="text-xs font-mono text-on-surface-variant">Connecting Live TradingView Feeds...</span>
           </div>
 
           <!-- VIEW 1: Native TradingView Chart Engine with Trend Trader Reversals + MACD Sub-Chart -->
-          <div id="view-ttr-engine" class="w-full h-full relative flex flex-col overflow-hidden">
+          <div id="view-ttr-engine" class="w-full h-full relative flex flex-col overflow-hidden hidden">
             <div id="tv-main-chart-container" class="w-full flex-1 relative min-h-[300px]"></div>
             <div id="tv-macd-chart-container" class="w-full h-[150px] sm:h-[170px] border-t border-white/10 relative shrink-0"></div>
           </div>
 
-          <!-- VIEW 2: TradingView Embedded View -->
-          <div id="view-tv-embed" class="w-full h-full relative hidden">
+          <!-- VIEW 2: Full TradingView Advanced Chart with Drawing Tools & Realtime WebSockets -->
+          <div id="view-tv-embed" class="w-full h-full relative">
             <div id="full-chart-tv-container" class="w-full h-full"></div>
-            <iframe id="full-chart-iframe" class="w-full h-full border-0 hidden" src="" allowtransparency="true" scrolling="no" allowfullscreen></iframe>
           </div>
         </div>
 
@@ -1069,9 +1068,9 @@
         <div class="px-4 py-2 bg-black/80 border-t border-white/10 flex items-center justify-between text-[11px] text-on-surface-variant shrink-0">
           <div class="flex items-center gap-2 truncate">
             <span class="material-symbols-outlined text-[15px] text-primary-container shrink-0">insights</span>
-            <span class="truncate">Monitoring: <strong>Trend Trader (aybarsm)</strong> • <strong>Bill Williams Fractals</strong> • <strong>MACD (12, 26, 9)</strong></span>
+            <span class="truncate">Full TradingView Tools: Left drawing toolbar • Top timeframe & indicator search • Live WebSockets (Zero Reloads)</span>
           </div>
-          <span class="font-mono text-primary-container font-semibold hidden sm:inline shrink-0">AlphaChart Signal Engine</span>
+          <span class="font-mono text-primary-container font-semibold hidden sm:inline shrink-0">AlphaChart Realtime Live</span>
         </div>
 
       </div>

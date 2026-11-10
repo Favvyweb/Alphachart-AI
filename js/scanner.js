@@ -10,9 +10,11 @@ window.ScannerModule = {
   lastAnalysisData: null,
   fullChartPair: 'BTC / USDT',
   fullChartInterval: '5',
-  fullChartMode: 'ttr',
+  fullChartMode: 'tv',
   currentTTRAnalysis: null,
   livePollTimer: null,
+  currentTvSymbol: null,
+  currentTvInterval: null,
 
   init: function () {
     this.bindEvents();
@@ -654,7 +656,7 @@ window.ScannerModule = {
     const pair = customPair || (coinInput && coinInput.value ? coinInput.value.trim() : null) || (this.lastAnalysisData ? this.lastAnalysisData.pair : null) || 'BTC / USDT';
     this.fullChartPair = pair;
     if (!this.fullChartInterval) this.fullChartInterval = '5';
-    if (!this.fullChartMode) this.fullChartMode = 'ttr';
+    if (!this.fullChartMode) this.fullChartMode = 'tv';
 
     const modal = document.getElementById('full-chart-modal');
     const coinTitle = document.getElementById('full-chart-coin-title');
@@ -663,7 +665,7 @@ window.ScannerModule = {
     if (coinTitle) coinTitle.innerText = pair;
     if (priceDisplay) {
       const tfLabel = this.fullChartInterval === '5' ? '5-Minute' : this.fullChartInterval === '15' ? '15-Minute' : '1-Hour';
-      priceDisplay.innerText = `Real-time ${tfLabel} Candles & Signals`;
+      priceDisplay.innerText = `Real-time ${tfLabel} Candles • Live Streaming`;
     }
 
     if (modal) {
@@ -671,30 +673,18 @@ window.ScannerModule = {
       modal.classList.add('flex');
     }
 
+    // Render chart without any continuous reloading loop
     this.renderFullChart(this.fullChartPair, this.fullChartInterval);
-
-    // Live continuous polling while modal is open (every 15 seconds)
-    if (this.livePollTimer) clearInterval(this.livePollTimer);
-    this.livePollTimer = setInterval(() => {
-      const m = document.getElementById('full-chart-modal');
-      if (m && !m.classList.contains('hidden') && this.fullChartMode === 'ttr') {
-        this.renderFullChart(this.fullChartPair, this.fullChartInterval);
-      }
-    }, 15000);
   },
 
   /**
-   * Close full real-time interactive chart modal and clear iframe src
+   * Close full real-time interactive chart modal
    */
   closeFullChartModal: function () {
     const modal = document.getElementById('full-chart-modal');
     if (modal) {
       modal.classList.add('hidden');
       modal.classList.remove('flex');
-    }
-    const iframe = document.getElementById('full-chart-iframe');
-    if (iframe) {
-      iframe.src = '';
     }
     if (this.livePollTimer) {
       clearInterval(this.livePollTimer);
@@ -865,31 +855,63 @@ window.ScannerModule = {
       }
 
     } else {
-      // TradingView Embed Mode with MACD study
+      // FULL TRADINGVIEW TOOLS & INTERFACE MODE (Native Realtime WebSockets - ZERO Reloads)
       if (viewTTR) viewTTR.classList.add('hidden');
       if (viewTV) viewTV.classList.remove('hidden');
 
-      const iframe = document.getElementById('full-chart-iframe');
-      if (!iframe) return;
-
-      if (loader) {
-        loader.style.opacity = '1';
-        loader.classList.remove('pointer-events-none');
-      }
-
-      iframe.onload = () => {
-        if (loader) {
-          loader.style.opacity = '0';
-          setTimeout(() => {
-            loader.classList.add('pointer-events-none');
-          }, 300);
-        }
-      };
+      const tvContainer = document.getElementById('full-chart-tv-container');
+      if (!tvContainer) return;
 
       const tvSymbol = this.getTradingViewSymbol(pair);
-      const embedUrl = `https://s.tradingview.com/widgetembed/?frameElementId=tradingview_widget&symbol=${encodeURIComponent(tvSymbol)}&interval=${intv}&theme=dark&style=1&timezone=Etc%2FUTC&studies=[%22MACD@tv-basicstudies%22]&hide_top_toolbar=0&hide_legend=0&hide_side_toolbar=0&save_image=0&locale=en`;
 
-      iframe.src = embedUrl;
+      // Check if already initialized with this symbol and interval to prevent ANY reloads!
+      if (this.currentTvSymbol === tvSymbol && this.currentTvInterval === intv && tvContainer.children.length > 0) {
+        if (loader) {
+          loader.style.opacity = '0';
+          loader.classList.add('pointer-events-none');
+        }
+        return;
+      }
+
+      this.currentTvSymbol = tvSymbol;
+      this.currentTvInterval = intv;
+
+      tvContainer.innerHTML = '';
+
+      if (window.TradingView && window.TradingView.widget) {
+        new window.TradingView.widget({
+          autosize: true,
+          symbol: tvSymbol,
+          interval: intv,
+          timezone: "Etc/UTC",
+          theme: "dark",
+          style: "1", // Japanese Candlesticks
+          locale: "en",
+          toolbar_bg: "#080a0f",
+          enable_publishing: false,
+          hide_top_toolbar: false, // Full Top Toolbar: Timeframes, Indicators (fx), Settings, Fullscreen
+          hide_side_toolbar: false, // Full Left Drawing Toolbar: Lines, Fibs, Text, Ruler, Brush, etc.
+          allow_symbol_change: true, // Search and switch any crypto or forex pair directly
+          save_image: true,
+          studies: [
+            "MACD@tv-basicstudies",
+            "MASimple@tv-basicstudies"
+          ],
+          show_popup_button: true,
+          popup_width: "1000",
+          popup_height: "650",
+          withdateranges: true, // Bottom date range selectors (1D, 5D, 1M, 1Y, ALL)
+          container_id: "full-chart-tv-container"
+        });
+      }
+
+      // Hide loader quickly once widget initializes
+      if (loader) {
+        setTimeout(() => {
+          loader.style.opacity = '0';
+          loader.classList.add('pointer-events-none');
+        }, 350);
+      }
     }
   }
 };
