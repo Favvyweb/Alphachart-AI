@@ -447,6 +447,46 @@ window.ScannerModule = {
     if (elPattern) elPattern.innerText = data.pattern;
     if (elSummary) elSummary.innerText = data.summary;
 
+    // Top 5 Elite Quantitative Indicators Confluence List
+    const eliteList = document.getElementById('res-elite-indicators-list');
+    const eliteBadge = document.getElementById('res-elite-badge');
+
+    if (data.eliteIndicators && Array.isArray(data.eliteIndicators)) {
+      const bullCount = data.eliteIndicators.filter(i => i.isBullish).length;
+      const bearCount = data.eliteIndicators.length - bullCount;
+      const isLong = data.signal === 'LONG';
+      const activeCount = isLong ? bullCount : bearCount;
+
+      if (eliteBadge) {
+        eliteBadge.innerText = `${activeCount} / 5 ${isLong ? 'Bullish' : 'Bearish'} Confluence`;
+        eliteBadge.className = activeCount >= 4
+          ? 'px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-primary-container/20 text-primary-container border border-primary-container/40'
+          : 'px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-400/20 text-amber-300 border border-amber-400/30';
+      }
+
+      if (eliteList) {
+        eliteList.innerHTML = data.eliteIndicators.map(ind => `
+          <div class="p-2.5 bg-black/60 border border-white/5 rounded-xl flex items-center justify-between gap-2.5 transition-all hover:border-white/10">
+            <div class="flex items-center gap-2.5 min-w-0">
+              <div class="w-7 h-7 rounded-lg ${ind.isBullish ? 'bg-primary-container/15 text-primary-container' : 'bg-error/15 text-error'} flex items-center justify-center shrink-0">
+                <span class="material-symbols-outlined text-[16px]">${ind.isBullish ? 'arrow_upward' : 'arrow_downward'}</span>
+              </div>
+              <div class="min-w-0">
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <span class="text-xs font-bold text-white truncate">${ind.name}</span>
+                  <span class="text-[10px] font-mono text-on-surface-variant/80">by ${ind.author}</span>
+                </div>
+                <p class="text-[11px] text-on-surface-variant font-mono truncate">${ind.detail}</p>
+              </div>
+            </div>
+            <span class="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase font-mono shrink-0 ${ind.isBullish ? 'bg-primary-container/20 text-primary-container border border-primary-container/30' : 'bg-error/20 text-error border border-error/30'}">
+              ${ind.signal}
+            </span>
+          </div>
+        `).join('');
+      }
+    }
+
     // Real-Time Fundamental Market Catalysts News List
     const newsContainer = document.getElementById('res-news-list');
     if (newsContainer && data.news && Array.isArray(data.news)) {
@@ -488,6 +528,12 @@ window.ScannerModule = {
     if (coinTitle) coinTitle.innerText = pair;
     if (priceDisplay) {
       priceDisplay.innerText = `Real-time ${this.fullChartInterval === '5' ? '5-Minute' : '1-Hour'} Candles`;
+    }
+
+    const tvDirectBtn = document.getElementById('full-chart-tv-direct-btn');
+    if (tvDirectBtn) {
+      const tvSymbol = this.getTradingViewSymbol(pair);
+      tvDirectBtn.href = `https://www.tradingview.com/chart/?symbol=${encodeURIComponent(tvSymbol)}`;
     }
 
     this.updateTimeframeButtonsUI(this.fullChartInterval);

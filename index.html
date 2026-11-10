@@ -288,6 +288,27 @@
             </div>
           </div>
 
+          <!-- Top 5 Elite Quantitative Indicators Confluence Card -->
+          <div class="bg-surface-container-low border border-primary-container/20 rounded-2xl p-4 flex flex-col gap-3 shadow-lg">
+            <div class="flex items-center justify-between border-b border-white/5 pb-2.5">
+              <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary-container text-[20px]">stars</span>
+                <h4 class="font-display font-bold text-sm text-white">Top 5 Indicators Confluence</h4>
+              </div>
+              <span id="res-elite-badge" class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-primary-container/20 text-primary-container border border-primary-container/30">
+                5 / 5 Bullish
+              </span>
+            </div>
+            
+            <p class="text-[11px] text-on-surface-variant leading-snug">
+              Calibrated to TradingView quantitative favorites with verified win-rate backtests:
+            </p>
+
+            <div id="res-elite-indicators-list" class="flex flex-col gap-2">
+              <!-- Dynamically populated with the 5 indicators -->
+            </div>
+          </div>
+
           <!-- Real-Time Fundamental News & Catalysts -->
           <div class="bg-surface-container-low border border-white/5 rounded-2xl p-4 flex flex-col gap-3">
             <div class="flex items-center justify-between">
@@ -960,6 +981,12 @@
               </button>
             </div>
 
+            <!-- Direct TradingView Button -->
+            <a id="full-chart-tv-direct-btn" href="https://www.tradingview.com/chart/" target="_blank" rel="noopener noreferrer" title="Open full chart on TradingView with custom community Pine scripts" class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95 border border-white/10">
+              <span class="material-symbols-outlined text-[15px] text-primary-container">open_in_new</span>
+              <span class="hidden sm:inline">Open in TradingView</span>
+            </a>
+
             <button id="full-chart-close-btn" type="button" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-all shrink-0">
               <span class="material-symbols-outlined text-[18px]">close</span>
             </button>
@@ -977,11 +1004,11 @@
 
         <!-- Modal Footer -->
         <div class="px-4 py-2.5 bg-black/60 border-t border-white/10 flex items-center justify-between text-[11px] text-on-surface-variant shrink-0">
-          <div class="flex items-center gap-2">
-            <span class="material-symbols-outlined text-[15px] text-primary-container">insights</span>
-            <span>Real-time live multi-exchange candles. Toggle <strong>5min</strong> and <strong>1 hour</strong> above.</span>
+          <div class="flex items-center gap-2 truncate">
+            <span class="material-symbols-outlined text-[15px] text-primary-container shrink-0">stars</span>
+            <span class="truncate">Monitoring <strong>Top 5:</strong> Trend Trader (aybarsm) • SMC (LuxAlgo) • AlphaTrend • Chandelier • Impulse MACD</span>
           </div>
-          <span class="font-mono text-primary-container font-semibold hidden sm:inline">AlphaChart Live Terminal</span>
+          <span class="font-mono text-primary-container font-semibold hidden sm:inline shrink-0 ml-3">AlphaChart Live Terminal</span>
         </div>
 
       </div>

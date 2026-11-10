@@ -262,5 +262,34 @@ window.ChartOverlay = {
     drawFutureTargetLine(tp1Y, '#00e479', 'TP1', analysisData.tp1, false);
     drawFutureTargetLine(tp2Y, '#00ff88', 'TP2', analysisData.tp2, false);
     drawFutureTargetLine(tp3Y, '#00ff88', 'FUTURE TP', analysisData.tp3, true);
+
+    // Top 5 Elite Confluence Badge on Chart Overlay
+    if (analysisData.eliteIndicators) {
+      ctx.save();
+      const bullCount = analysisData.eliteIndicators.filter(i => i.isBullish).length;
+      const activeCount = isLong ? bullCount : (5 - bullCount);
+      const badgeText = `★ ${activeCount}/5 Elite Confluence (Trend Trader • SMC • AlphaTrend)`;
+      ctx.font = 'bold 9px Inter, sans-serif';
+      const bW = ctx.measureText(badgeText).width + 14;
+      const bH = 18;
+      const bX = 12;
+      const bY = chartTop + 6;
+
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(bX, bY, bW, bH, 4);
+      else ctx.rect(bX, bY, bW, bH);
+      ctx.fill();
+
+      ctx.strokeStyle = isLong ? '#00ff88' : '#ff4d4d';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      ctx.fillStyle = isLong ? '#00ff88' : '#ff4d4d';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(badgeText, bX + 7, bY + bH / 2);
+      ctx.restore();
+    }
   }
 };

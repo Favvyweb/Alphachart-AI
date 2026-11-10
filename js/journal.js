@@ -142,8 +142,8 @@ window.JournalModule = {
       if (pairInput) pairInput.value = prefillData.pair || '';
       if (typeSelect) typeSelect.value = prefillData.signal || 'LONG';
       if (notesInput) {
-        notesInput.value = prefillData.pattern 
-          ? `Analysis Target: ${prefillData.tp1 || '--'}. Pattern: ${prefillData.pattern}.` 
+        notesInput.value = prefillData.pattern
+          ? `Analysis Target: ${prefillData.tp1 || '--'}. Pattern: ${prefillData.pattern}.`
           : 'Scanned setup from AlphaChart AI.';
       }
       if (pnlInput) pnlInput.value = '';
