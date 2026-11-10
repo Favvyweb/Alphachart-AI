@@ -865,7 +865,8 @@ window.ScannerModule = {
       const tvSymbol = this.getTradingViewSymbol(pair);
 
       // Check if already initialized with this symbol and interval to prevent ANY reloads!
-      if (this.currentTvSymbol === tvSymbol && this.currentTvInterval === intv && tvContainer.children.length > 0) {
+      const existingIframe = tvContainer.querySelector('iframe');
+      if (this.currentTvSymbol === tvSymbol && this.currentTvInterval === intv && existingIframe) {
         if (loader) {
           loader.style.opacity = '0';
           loader.classList.add('pointer-events-none');
@@ -878,39 +879,42 @@ window.ScannerModule = {
 
       tvContainer.innerHTML = '';
 
-      if (window.TradingView && window.TradingView.widget) {
-        new window.TradingView.widget({
-          autosize: true,
-          symbol: tvSymbol,
-          interval: intv,
-          timezone: "Etc/UTC",
-          theme: "dark",
-          style: "1", // Japanese Candlesticks
-          locale: "en",
-          toolbar_bg: "#080a0f",
-          enable_publishing: false,
-          hide_top_toolbar: false, // Full Top Toolbar: Timeframes, Indicators (fx), Settings, Fullscreen
-          hide_side_toolbar: false, // Full Left Drawing Toolbar: Lines, Fibs, Text, Ruler, Brush, etc.
-          allow_symbol_change: true, // Search and switch any crypto or forex pair directly
-          save_image: true,
-          studies: [
-            "MACD@tv-basicstudies",
-            "MASimple@tv-basicstudies"
-          ],
-          show_popup_button: true,
-          popup_width: "1000",
-          popup_height: "650",
-          withdateranges: true, // Bottom date range selectors (1D, 5D, 1M, 1Y, ALL)
-          container_id: "full-chart-tv-container"
-        });
-      }
+      // Official modern TradingView Advanced Chart configuration
+      const tvConfig = {
+        autosize: true,
+        symbol: tvSymbol,
+        interval: intv,
+        timezone: "Etc/UTC",
+        theme: "dark",
+        style: "1", // Japanese Candlesticks
+        locale: "en",
+        enable_publishing: false,
+        hide_top_toolbar: false,
+        hide_side_toolbar: false,
+        allow_symbol_change: true,
+        withdateranges: true,
+        calendar: false,
+        support_host: "https://www.tradingview.com"
+      };
 
-      // Hide loader quickly once widget initializes
+      const iframe = document.createElement('iframe');
+      iframe.title = `TradingView Advanced Chart - ${tvSymbol}`;
+      iframe.src = `https://www.tradingview-widget.com/embed-widget/advanced-chart/?locale=en#${encodeURIComponent(JSON.stringify(tvConfig))}`;
+      iframe.style.width = '100%';
+      iframe.style.height = '100%';
+      iframe.style.minHeight = '550px';
+      iframe.style.border = '0';
+      iframe.allow = 'fullscreen';
+      iframe.loading = 'eager';
+
+      tvContainer.appendChild(iframe);
+
+      // Hide loader once iframe element is mounted
       if (loader) {
         setTimeout(() => {
           loader.style.opacity = '0';
           loader.classList.add('pointer-events-none');
-        }, 350);
+        }, 300);
       }
     }
   }
