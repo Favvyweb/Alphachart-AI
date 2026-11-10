@@ -280,11 +280,11 @@ window.TrendTraderEngine = {
       this.seriesMarkers = null;
     }
     if (this.mainChart) {
-      try { this.mainChart.remove(); } catch (e) {}
+      try { this.mainChart.remove(); } catch (e) { }
       this.mainChart = null;
     }
     if (this.macdChart) {
-      try { this.macdChart.remove(); } catch (e) {}
+      try { this.macdChart.remove(); } catch (e) { }
       this.macdChart = null;
     }
 
@@ -323,8 +323,22 @@ window.TrendTraderEngine = {
       },
     });
 
+    // Helper helpers for LightweightCharts series creation across v4 and v5
+    const addCandleSeries = (chart, options) => {
+      if (typeof chart.addCandlestickSeries === 'function') return chart.addCandlestickSeries(options);
+      return chart.addSeries(window.LightweightCharts.CandlestickSeries, options);
+    };
+    const addHistSeries = (chart, options) => {
+      if (typeof chart.addHistogramSeries === 'function') return chart.addHistogramSeries(options);
+      return chart.addSeries(window.LightweightCharts.HistogramSeries, options);
+    };
+    const addLineSeries = (chart, options) => {
+      if (typeof chart.addLineSeries === 'function') return chart.addLineSeries(options);
+      return chart.addSeries(window.LightweightCharts.LineSeries, options);
+    };
+
     // Add Candlestick Series (exact TradingView neon styling)
-    this.candleSeries = this.mainChart.addCandlestickSeries({
+    this.candleSeries = addCandleSeries(this.mainChart, {
       upColor: '#00ff88',
       downColor: '#ff3366',
       borderUpColor: '#00ff88',
@@ -335,28 +349,32 @@ window.TrendTraderEngine = {
     this.candleSeries.setData(candles);
 
     // Add Volume Series (overlay at bottom)
-    this.volumeSeries = this.mainChart.addHistogramSeries({
+    this.volumeSeries = addHistSeries(this.mainChart, {
       priceFormat: { type: 'volume' },
       priceScaleId: '', // overlay
     });
-    this.volumeSeries.priceScale().applyOptions({
-      scaleMargins: {
-        top: 0.82,
-        bottom: 0,
-      },
-    });
+    try {
+      this.volumeSeries.priceScale().applyOptions({
+        scaleMargins: {
+          top: 0.82,
+          bottom: 0,
+        },
+      });
+    } catch (e) { }
+
     const volumeData = candles.map(c => ({
       time: c.time,
-      value: c.volume,
+      value: c.volume || 0,
       color: c.close >= c.open ? 'rgba(0, 255, 136, 0.22)' : 'rgba(255, 51, 102, 0.22)'
     }));
     this.volumeSeries.setData(volumeData);
 
     // Add Parabolic SAR Series (trailing dots)
-    this.psarSeries = this.mainChart.addLineSeries({
+    const dottedStyle = (window.LightweightCharts && window.LightweightCharts.LineStyle) ? window.LightweightCharts.LineStyle.Dotted : 1;
+    this.psarSeries = addLineSeries(this.mainChart, {
       color: '#38bdf8',
       lineWidth: 1,
-      lineStyle: window.LightweightCharts.LineStyle.Dotted,
+      lineStyle: dottedStyle,
       lastValueVisible: false,
       priceLineVisible: false,
     });
@@ -405,10 +423,17 @@ window.TrendTraderEngine = {
         });
       }
     }
-    if (typeof this.candleSeries.setMarkers === 'function') {
-      this.candleSeries.setMarkers(markers);
-    } else if (window.LightweightCharts && window.LightweightCharts.createSeriesMarkers) {
-      this.seriesMarkers = window.LightweightCharts.createSeriesMarkers(this.candleSeries, markers);
+
+    if (markers.length > 0) {
+      try {
+        if (typeof this.candleSeries.setMarkers === 'function') {
+          this.candleSeries.setMarkers(markers);
+        } else if (window.LightweightCharts && window.LightweightCharts.createSeriesMarkers) {
+          this.seriesMarkers = window.LightweightCharts.createSeriesMarkers(this.candleSeries, markers);
+        }
+      } catch (markerErr) {
+        console.warn('Marker note:', markerErr);
+      }
     }
 
     // ==========================================
@@ -427,7 +452,7 @@ window.TrendTraderEngine = {
         horzLines: { color: 'rgba(255, 255, 255, 0.03)' },
       },
       crosshair: {
-        mode: window.LightweightCharts.CrosshairMode.Normal,
+        mode: window.LightweightCharts.CrosshairMode ? window.LightweightCharts.CrosshairMode.Normal : 0,
       },
       rightPriceScale: {
         borderColor: 'rgba(255, 255, 255, 0.08)',
@@ -444,7 +469,7 @@ window.TrendTraderEngine = {
     });
 
     // MACD Histogram Bars
-    this.histSeries = this.macdChart.addHistogramSeries({
+    this.histSeries = addHistSeries(this.macdChart, {
       priceFormat: { type: 'price', precision: 2, minMove: 0.01 },
     });
     const histData = candles.map((c, i) => {
@@ -458,7 +483,7 @@ window.TrendTraderEngine = {
     this.histSeries.setData(histData);
 
     // MACD Line (Cyan)
-    this.macdLineSeries = this.macdChart.addLineSeries({
+    this.macdLineSeries = addLineSeries(this.macdChart, {
       color: '#38bdf8',
       lineWidth: 1.5,
       lastValueVisible: false,
@@ -470,7 +495,7 @@ window.TrendTraderEngine = {
     this.macdLineSeries.setData(macdLineData);
 
     // Signal Line (Amber)
-    this.signalLineSeries = this.macdChart.addLineSeries({
+    this.signalLineSeries = addLineSeries(this.macdChart, {
       color: '#fbbf24',
       lineWidth: 1.5,
       lastValueVisible: false,
@@ -488,14 +513,14 @@ window.TrendTraderEngine = {
     this.mainChart.timeScale().subscribeVisibleLogicalRangeChange(range => {
       if (isSyncing || !range) return;
       isSyncing = true;
-      try { this.macdChart.timeScale().setVisibleLogicalRange(range); } catch (e) {}
+      try { this.macdChart.timeScale().setVisibleLogicalRange(range); } catch (e) { }
       isSyncing = false;
     });
 
     this.macdChart.timeScale().subscribeVisibleLogicalRangeChange(range => {
       if (isSyncing || !range) return;
       isSyncing = true;
-      try { this.mainChart.timeScale().setVisibleLogicalRange(range); } catch (e) {}
+      try { this.mainChart.timeScale().setVisibleLogicalRange(range); } catch (e) { }
       isSyncing = false;
     });
 
@@ -507,7 +532,7 @@ window.TrendTraderEngine = {
       try {
         if (this.mainChart) this.mainChart.timeScale().fitContent();
         if (this.macdChart) this.macdChart.timeScale().fitContent();
-      } catch (e) {}
+      } catch (e) { }
     }, 60);
   }
 };
@@ -602,7 +627,7 @@ window.TrendTraderAlerts = {
     if ('navigator' in window && 'vibrate' in navigator) {
       try {
         navigator.vibrate([250, 100, 250, 100, 350]);
-      } catch (e) {}
+      } catch (e) { }
     }
   },
 
@@ -624,7 +649,7 @@ window.TrendTraderAlerts = {
           badge: 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=128&auto=format&fit=crop',
           tag: `signal-${signal.pair}-${Date.now()}`
         });
-      } catch (e) {}
+      } catch (e) { }
     }
 
     if (window.App) {
@@ -641,7 +666,7 @@ window.TrendTraderAlerts = {
         timestamp: Date.now()
       });
       localStorage.setItem(this.HISTORY_KEY, JSON.stringify(existing.slice(0, 50)));
-    } catch (e) {}
+    } catch (e) { }
   },
 
   testAlert: function () {
