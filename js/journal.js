@@ -22,6 +22,18 @@ window.JournalModule = {
       const stored = localStorage.getItem(this.STORAGE_KEY);
       if (stored) {
         this.trades = JSON.parse(stored);
+        let needsSave = false;
+        this.trades.forEach(t => {
+          if (!t.timestamp && t.id) {
+            t.timestamp = t.id;
+            needsSave = true;
+          }
+          if (!t.time || t.time === 'Just now') {
+            t.time = this.formatTradeTime(t.timestamp || t.id || Date.now());
+            needsSave = true;
+          }
+        });
+        if (needsSave) this.saveToStorage();
       } else {
         // Start completely empty - strictly manual logging
         this.trades = [];
@@ -29,6 +41,43 @@ window.JournalModule = {
     } catch (e) {
       console.warn('Error loading manual trades from storage:', e);
       this.trades = [];
+    }
+  },
+
+  /**
+   * Returns a local ISO string (YYYY-MM-DDTHH:mm) suitable for datetime-local input
+   */
+  getLocalISOString: function (date) {
+    const d = date instanceof Date && !isNaN(date.getTime()) ? date : new Date();
+    const tzOffset = d.getTimezoneOffset() * 60000;
+    return (new Date(d.getTime() - tzOffset)).toISOString().slice(0, 16);
+  },
+
+  /**
+   * Formats a timestamp into a clean, human-readable trade time string
+   * e.g., 'Today, 01:45 AM', 'Yesterday, 11:20 PM', or 'Nov 10, 01:45 AM'
+   */
+  formatTradeTime: function (timestamp) {
+    if (!timestamp) return 'Just now';
+    const date = new Date(timestamp);
+    if (isNaN(date.getTime())) return typeof timestamp === 'string' ? timestamp : 'Just now';
+
+    const now = new Date();
+    const isToday = date.toDateString() === now.toDateString();
+
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const isYesterday = date.toDateString() === yesterday.toDateString();
+
+    const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    if (isToday) {
+      return `Today, ${timeStr}`;
+    } else if (isYesterday) {
+      return `Yesterday, ${timeStr}`;
+    } else {
+      const dateStr = date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+      return `${dateStr}, ${timeStr}`;
     }
   },
 
@@ -83,6 +132,11 @@ window.JournalModule = {
     const typeSelect = document.getElementById('log-type-select');
     const notesInput = document.getElementById('log-notes-input');
     const pnlInput = document.getElementById('log-pnl-input');
+    const timeInput = document.getElementById('log-time-input');
+
+    if (timeInput) {
+      timeInput.value = this.getLocalISOString();
+    }
 
     if (prefillData) {
       if (pairInput) pairInput.value = prefillData.pair || '';
@@ -126,6 +180,10 @@ window.JournalModule = {
     const type = document.getElementById('log-type-select').value || 'LONG';
     const pnl = document.getElementById('log-pnl-input').value.trim() || '+$0.00';
     const observation = document.getElementById('log-notes-input').value.trim() || 'Manual execution logged.';
+    const timeInput = document.getElementById('log-time-input');
+
+    const tradeTimestamp = timeInput && timeInput.value ? new Date(timeInput.value).getTime() : Date.now();
+    const formattedTime = this.formatTradeTime(tradeTimestamp);
 
     const isProfit = !pnl.startsWith('-') && !pnl.toLowerCase().includes('loss');
     const entryPrice = this.pendingAnalysisData && this.pendingAnalysisData.entry ? this.pendingAnalysisData.entry : '--';
@@ -136,7 +194,8 @@ window.JournalModule = {
       pair: pair.toUpperCase(),
       market: market,
       type: type,
-      time: 'Just now',
+      timestamp: tradeTimestamp,
+      time: formattedTime,
       entryPrice: entryPrice,
       pnl: pnl,
       isProfit: isProfit,
@@ -156,7 +215,7 @@ window.JournalModule = {
     // Navigate to trading journal so user sees it reflected immediately
     if (window.App) {
       window.App.navigateTo('trading-journal');
-      window.App.showToast(`Logged ${pair.toUpperCase()} to your Journal!`);
+      window.App.showToast(`Logged ${pair.toUpperCase()} at ${formattedTime}!`);
     }
   },
 
@@ -169,9 +228,11 @@ window.JournalModule = {
 
     const pnlInput = document.getElementById(`feedback-pnl-${tradeId}`);
     const obsInput = document.getElementById(`feedback-obs-${tradeId}`);
+    const timeInput = document.getElementById(`feedback-time-${tradeId}`);
 
     const pnlVal = pnlInput ? pnlInput.value.trim() : '';
     const obsVal = obsInput ? obsInput.value.trim() : '';
+    const timeVal = timeInput ? timeInput.value : '';
 
     if (pnlVal) {
       trade.userOutcomePnl = pnlVal;
@@ -184,13 +245,21 @@ window.JournalModule = {
       trade.notes = obsVal;
     }
 
+    if (timeVal) {
+      const parsedTime = new Date(timeVal).getTime();
+      if (!isNaN(parsedTime)) {
+        trade.timestamp = parsedTime;
+        trade.time = this.formatTradeTime(parsedTime);
+      }
+    }
+
     trade.feedbackSaved = true;
     this.saveToStorage();
     this.renderTrades();
     this.updateStats();
 
     if (window.App) {
-      window.App.showToast(`Feedback updated for ${trade.pair}!`);
+      window.App.showToast(`Feedback & time updated for ${trade.pair}!`);
     }
   },
 
@@ -237,6 +306,7 @@ window.JournalModule = {
 
     container.innerHTML = this.trades.map(t => {
       const pnlDisplayClass = t.isProfit ? 'text-primary-fixed-dim' : 'text-error';
+      const displayTime = this.formatTradeTime(t.timestamp || t.id || t.time);
 
       return `
         <div class="bg-[#181c24] border border-white/5 rounded-2xl p-4 sm:p-5 flex flex-col gap-3.5 transition-all">
@@ -251,11 +321,14 @@ window.JournalModule = {
               </div>
               <div>
                 <p class="font-display text-[15px] font-bold text-white">${t.pair}</p>
-                <div class="flex items-center gap-2 mt-0.5">
+                <div class="flex items-center gap-2 mt-0.5 flex-wrap">
                   <span class="font-label-sm text-[10px] px-2 py-0.5 rounded ${t.type === 'LONG' ? 'bg-primary-container/10 text-primary-container' : 'bg-error/10 text-error'} uppercase font-bold tracking-wider">
                     ${t.type}
                   </span>
-                  <span class="text-[11px] text-on-surface-variant">${t.time}</span>
+                  <span class="text-[11px] text-on-surface-variant flex items-center gap-1 font-mono">
+                    <span class="material-symbols-outlined text-[13px] text-primary-container">schedule</span>
+                    ${displayTime}
+                  </span>
                   ${t.entryPrice && t.entryPrice !== '--' ? `<span class="text-[11px] text-[#38bdf8] font-mono">• Entry: ${t.entryPrice}</span>` : ''}
                 </div>
               </div>
@@ -288,21 +361,36 @@ window.JournalModule = {
               </span>
             </div>
 
-            <!-- Field 1: How much did you make/loss? -->
-            <div>
-              <label class="text-[10px] text-on-surface-variant uppercase font-semibold block mb-1">
-                How much did you make / loss?
-              </label>
-              <input 
-                type="text" 
-                id="feedback-pnl-${t.id}" 
-                value="${t.userOutcomePnl || t.pnl || ''}" 
-                placeholder="e.g. +$450.00 or -$120.00" 
-                class="w-full bg-[#10141d] border border-white/10 rounded-lg px-3 py-2 text-xs font-mono text-white placeholder:text-on-surface-variant/40 focus:outline-none focus:border-primary-container transition-all"
-              />
+            <!-- Row 1: How much did you make/loss? & Execution Time -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div>
+                <label class="text-[10px] text-on-surface-variant uppercase font-semibold block mb-1">
+                  How much did you make / loss?
+                </label>
+                <input 
+                  type="text" 
+                  id="feedback-pnl-${t.id}" 
+                  value="${t.userOutcomePnl || t.pnl || ''}" 
+                  placeholder="e.g. +$450.00 or -$120.00" 
+                  class="w-full bg-[#10141d] border border-white/10 rounded-lg px-3 py-2 text-xs font-mono text-white placeholder:text-on-surface-variant/40 focus:outline-none focus:border-primary-container transition-all"
+                />
+              </div>
+
+              <div>
+                <label class="text-[10px] text-on-surface-variant uppercase font-semibold block mb-1">
+                  Execution Time
+                </label>
+                <input 
+                  type="datetime-local" 
+                  id="feedback-time-${t.id}" 
+                  value="${this.getLocalISOString(new Date(t.timestamp || t.id || Date.now()))}" 
+                  style="color-scheme: dark;"
+                  class="w-full bg-[#10141d] border border-white/10 rounded-lg px-2.5 py-2 text-xs font-mono text-white focus:outline-none focus:border-primary-container transition-all"
+                />
+              </div>
             </div>
 
-            <!-- Field 2: Your observation -->
+            <!-- Row 2: Your observation -->
             <div>
               <label class="text-[10px] text-on-surface-variant uppercase font-semibold block mb-1">
                 Your observation
@@ -318,7 +406,7 @@ window.JournalModule = {
             <!-- Save Feedback Action -->
             <div class="flex items-center justify-between pt-1">
               <span class="text-[10px] text-on-surface-variant/60">
-                Update outcome or observation anytime
+                Update outcome, observation or time
               </span>
               <button 
                 onclick="window.JournalModule.saveFeedback(${t.id})" 

@@ -895,11 +895,18 @@
             </div>
           </div>
 
-          <div>
-            <label class="text-[10px] text-primary-container uppercase font-semibold block mb-1">How much did you make /
-              loss?</label>
-            <input id="log-pnl-input" type="text" placeholder="e.g. +$650.00 or -$150.00" required
-              class="w-full bg-black border border-white/10 rounded-lg px-3 py-2 text-xs font-mono font-bold text-white focus:outline-none focus:border-primary-container">
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="text-[10px] text-primary-container uppercase font-semibold block mb-1">How much did you make /
+                loss?</label>
+              <input id="log-pnl-input" type="text" placeholder="e.g. +$650.00 or -$150.00" required
+                class="w-full bg-black border border-white/10 rounded-lg px-3 py-2 text-xs font-mono font-bold text-white focus:outline-none focus:border-primary-container">
+            </div>
+            <div>
+              <label class="text-[10px] text-on-surface-variant uppercase font-semibold block mb-1">Execution Time</label>
+              <input id="log-time-input" type="datetime-local" required style="color-scheme: dark;"
+                class="w-full bg-black border border-white/10 rounded-lg px-2.5 py-2 text-xs font-mono text-white focus:outline-none focus:border-primary-container">
+            </div>
           </div>
 
           <div>
