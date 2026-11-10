@@ -201,7 +201,7 @@ window.ChartOverlay = {
       const clampedY = Math.max(chartTop + 10, Math.min(chartBottom - 10, y));
 
       ctx.save();
-      
+
       ctx.beginPath();
       ctx.setLineDash(isPrimary ? [8, 4] : [4, 4]);
       ctx.lineWidth = isPrimary ? 2.5 : 1.5;

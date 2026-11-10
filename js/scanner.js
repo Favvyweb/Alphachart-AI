@@ -189,13 +189,9 @@ window.ScannerModule = {
     // Phone / Signal Alert Action Buttons
     const toggleAlertsBtn = document.getElementById('btn-toggle-phone-alerts');
     const testAlertBtn = document.getElementById('btn-test-phone-alert');
-    const quickAlertsBtn = document.getElementById('btn-quick-toggle-alerts');
 
     if (toggleAlertsBtn) {
       toggleAlertsBtn.addEventListener('click', () => self.togglePhoneAlerts());
-    }
-    if (quickAlertsBtn) {
-      quickAlertsBtn.addEventListener('click', () => self.togglePhoneAlerts());
     }
     if (testAlertBtn) {
       testAlertBtn.addEventListener('click', () => {
@@ -559,27 +555,6 @@ window.ScannerModule = {
       `).join('');
     }
 
-    // Update scanner Trend Trader status badge & alert label
-    const scannerTtrText = document.getElementById('scanner-ttr-status-text');
-    if (scannerTtrText && window.TrendTraderEngine) {
-      window.TrendTraderEngine.fetchCandles(data.pair, '5m').then(candles => {
-        const analysis = window.TrendTraderEngine.analyzeCandles(candles);
-        let lastTag = null;
-        for (let i = analysis.tags.length - 1; i >= 0; i--) {
-          if (analysis.tags[i]) {
-            lastTag = analysis.tags[i];
-            break;
-          }
-        }
-        if (lastTag === 'BUY') {
-          scannerTtrText.innerHTML = `<span class="text-primary-container font-extrabold">🟢 Trend Trader: BUY Tag Confirmed</span> • MACD Bullish`;
-        } else if (lastTag === 'SELL') {
-          scannerTtrText.innerHTML = `<span class="text-error font-extrabold">🔴 Trend Trader: SELL Tag Confirmed</span> • MACD Bearish`;
-        } else {
-          scannerTtrText.innerHTML = `Trend Trader: Holding ${data.signal} Momentum • 5m Confluence`;
-        }
-      }).catch(() => { });
-    }
     this.updatePhoneAlertsUI();
   },
 
@@ -626,8 +601,6 @@ window.ScannerModule = {
     const isEnabled = window.TrendTraderAlerts ? window.TrendTraderAlerts.isAlertsEnabled() : false;
     const statusLabel = document.getElementById('phone-alerts-status-label');
     const toggleBtn = document.getElementById('btn-toggle-phone-alerts');
-    const quickLabel = document.getElementById('quick-alerts-label');
-    const quickBtn = document.getElementById('btn-quick-toggle-alerts');
 
     if (statusLabel) {
       statusLabel.innerText = isEnabled ? 'Phone Alerts: ACTIVE 🔔' : 'Phone Alerts: OFF';
@@ -636,15 +609,6 @@ window.ScannerModule = {
       toggleBtn.className = isEnabled
         ? 'px-3 py-1 rounded-lg text-[11px] font-bold border transition-all flex items-center gap-1.5 bg-primary-container/20 border-primary-container text-primary-container shadow-[0_0_12px_rgba(0,255,136,0.3)]'
         : 'px-3 py-1 rounded-lg text-[11px] font-bold border transition-all flex items-center gap-1.5 bg-black/60 border-white/10 text-on-surface-variant hover:border-primary-container hover:text-white';
-    }
-
-    if (quickLabel) {
-      quickLabel.innerText = isEnabled ? 'Alerts: ON' : 'Phone Alerts';
-    }
-    if (quickBtn) {
-      quickBtn.className = isEnabled
-        ? 'px-2.5 py-1 rounded-lg text-[10px] font-bold border border-primary-container text-black bg-primary-container transition-all flex items-center gap-1 shrink-0'
-        : 'px-2.5 py-1 rounded-lg text-[10px] font-bold border border-primary-container/30 text-primary-container bg-primary-container/10 hover:bg-primary-container hover:text-black transition-all flex items-center gap-1 shrink-0';
     }
   },
 
