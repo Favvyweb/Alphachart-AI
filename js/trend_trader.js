@@ -22,9 +22,10 @@ window.TrendTraderEngine = {
   currentTimeframe: '5m',
   lastCandles: [],
   lastAnalysis: null,
+  candlesCache: {},
 
   /**
-   * Fetch live Binance candles for 5m, 15m, or 1h
+   * Fetch live Binance candles for 5m, 15m, or 1h with high-speed parallel fetching and memory cache
    */
   fetchCandles: async function (pairName, interval = '5m') {
     let cleanSymbol = 'BTCUSDT';
@@ -46,14 +47,26 @@ window.TrendTraderEngine = {
     else if (interval === '15' || interval === '15m') binanceInterval = '15m';
     else binanceInterval = '5m';
 
+    const cacheKey = `${cleanSymbol}_${binanceInterval}`;
+    const cached = this.candlesCache[cacheKey];
+
+    // Return cached candles immediately if fresh (< 25s old) for 0ms instant display
+    if (cached && (Date.now() - cached.timestamp < 25000) && cached.candles && cached.candles.length >= 20) {
+      return cached.candles;
+    }
+
     const endpoints = [
       `https://data-api.binance.vision/api/v3/klines?symbol=${cleanSymbol}&interval=${binanceInterval}&limit=120`,
       `https://api.binance.com/api/v3/klines?symbol=${cleanSymbol}&interval=${binanceInterval}&limit=120`
     ];
 
-    for (let url of endpoints) {
+    // Fast parallel fetch: query endpoints simultaneously with a 2.5s timeout. Fastest wins!
+    const fetchWithTimeout = async (url) => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 2500);
       try {
-        const res = await fetch(url);
+        const res = await fetch(url, { signal: controller.signal });
+        clearTimeout(timer);
         if (res.ok) {
           const raw = await res.json();
           if (Array.isArray(raw) && raw.length >= 20) {
@@ -67,13 +80,26 @@ window.TrendTraderEngine = {
             }));
           }
         }
-      } catch (e) {
-        // try next endpoint
+      } catch (err) {
+        clearTimeout(timer);
       }
-    }
+      throw new Error(`Endpoint ${url} failed or timed out`);
+    };
 
-    // High fidelity synthetic candle model for offline / rate-limited requests
-    return this.generateFallbackCandles(cleanSymbol, binanceInterval, 100);
+    try {
+      const candles = await Promise.any(endpoints.map(fetchWithTimeout));
+      this.candlesCache[cacheKey] = { timestamp: Date.now(), candles };
+      return candles;
+    } catch (e) {
+      // If we have any cached data (even if slightly stale), return it rather than showing fake candles
+      if (cached && cached.candles && cached.candles.length >= 20) {
+        return cached.candles;
+      }
+      // Instant fallback candle model for offline or firewall-throttled environments
+      const fallback = this.generateFallbackCandles(cleanSymbol, binanceInterval, 100);
+      this.candlesCache[cacheKey] = { timestamp: Date.now(), candles: fallback };
+      return fallback;
+    }
   },
 
   generateFallbackCandles: function (symbol, interval, count = 100) {
