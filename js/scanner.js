@@ -10,6 +10,9 @@ window.ScannerModule = {
   lastAnalysisData: null,
   fullChartPair: 'BTC / USDT',
   fullChartInterval: '5',
+  fullChartMode: 'ttr',
+  currentTTRAnalysis: null,
+  livePollTimer: null,
 
   init: function () {
     this.bindEvents();
@@ -167,41 +170,52 @@ window.ScannerModule = {
       tf1hBtn.addEventListener('click', () => self.setFullChartTimeframe('60'));
     }
 
+    // Chart Mode Tabs (Trend Trader vs TradingView)
+    const tabTtr = document.getElementById('full-chart-tab-ttr');
+    const tabTv = document.getElementById('full-chart-tab-tv');
+    if (tabTtr) {
+      tabTtr.addEventListener('click', () => self.setFullChartMode('ttr'));
+    }
+    if (tabTv) {
+      tabTv.addEventListener('click', () => self.setFullChartMode('tv'));
+    }
+
+    // Phone / Signal Alert Action Buttons
+    const toggleAlertsBtn = document.getElementById('btn-toggle-phone-alerts');
+    const testAlertBtn = document.getElementById('btn-test-phone-alert');
+    const quickAlertsBtn = document.getElementById('btn-quick-toggle-alerts');
+
+    if (toggleAlertsBtn) {
+      toggleAlertsBtn.addEventListener('click', () => self.togglePhoneAlerts());
+    }
+    if (quickAlertsBtn) {
+      quickAlertsBtn.addEventListener('click', () => self.togglePhoneAlerts());
+    }
+    if (testAlertBtn) {
+      testAlertBtn.addEventListener('click', () => {
+        if (window.TrendTraderAlerts) window.TrendTraderAlerts.testAlert();
+      });
+    }
+
+    // Window Resize listener to keep Trend Trader canvas sharp
+    window.addEventListener('resize', () => {
+      const modal = document.getElementById('full-chart-modal');
+      if (modal && !modal.classList.contains('hidden') && self.fullChartMode === 'ttr') {
+        if (self.currentTTRAnalysis) {
+          const canvas = document.getElementById('trend-trader-canvas');
+          if (canvas && window.TrendTraderEngine) {
+            window.TrendTraderEngine.renderToCanvas(canvas, self.currentTTRAnalysis);
+          }
+        }
+      }
+    });
+
     // Escape key listener for closing modal
     window.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         self.closeFullChartModal();
       }
     });
-
-    // Indicator telemetry pill clicks
-    const indPills = document.querySelectorAll('.elite-ind-pill');
-    indPills.forEach(pill => {
-      pill.addEventListener('click', () => {
-        indPills.forEach(p => {
-          p.classList.remove('bg-primary-container/20', 'border-primary-container', 'shadow-sm');
-          p.classList.add('bg-white/5', 'border-white/10');
-        });
-        pill.classList.remove('bg-white/5', 'border-white/10');
-        pill.classList.add('bg-primary-container/20', 'border-primary-container', 'shadow-sm');
-
-        const indKey = pill.getAttribute('data-ind');
-        self.selectTelemetryIndicator(indKey);
-      });
-    });
-
-    // Copy Pine Script Name button
-    const copyScriptBtn = document.getElementById('telemetry-action-btn');
-    if (copyScriptBtn) {
-      copyScriptBtn.addEventListener('click', () => {
-        const scriptName = copyScriptBtn.getAttribute('data-script-name') || 'Trend Trader - Remastered';
-        if (navigator.clipboard) {
-          navigator.clipboard.writeText(scriptName).then(() => {
-            if (window.App) window.App.showToast(`Copied "${scriptName}"! Search it in 'fx Indicators'.`);
-          });
-        }
-      });
-    }
   },
 
   recalculateWithParameters: function (isBullish) {
@@ -495,20 +509,15 @@ window.ScannerModule = {
 
       if (eliteList) {
         eliteList.innerHTML = data.eliteIndicators.map(ind => `
-          <div class="p-2.5 bg-black/60 border border-white/5 rounded-xl flex items-center justify-between gap-2.5 transition-all hover:border-white/10">
-            <div class="flex items-center gap-2.5 min-w-0">
-              <div class="w-7 h-7 rounded-lg ${ind.isBullish ? 'bg-primary-container/15 text-primary-container' : 'bg-error/15 text-error'} flex items-center justify-center shrink-0">
-                <span class="material-symbols-outlined text-[16px]">${ind.isBullish ? 'arrow_upward' : 'arrow_downward'}</span>
-              </div>
+          <div class="p-2.5 rounded-xl bg-black/60 border border-white/5 flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2 min-w-0">
+              <span class="w-2 h-2 rounded-full ${ind.isBullish ? 'bg-primary-container' : 'bg-error'} shrink-0"></span>
               <div class="min-w-0">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-xs font-bold text-white truncate">${ind.name}</span>
-                  <span class="text-[10px] font-mono text-on-surface-variant/80">by ${ind.author}</span>
-                </div>
-                <p class="text-[11px] text-on-surface-variant font-mono truncate">${ind.detail}</p>
+                <p class="text-xs font-bold text-white truncate">${ind.name} <span class="text-[10px] text-on-surface-variant font-normal">(${ind.author})</span></p>
+                <p class="text-[10px] text-on-surface-variant/80 font-mono truncate">${ind.detail}</p>
               </div>
             </div>
-            <span class="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase font-mono shrink-0 ${ind.isBullish ? 'bg-primary-container/20 text-primary-container border border-primary-container/30' : 'bg-error/20 text-error border border-error/30'}">
+            <span class="px-2 py-0.5 rounded text-[9px] font-mono font-bold shrink-0 ${ind.isBullish ? 'bg-primary-container/15 text-primary-container border border-primary-container/20' : 'bg-error/15 text-error border border-error/20'}">
               ${ind.signal}
             </span>
           </div>
@@ -539,6 +548,94 @@ window.ScannerModule = {
         </a>
       `).join('');
     }
+
+    // Update scanner Trend Trader status badge & alert label
+    const scannerTtrText = document.getElementById('scanner-ttr-status-text');
+    if (scannerTtrText && window.TrendTraderEngine) {
+      window.TrendTraderEngine.fetchCandles(data.pair, '5m').then(candles => {
+        const analysis = window.TrendTraderEngine.analyzeCandles(candles);
+        let lastTag = null;
+        for (let i = analysis.tags.length - 1; i >= 0; i--) {
+          if (analysis.tags[i]) {
+            lastTag = analysis.tags[i];
+            break;
+          }
+        }
+        if (lastTag === 'BUY') {
+          scannerTtrText.innerHTML = `<span class="text-primary-container font-extrabold">🟢 Trend Trader: BUY Tag Confirmed</span> • MACD Bullish`;
+        } else if (lastTag === 'SELL') {
+          scannerTtrText.innerHTML = `<span class="text-error font-extrabold">🔴 Trend Trader: SELL Tag Confirmed</span> • MACD Bearish`;
+        } else {
+          scannerTtrText.innerHTML = `Trend Trader: Holding ${data.signal} Momentum • 5m Confluence`;
+        }
+      }).catch(() => {});
+    }
+    this.updatePhoneAlertsUI();
+  },
+
+  /**
+   * Switch between native Trend Trader Engine and TradingView embed
+   */
+  setFullChartMode: function (mode) {
+    this.fullChartMode = mode;
+    this.updateModeTabsUI();
+    this.renderFullChart(this.fullChartPair, this.fullChartInterval);
+  },
+
+  updateModeTabsUI: function () {
+    const tabTtr = document.getElementById('full-chart-tab-ttr');
+    const tabTv = document.getElementById('full-chart-tab-tv');
+    const active = 'px-2.5 py-1.5 rounded-lg font-bold transition-all bg-primary-container text-black shadow-sm flex items-center gap-1';
+    const inactive = 'px-2.5 py-1.5 rounded-lg font-bold transition-all text-on-surface-variant hover:text-white flex items-center gap-1';
+
+    if (tabTtr) tabTtr.className = this.fullChartMode === 'ttr' ? active : inactive;
+    if (tabTv) tabTv.className = this.fullChartMode === 'tv' ? active : inactive;
+  },
+
+  /**
+   * Toggle Phone / Browser Signal Notifications
+   */
+  togglePhoneAlerts: async function () {
+    if (!window.TrendTraderAlerts) return;
+    const isCurrentlyEnabled = window.TrendTraderAlerts.isAlertsEnabled();
+
+    if (isCurrentlyEnabled) {
+      window.TrendTraderAlerts.setAlertsEnabled(false);
+      this.updatePhoneAlertsUI();
+      if (window.App) window.App.showToast('Phone Signal Alerts turned OFF');
+    } else {
+      const granted = await window.TrendTraderAlerts.requestPermission();
+      this.updatePhoneAlertsUI();
+      if (granted && window.App) {
+        window.App.showToast('🔔 Phone Signal Alerts turned ON with Sound & Vibration!');
+      }
+    }
+  },
+
+  updatePhoneAlertsUI: function () {
+    const isEnabled = window.TrendTraderAlerts ? window.TrendTraderAlerts.isAlertsEnabled() : false;
+    const statusLabel = document.getElementById('phone-alerts-status-label');
+    const toggleBtn = document.getElementById('btn-toggle-phone-alerts');
+    const quickLabel = document.getElementById('quick-alerts-label');
+    const quickBtn = document.getElementById('btn-quick-toggle-alerts');
+
+    if (statusLabel) {
+      statusLabel.innerText = isEnabled ? 'Phone Alerts: ACTIVE 🔔' : 'Phone Alerts: OFF';
+    }
+    if (toggleBtn) {
+      toggleBtn.className = isEnabled
+        ? 'px-3 py-1 rounded-lg text-[11px] font-bold border transition-all flex items-center gap-1.5 bg-primary-container/20 border-primary-container text-primary-container shadow-[0_0_12px_rgba(0,255,136,0.3)]'
+        : 'px-3 py-1 rounded-lg text-[11px] font-bold border transition-all flex items-center gap-1.5 bg-black/60 border-white/10 text-on-surface-variant hover:border-primary-container hover:text-white';
+    }
+
+    if (quickLabel) {
+      quickLabel.innerText = isEnabled ? 'Alerts: ON' : 'Phone Alerts';
+    }
+    if (quickBtn) {
+      quickBtn.className = isEnabled
+        ? 'px-2.5 py-1 rounded-lg text-[10px] font-bold border border-primary-container text-black bg-primary-container transition-all flex items-center gap-1 shrink-0'
+        : 'px-2.5 py-1 rounded-lg text-[10px] font-bold border border-primary-container/30 text-primary-container bg-primary-container/10 hover:bg-primary-container hover:text-black transition-all flex items-center gap-1 shrink-0';
+    }
   },
 
   /**
@@ -549,6 +646,7 @@ window.ScannerModule = {
     const pair = customPair || (coinInput && coinInput.value ? coinInput.value.trim() : null) || (this.lastAnalysisData ? this.lastAnalysisData.pair : null) || 'BTC / USDT';
     this.fullChartPair = pair;
     if (!this.fullChartInterval) this.fullChartInterval = '5';
+    if (!this.fullChartMode) this.fullChartMode = 'ttr';
 
     const modal = document.getElementById('full-chart-modal');
     const coinTitle = document.getElementById('full-chart-coin-title');
@@ -556,16 +654,8 @@ window.ScannerModule = {
 
     if (coinTitle) coinTitle.innerText = pair;
     if (priceDisplay) {
-      priceDisplay.innerText = `Real-time ${this.fullChartInterval === '5' ? '5-Minute' : '1-Hour'} Candles`;
+      priceDisplay.innerText = `Real-time ${this.fullChartInterval === '5' ? '5-Minute' : '1-Hour'} Candles & Signals`;
     }
-
-    const tvDirectBtn = document.getElementById('full-chart-tv-direct-btn');
-    if (tvDirectBtn) {
-      const tvSymbol = this.getTradingViewSymbol(pair);
-      tvDirectBtn.href = `https://www.tradingview.com/chart/?symbol=${encodeURIComponent(tvSymbol)}`;
-    }
-
-    this.updateTimeframeButtonsUI(this.fullChartInterval);
 
     if (modal) {
       modal.classList.remove('hidden');
@@ -573,6 +663,15 @@ window.ScannerModule = {
     }
 
     this.renderFullChart(this.fullChartPair, this.fullChartInterval);
+
+    // Live continuous polling while modal is open (every 15 seconds)
+    if (this.livePollTimer) clearInterval(this.livePollTimer);
+    this.livePollTimer = setInterval(() => {
+      const m = document.getElementById('full-chart-modal');
+      if (m && !m.classList.contains('hidden') && this.fullChartMode === 'ttr') {
+        this.renderFullChart(this.fullChartPair, this.fullChartInterval);
+      }
+    }, 15000);
   },
 
   /**
@@ -588,6 +687,10 @@ window.ScannerModule = {
     if (iframe) {
       iframe.src = '';
     }
+    if (this.livePollTimer) {
+      clearInterval(this.livePollTimer);
+      this.livePollTimer = null;
+    }
   },
 
   /**
@@ -600,7 +703,7 @@ window.ScannerModule = {
 
     const priceDisplay = document.getElementById('full-chart-price-display');
     if (priceDisplay) {
-      priceDisplay.innerText = `Real-time ${interval === '5' ? '5-Minute' : '1-Hour'} Candles`;
+      priceDisplay.innerText = `Real-time ${interval === '5' ? '5-Minute' : '1-Hour'} Candles & Signals`;
     }
 
     this.renderFullChart(this.fullChartPair, this.fullChartInterval);
@@ -612,8 +715,8 @@ window.ScannerModule = {
   updateTimeframeButtonsUI: function (interval) {
     const tf5mBtn = document.getElementById('full-chart-tf-5m');
     const tf1hBtn = document.getElementById('full-chart-tf-1h');
-    const activeClasses = 'px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all bg-primary-container text-black shadow-sm';
-    const inactiveClasses = 'px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all text-on-surface-variant hover:text-white';
+    const activeClasses = 'px-2.5 py-1.5 rounded-lg text-xs font-extrabold transition-all bg-primary-container text-black shadow-sm';
+    const inactiveClasses = 'px-2.5 py-1.5 rounded-lg text-xs font-extrabold transition-all text-on-surface-variant hover:text-white';
 
     if (tf5mBtn) {
       tf5mBtn.className = interval === '5' ? activeClasses : inactiveClasses;
@@ -661,110 +764,100 @@ window.ScannerModule = {
   },
 
   /**
-   * Update active indicator telemetry data in the full chart view
+   * Render either the native Trend Trader Engine Canvas or TradingView embed
    */
-  selectTelemetryIndicator: function (indKey) {
-    const nameEl = document.getElementById('telemetry-ind-name');
-    const detailEl = document.getElementById('telemetry-ind-detail');
-    const actionBtn = document.getElementById('telemetry-action-btn');
+  renderFullChart: async function (pairName, interval) {
+    const pair = pairName || this.fullChartPair || 'BTC / USDT';
+    const intv = interval || this.fullChartInterval || '5';
+    this.fullChartPair = pair;
+    this.fullChartInterval = intv;
 
-    const indMap = {
-      'trend-trader': {
-        name: 'Trend Trader Remastered (aybarsm)',
-        detail: 'Adaptive ATR Trailing Stop (Len: 21, Mult: 3.0)',
-        scriptName: 'Trend Trader - Remastered'
-      },
-      'smc': {
-        name: 'Smart Money Concepts (LuxAlgo)',
-        detail: 'Institutional Order Blocks & Fair Value Gaps (FVG)',
-        scriptName: 'Smart Money Concepts [LuxAlgo]'
-      },
-      'alpha-trend': {
-        name: 'AlphaTrend (KivancOzbilgic)',
-        detail: 'Volume & MFI/RSI Momentum Trailing Filter (Coeff: 1.0)',
-        scriptName: 'AlphaTrend'
-      },
-      'chandelier': {
-        name: 'Chandelier Exit (everget)',
-        detail: 'Highest High Volatility Stop (Len: 22, Mult: 3.0)',
-        scriptName: 'Chandelier Exit [everget]'
-      },
-      'impulse-macd': {
-        name: 'Impulse MACD (LazyBear)',
-        detail: 'Zero-Lag Impulse Momentum Histogram (Len: 34, Sig: 9)',
-        scriptName: 'Impulse MACD [LazyBear]'
-      }
-    };
+    this.updateTimeframeButtonsUI(intv);
+    this.updateModeTabsUI();
+    this.updatePhoneAlertsUI();
 
-    const target = indMap[indKey] || indMap['trend-trader'];
-    if (nameEl) nameEl.innerText = target.name;
-    if (detailEl) detailEl.innerText = target.detail;
-    if (actionBtn) {
-      actionBtn.setAttribute('data-script-name', target.scriptName);
-      actionBtn.innerHTML = `<span class="material-symbols-outlined text-[12px]">content_copy</span><span>Copy "${target.scriptName}"</span>`;
-    }
-  },
-
-  /**
-   * Load real-time candlestick stream with TradingView Advanced Chart & Studies
-   */
-  renderFullChart: function (pairName, interval) {
-    const container = document.getElementById('full-chart-tv-container');
-    const iframe = document.getElementById('full-chart-iframe');
+    const viewTTR = document.getElementById('view-ttr-engine');
+    const viewTV = document.getElementById('view-tv-embed');
     const loader = document.getElementById('full-chart-loader');
 
-    if (loader) {
-      loader.style.opacity = '1';
-      loader.classList.remove('pointer-events-none');
-    }
+    if (this.fullChartMode === 'ttr') {
+      if (viewTTR) viewTTR.classList.remove('hidden');
+      if (viewTV) viewTV.classList.add('hidden');
+      if (loader) {
+        loader.style.opacity = '1';
+        loader.classList.remove('pointer-events-none');
+      }
 
-    const tvSymbol = this.getTradingViewSymbol(pairName);
-
-    // If TradingView advanced widget library is loaded, use full widget with Indicators (fx) toolbar enabled!
-    if (window.TradingView && typeof window.TradingView.widget === 'function' && container) {
-      if (iframe) iframe.classList.add('hidden');
-      container.classList.remove('hidden');
-      container.innerHTML = '';
+      const canvas = document.getElementById('trend-trader-canvas');
+      const tfCode = intv === '60' ? '1h' : '5m';
 
       try {
-        new window.TradingView.widget({
-          autosize: true,
-          symbol: tvSymbol,
-          interval: interval,
-          timezone: "Etc/UTC",
-          theme: "dark",
-          style: "1",
-          locale: "en",
-          toolbar_bg: "#000000",
-          enable_publishing: false,
-          hide_top_toolbar: false, // FULL TOOLBAR WITH "Indicators" BUTTON!
-          hide_side_toolbar: false,
-          allow_symbol_change: true,
-          save_image: false,
-          container_id: "full-chart-tv-container",
-          studies: [
-            "SuperTrend@tv-basicstudies",
-            "MACD@tv-basicstudies",
-            "MAExp@tv-basicstudies"
-          ]
-        });
+        const candles = await window.TrendTraderEngine.fetchCandles(pair, tfCode);
+        const analysis = window.TrendTraderEngine.analyzeCandles(candles);
+        this.currentTTRAnalysis = analysis;
 
-        setTimeout(() => {
-          if (loader) {
-            loader.style.opacity = '0';
-            setTimeout(() => loader.classList.add('pointer-events-none'), 300);
+        if (canvas) {
+          window.TrendTraderEngine.renderToCanvas(canvas, analysis);
+        }
+
+        // Determine latest signal from analysis
+        let latestTag = null;
+        let latestTagIndex = -1;
+        for (let i = analysis.tags.length - 1; i >= 0; i--) {
+          if (analysis.tags[i]) {
+            latestTag = analysis.tags[i];
+            latestTagIndex = i;
+            break;
           }
-        }, 1200);
-        return;
-      } catch (err) {
-        console.warn('TradingView advanced widget error, falling back to iframe:', err);
-      }
-    }
+        }
 
-    // Fallback to iframe if tv.js is unavailable
-    if (iframe) {
-      if (container) container.classList.add('hidden');
-      iframe.classList.remove('hidden');
+        const statusBadge = document.getElementById('ttr-signal-status-badge');
+        const statusText = document.getElementById('ttr-signal-status-text');
+        const macdStatus = document.getElementById('ttr-macd-status-text');
+
+        const lastM = analysis.macd.macdLine[analysis.macd.macdLine.length - 1] || 0;
+        const lastS = analysis.macd.signalLine[analysis.macd.signalLine.length - 1] || 0;
+        const isBullishMacd = lastM >= lastS;
+
+        if (latestTag === 'BUY') {
+          if (statusBadge) statusBadge.className = 'px-2.5 py-1 rounded-lg bg-primary-container/20 border border-primary-container/50 text-primary-container font-bold text-[11px] flex items-center gap-1.5 shadow-[0_0_12px_rgba(0,255,136,0.3)]';
+          if (statusText) statusText.innerText = `🟢 Trend Trader: BUY Tag Confirmed ($${candles[latestTagIndex].close.toFixed(2)})`;
+        } else if (latestTag === 'SELL') {
+          if (statusBadge) statusBadge.className = 'px-2.5 py-1 rounded-lg bg-error/20 border border-error/50 text-error font-bold text-[11px] flex items-center gap-1.5 shadow-[0_0_12px_rgba(255,51,102,0.3)]';
+          if (statusText) statusText.innerText = `🔴 Trend Trader: SELL Tag Confirmed ($${candles[latestTagIndex].close.toFixed(2)})`;
+        } else if (latestTag === 'TP') {
+          if (statusBadge) statusBadge.className = 'px-2.5 py-1 rounded-lg bg-purple-500/20 border border-purple-500/50 text-purple-300 font-bold text-[11px] flex items-center gap-1.5';
+          if (statusText) statusText.innerText = `🟣 Take Profit (TP) Level Hit ($${candles[latestTagIndex].close.toFixed(2)})`;
+        } else {
+          if (statusBadge) statusBadge.className = 'px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-on-surface-variant font-bold text-[11px] flex items-center gap-1.5';
+          if (statusText) statusText.innerText = `⚪ Trend Trader: Scanning Active Candles...`;
+        }
+
+        if (macdStatus) {
+          macdStatus.innerText = `MACD: ${lastM.toFixed(2)} / ${lastS.toFixed(2)} • ${isBullishMacd ? 'Bullish Expansion' : 'Bearish Pressure'}`;
+        }
+
+      } catch (err) {
+        console.warn('Error in TTR render:', err);
+      } finally {
+        if (loader) {
+          loader.style.opacity = '0';
+          setTimeout(() => loader.classList.add('pointer-events-none'), 300);
+        }
+      }
+
+    } else {
+      // TradingView Embed Mode with MACD study
+      if (viewTTR) viewTTR.classList.add('hidden');
+      if (viewTV) viewTV.classList.remove('hidden');
+
+      const iframe = document.getElementById('full-chart-iframe');
+      if (!iframe) return;
+
+      if (loader) {
+        loader.style.opacity = '1';
+        loader.classList.remove('pointer-events-none');
+      }
 
       iframe.onload = () => {
         if (loader) {
@@ -775,7 +868,9 @@ window.ScannerModule = {
         }
       };
 
-      const embedUrl = `https://s.tradingview.com/widgetembed/?frameElementId=tradingview_widget&symbol=${encodeURIComponent(tvSymbol)}&interval=${interval}&theme=dark&style=1&timezone=Etc%2FUTC&studies=${encodeURIComponent(JSON.stringify(["SuperTrend@tv-basicstudies","MACD@tv-basicstudies"]))}&hide_top_toolbar=0&hide_legend=0&hide_side_toolbar=0&save_image=0&locale=en`;
+      const tvSymbol = this.getTradingViewSymbol(pair);
+      const embedUrl = `https://s.tradingview.com/widgetembed/?frameElementId=tradingview_widget&symbol=${encodeURIComponent(tvSymbol)}&interval=${intv}&theme=dark&style=1&timezone=Etc%2FUTC&studies=[%22MACD@tv-basicstudies%22]&hide_top_toolbar=0&hide_legend=0&hide_side_toolbar=0&save_image=0&locale=en`;
+
       iframe.src = embedUrl;
     }
   }
