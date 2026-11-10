@@ -453,8 +453,8 @@ window.ScannerModule = {
       if (execBadge) {
         execBadge.innerText = data.execution.badgeText;
         execBadge.className = data.execution.isScalpNow
-          ? 'px-3 py-1.5 rounded-xl text-xs font-extrabold uppercase tracking-wider bg-primary-container text-black shadow-md shrink-0'
-          : 'px-3 py-1.5 rounded-xl text-xs font-extrabold uppercase tracking-wider bg-[#38bdf8] text-black shadow-md shrink-0';
+          ? 'px-3 py-1.5 rounded-xl text-xs font-extrabold uppercase tracking-wider bg-primary-container text-black shadow-md shrink-0 whitespace-nowrap'
+          : 'px-3 py-1.5 rounded-xl text-xs font-extrabold uppercase tracking-wider bg-[#38bdf8] text-black shadow-md shrink-0 whitespace-nowrap';
       }
       if (execReason && data.execution.reason) {
         execReason.innerText = data.execution.reason;
@@ -509,8 +509,8 @@ window.ScannerModule = {
       if (eliteBadge) {
         eliteBadge.innerText = `${activeCount} / 4 ${isLong ? 'Bullish' : 'Bearish'} Confluence`;
         eliteBadge.className = activeCount >= 3
-          ? 'px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-primary-container/20 text-primary-container border border-primary-container/40'
-          : 'px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-400/20 text-amber-300 border border-amber-400/30';
+          ? 'px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-primary-container/20 text-primary-container border border-primary-container/40 whitespace-nowrap shrink-0'
+          : 'px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-400/20 text-amber-300 border border-amber-400/30 whitespace-nowrap shrink-0';
       }
 
       if (eliteList) {
@@ -523,7 +523,7 @@ window.ScannerModule = {
                 <p class="text-[10px] text-on-surface-variant/80 font-mono truncate">${ind.detail}</p>
               </div>
             </div>
-            <span class="px-2 py-0.5 rounded text-[9px] font-mono font-bold shrink-0 ${ind.isBullish ? 'bg-primary-container/15 text-primary-container border border-primary-container/20' : 'bg-error/15 text-error border border-error/20'}">
+            <span class="px-2 py-0.5 rounded text-[9px] font-mono font-bold shrink-0 whitespace-nowrap ${ind.isBullish ? 'bg-primary-container/15 text-primary-container border border-primary-container/20' : 'bg-error/15 text-error border border-error/20'}">
               ${ind.signal}
             </span>
           </div>
