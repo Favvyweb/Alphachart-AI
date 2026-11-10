@@ -160,9 +160,12 @@
                 </div>
               </div>
               <div class="flex items-center gap-2">
-                <span id="res-data-feed-badge" class="text-[10px] font-mono text-[#38bdf8] bg-[#38bdf8]/10 border border-[#38bdf8]/20 px-2 py-1 rounded-md flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-[#38bdf8] animate-pulse"></span> Live 15m Exchange</span>
+                <span id="res-data-feed-badge"
+                  class="text-[10px] font-mono text-[#38bdf8] bg-[#38bdf8]/10 border border-[#38bdf8]/20 px-2 py-1 rounded-md flex items-center gap-1"><span
+                    class="w-1.5 h-1.5 rounded-full bg-[#38bdf8] animate-pulse"></span> Live 15m Exchange</span>
                 <span id="res-confidence-text"
-                  class="text-[11px] font-semibold text-primary-fixed-dim bg-primary-fixed-dim/10 px-2 py-1 rounded-md">85% Confluence</span>
+                  class="text-[11px] font-semibold text-primary-fixed-dim bg-primary-fixed-dim/10 px-2 py-1 rounded-md">85%
+                  Confluence</span>
                 <button id="rescan-chart-btn"
                   class="text-xs font-semibold text-on-surface-variant hover:text-white flex items-center gap-1 bg-surface-container-high px-2.5 py-1 rounded-lg border border-white/5 transition-all">
                   <span class="material-symbols-outlined text-[16px]">refresh</span> Re-Scan
@@ -193,6 +196,13 @@
               <img id="result-chart-img" class="w-full h-full object-contain hidden" src="" alt="Analyzed Chart">
               <canvas id="result-chart-canvas" class="w-full h-full object-contain block"></canvas>
             </div>
+
+            <!-- View Full Chart Button -->
+            <button id="view-full-chart-btn" type="button" class="w-full py-2.5 px-4 rounded-xl bg-surface-container-high border border-primary-container/30 hover:border-primary-container text-white text-xs font-bold flex items-center justify-center gap-2 transition-all hover:bg-primary-container/10 active:scale-95 shadow-md">
+              <span class="material-symbols-outlined text-primary-container text-[18px]">candlestick_chart</span>
+              <span>View Full Chart</span>
+              <span class="ml-auto text-[10px] font-mono text-primary-container bg-primary-container/10 px-2 py-0.5 rounded border border-primary-container/20">5m • 1h</span>
+            </button>
           </div>
 
           <!-- Clean Sleek Recommended Action Card with 1-Sentence Rationale -->
@@ -402,8 +412,10 @@
             <div class="bg-[#0a0e16] border border-white/5 rounded-2xl p-5 shadow-2xl">
               <div class="flex justify-between items-start">
                 <div>
-                  <p class="text-[11px] font-semibold text-on-surface-variant uppercase tracking-widest mb-1">Total Portfolio PnL</p>
-                  <h2 id="journal-total-pnl-val" class="font-display text-[34px] font-extrabold text-primary-fixed-dim">$0.00</h2>
+                  <p class="text-[11px] font-semibold text-on-surface-variant uppercase tracking-widest mb-1">Total
+                    Portfolio PnL</p>
+                  <h2 id="journal-total-pnl-val" class="font-display text-[34px] font-extrabold text-primary-fixed-dim">
+                    $0.00</h2>
                 </div>
                 <div class="h-12 w-24">
                   <svg class="w-full h-full" viewBox="0 0 100 40">
@@ -461,7 +473,9 @@
           <section class="flex flex-col gap-4">
             <div class="flex justify-between items-center">
               <h3 class="font-display text-[18px] font-bold text-white">Recent Trades</h3>
-              <button onclick="window.JournalModule.clearAllTrades()" class="text-xs text-on-surface-variant/50 hover:text-error transition-colors font-medium">Clear All</button>
+              <button onclick="window.JournalModule.clearAllTrades()"
+                class="text-xs text-on-surface-variant/50 hover:text-error transition-colors font-medium">Clear
+                All</button>
             </div>
             <div id="journal-trades-list" class="flex flex-col gap-3"></div>
           </section>
@@ -902,6 +916,66 @@
             <span>Save to Journal</span>
           </button>
         </form>
+
+      </div>
+    </div>
+
+    <!-- FULL DISPLAY REALTIME CHART MODAL -->
+    <div id="full-chart-modal" class="hidden fixed inset-0 z-50 items-center justify-center p-2 sm:p-4">
+      <div id="full-chart-backdrop" class="absolute inset-0 bg-black/90 backdrop-blur-md"></div>
+      
+      <div class="relative w-full max-w-[950px] h-[92vh] max-h-[850px] bg-surface-container-low border border-primary-container/30 rounded-2xl sm:rounded-3xl shadow-2xl z-10 flex flex-col overflow-hidden text-white">
+        
+        <!-- Modal Top Bar -->
+        <div class="flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-white/10 bg-black/60 shrink-0">
+          <div class="flex items-center gap-2.5">
+            <div class="w-9 h-9 rounded-xl bg-primary-container/20 border border-primary-container/30 flex items-center justify-center">
+              <span class="material-symbols-outlined text-primary-container text-[20px]">candlestick_chart</span>
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <h3 id="full-chart-coin-title" class="font-display font-extrabold text-base text-white">BTC / USDT</h3>
+                <span class="w-2 h-2 rounded-full bg-primary-container animate-ping"></span>
+                <span class="text-[10px] font-mono font-bold text-primary-container uppercase">Live Feed</span>
+              </div>
+              <p id="full-chart-price-display" class="text-xs font-mono text-[#38bdf8] font-bold">Real-time Candlesticks</p>
+            </div>
+          </div>
+
+          <!-- Timeframe Controls: Strictly 5min & 1hour -->
+          <div class="flex items-center gap-2 sm:gap-3">
+            <div class="flex items-center bg-black/80 p-1 rounded-xl border border-white/10">
+              <button id="full-chart-tf-5m" type="button" class="px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all bg-primary-container text-black shadow-sm">
+                5min
+              </button>
+              <button id="full-chart-tf-1h" type="button" class="px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all text-on-surface-variant hover:text-white">
+                1 hour
+              </button>
+            </div>
+
+            <button id="full-chart-close-btn" type="button" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-all shrink-0">
+              <span class="material-symbols-outlined text-[18px]">close</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Realtime Interactive Chart Container -->
+        <div class="flex-1 w-full relative bg-black">
+          <div id="full-chart-loader" class="absolute inset-0 flex items-center justify-center bg-black gap-2 z-10 transition-opacity duration-300">
+            <span class="material-symbols-outlined text-primary-container animate-spin text-[26px]">autorenew</span>
+            <span class="text-xs font-mono text-on-surface-variant">Streaming Real-time Market Candles...</span>
+          </div>
+          <iframe id="full-chart-iframe" class="w-full h-full border-0" src="" allowtransparency="true" scrolling="no" allowfullscreen></iframe>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="px-4 py-2.5 bg-black/60 border-t border-white/10 flex items-center justify-between text-[11px] text-on-surface-variant shrink-0">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-[15px] text-primary-container">insights</span>
+            <span>Real-time live multi-exchange candles. Toggle <strong>5min</strong> and <strong>1 hour</strong> above.</span>
+          </div>
+          <span class="font-mono text-primary-container font-semibold hidden sm:inline">AlphaChart Live Terminal</span>
+        </div>
 
       </div>
     </div>

@@ -453,7 +453,7 @@ window.AIEngine = {
     const tp2Str = `${formatPrice(tp2Val)} (${isBullish ? `+${(slDistancePct * 2).toFixed(2)}%` : `-${(slDistancePct * 2).toFixed(2)}%`})`;
     const tp3Str = `${formatPrice(tp3Val)} (${isBullish ? `+${(slDistancePct * 3).toFixed(2)}%` : `-${(slDistancePct * 3).toFixed(2)}%`})`;
 
-    const patternName = isBullish 
+    const patternName = isBullish
       ? (rsi14 < 40 ? 'EMA Support Bounce (Oversold Pullback)' : 'EMA 20/50 Bullish Trend Expansion')
       : (rsi14 > 60 ? 'Resistance Rejection (Overbought Pullback)' : 'EMA 20/50 Bearish Breakdown Vector');
 
@@ -463,8 +463,8 @@ window.AIEngine = {
       badgeText: activeConfluence >= 70 ? 'ENTER NOW' : 'WAIT FOR RETEST',
       reason: activeConfluence >= 70
         ? (isBullish
-            ? `Price is above EMA 20 & 50 with RSI at ${rsi14.toFixed(1)}. Real-time confluence confirms strong bullish momentum.`
-            : `Price rejected EMA resistance with RSI at ${rsi14.toFixed(1)}. Downward volume confirms high-probability short setup.`)
+          ? `Price is above EMA 20 & 50 with RSI at ${rsi14.toFixed(1)}. Real-time confluence confirms strong bullish momentum.`
+          : `Price rejected EMA resistance with RSI at ${rsi14.toFixed(1)}. Downward volume confirms high-probability short setup.`)
         : `Confluence is at ${activeConfluence}%. Market is consolidating near range boundaries. Wait for candle close confirmation.`
     };
 
@@ -483,7 +483,7 @@ window.AIEngine = {
       tp3: tp3Str,
       riskReward: '1 : 3.00',
       execution: execution,
-      trend: isBullish 
+      trend: isBullish
         ? `EMA 20 (${formatPrice(ema20)}) > EMA 50 (${formatPrice(ema50)}) • Bullish Alignment`
         : `EMA 20 (${formatPrice(ema20)}) < EMA 50 (${formatPrice(ema50)}) • Bearish Pressure`,
       momentum: `RSI (14): ${rsi14.toFixed(1)} • Volatility ATR: ${formatPrice(atr14)}`,
@@ -553,7 +553,7 @@ window.AIEngine = {
       const searchQuery = encodeURIComponent(`${cleanBase} crypto news`);
       const rssUrl = `https://news.google.com/rss/search?q=${searchQuery}&hl=en-US&gl=US&ceid=US:en`;
       const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(rssUrl)}`;
-      
+
       const res = await fetch(proxyUrl);
       if (res.ok) {
         const data = await res.json();
@@ -561,7 +561,7 @@ window.AIEngine = {
           const parser = new DOMParser();
           const xmlDoc = parser.parseFromString(data.contents, 'text/xml');
           const items = xmlDoc.querySelectorAll('item');
-          
+
           items.forEach((item, index) => {
             if (index < 3) {
               const rawTitle = item.querySelector('title') ? item.querySelector('title').textContent : '';

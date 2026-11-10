@@ -8,6 +8,8 @@ window.ScannerModule = {
   currentStream: null,
   activeChartImage: null,
   lastAnalysisData: null,
+  fullChartPair: 'BTC / USDT',
+  fullChartInterval: '5',
 
   init: function () {
     this.bindEvents();
@@ -136,6 +138,41 @@ window.ScannerModule = {
         }
       });
     }
+
+    // View Full Chart button - opens full real-time interactive chart modal
+    const viewFullChartBtn = document.getElementById('view-full-chart-btn');
+    if (viewFullChartBtn) {
+      viewFullChartBtn.addEventListener('click', () => self.openFullChartModal());
+    }
+
+    // Full Chart Modal close & backdrop
+    const fullChartClose = document.getElementById('full-chart-close-btn');
+    const fullChartBackdrop = document.getElementById('full-chart-backdrop');
+    if (fullChartClose) {
+      fullChartClose.addEventListener('click', () => self.closeFullChartModal());
+    }
+    if (fullChartBackdrop) {
+      fullChartBackdrop.addEventListener('click', (e) => {
+        if (e.target === fullChartBackdrop) self.closeFullChartModal();
+      });
+    }
+
+    // Timeframe buttons (Strictly 5min and 1 hour)
+    const tf5mBtn = document.getElementById('full-chart-tf-5m');
+    const tf1hBtn = document.getElementById('full-chart-tf-1h');
+    if (tf5mBtn) {
+      tf5mBtn.addEventListener('click', () => self.setFullChartTimeframe('5'));
+    }
+    if (tf1hBtn) {
+      tf1hBtn.addEventListener('click', () => self.setFullChartTimeframe('60'));
+    }
+
+    // Escape key listener for closing modal
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        self.closeFullChartModal();
+      }
+    });
   },
 
   recalculateWithParameters: function (isBullish) {
@@ -433,5 +470,146 @@ window.ScannerModule = {
         </a>
       `).join('');
     }
+  },
+
+  /**
+   * Open full real-time interactive chart modal
+   */
+  openFullChartModal: function (customPair) {
+    const coinInput = document.getElementById('res-coin-input');
+    const pair = customPair || (coinInput && coinInput.value ? coinInput.value.trim() : null) || (this.lastAnalysisData ? this.lastAnalysisData.pair : null) || 'BTC / USDT';
+    this.fullChartPair = pair;
+    if (!this.fullChartInterval) this.fullChartInterval = '5';
+
+    const modal = document.getElementById('full-chart-modal');
+    const coinTitle = document.getElementById('full-chart-coin-title');
+    const priceDisplay = document.getElementById('full-chart-price-display');
+
+    if (coinTitle) coinTitle.innerText = pair;
+    if (priceDisplay) {
+      priceDisplay.innerText = `Real-time ${this.fullChartInterval === '5' ? '5-Minute' : '1-Hour'} Candles`;
+    }
+
+    this.updateTimeframeButtonsUI(this.fullChartInterval);
+
+    if (modal) {
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    this.renderFullChart(this.fullChartPair, this.fullChartInterval);
+  },
+
+  /**
+   * Close full real-time interactive chart modal and clear iframe src
+   */
+  closeFullChartModal: function () {
+    const modal = document.getElementById('full-chart-modal');
+    if (modal) {
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+    const iframe = document.getElementById('full-chart-iframe');
+    if (iframe) {
+      iframe.src = '';
+    }
+  },
+
+  /**
+   * Set chart timeframe strictly to 5min ('5') or 1 hour ('60')
+   */
+  setFullChartTimeframe: function (interval) {
+    if (interval !== '5' && interval !== '60') return;
+    this.fullChartInterval = interval;
+    this.updateTimeframeButtonsUI(interval);
+
+    const priceDisplay = document.getElementById('full-chart-price-display');
+    if (priceDisplay) {
+      priceDisplay.innerText = `Real-time ${interval === '5' ? '5-Minute' : '1-Hour'} Candles`;
+    }
+
+    this.renderFullChart(this.fullChartPair, this.fullChartInterval);
+  },
+
+  /**
+   * Update active button styling for timeframe toggles
+   */
+  updateTimeframeButtonsUI: function (interval) {
+    const tf5mBtn = document.getElementById('full-chart-tf-5m');
+    const tf1hBtn = document.getElementById('full-chart-tf-1h');
+    const activeClasses = 'px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all bg-primary-container text-black shadow-sm';
+    const inactiveClasses = 'px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all text-on-surface-variant hover:text-white';
+
+    if (tf5mBtn) {
+      tf5mBtn.className = interval === '5' ? activeClasses : inactiveClasses;
+    }
+    if (tf1hBtn) {
+      tf1hBtn.className = interval === '60' ? activeClasses : inactiveClasses;
+    }
+  },
+
+  /**
+   * Map asset symbol to TradingView format
+   */
+  getTradingViewSymbol: function (pairName) {
+    if (!pairName || typeof pairName !== 'string') return 'BINANCE:BTCUSDT';
+
+    const raw = pairName.trim().toUpperCase().replace(/[\s\-_/]/g, '');
+
+    // Gold / Commodities
+    if (raw.includes('XAU') || raw.includes('GOLD')) {
+      return 'OANDA:XAUUSD';
+    }
+    if (raw.includes('USOIL') || raw.includes('CRUDE') || raw.includes('WTI')) {
+      return 'TVC:USOIL';
+    }
+
+    // Forex Pairs
+    const forexPairs = ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'USDCHF', 'NZDUSD', 'EURGBP', 'EURJPY', 'GBPJPY'];
+    for (const fx of forexPairs) {
+      if (raw.includes(fx)) {
+        return `FX:${fx}`;
+      }
+    }
+
+    // Crypto Pairs
+    if (raw.endsWith('USDT') || raw.endsWith('USDC') || raw.endsWith('BUSD')) {
+      return `BINANCE:${raw}`;
+    }
+    if (raw.endsWith('USD')) {
+      const base = raw.replace(/USD$/, '');
+      return `BINANCE:${base}USDT`;
+    }
+
+    // Default crypto base token (e.g. "ENA", "BTC", "SOL", "ETH") -> pair with USDT on Binance
+    return `BINANCE:${raw}USDT`;
+  },
+
+  /**
+   * Load real-time candlestick stream into TradingView embed iframe
+   */
+  renderFullChart: function (pairName, interval) {
+    const iframe = document.getElementById('full-chart-iframe');
+    const loader = document.getElementById('full-chart-loader');
+    if (!iframe) return;
+
+    if (loader) {
+      loader.style.opacity = '1';
+      loader.classList.remove('pointer-events-none');
+    }
+
+    iframe.onload = () => {
+      if (loader) {
+        loader.style.opacity = '0';
+        setTimeout(() => {
+          loader.classList.add('pointer-events-none');
+        }, 300);
+      }
+    };
+
+    const tvSymbol = this.getTradingViewSymbol(pairName);
+    const embedUrl = `https://s.tradingview.com/widgetembed/?frameElementId=tradingview_widget&symbol=${encodeURIComponent(tvSymbol)}&interval=${interval}&theme=dark&style=1&timezone=Etc%2FUTC&studies=[]&hide_top_toolbar=0&hide_legend=0&hide_side_toolbar=0&save_image=0&locale=en`;
+
+    iframe.src = embedUrl;
   }
 };
