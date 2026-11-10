@@ -1,23 +1,30 @@
 /**
- * AlphaChart AI - Trend Trader Remastered (TTR) & MACD Native Engine
- * Recreates the open-source logic of 'Trend Trader-Remastered' by aybarsm:
- * 1. Parabolic SAR (start: 0.02, step: 0.02, max: 0.2) for BUY / SELL trend reversal tags
- * 2. Bill Williams 2-bar Fractals (2 2 0) for Take Profit (TP) structural exhaustion markers
- * 3. MACD (12, 26, close, 9) sub-chart with MACD line, Signal line, and Histogram
- * 4. Real-time Sound Chimes, Device Vibration, and Mobile Push / Browser Signal Alerts
+ * AlphaChart AI - Native TradingView Chart Engine with Trend Trader Remastered & MACD
+ * Powered by TradingView's official Lightweight Charts library:
+ * - Full interactive TradingView dark-theme candlestick chart with pan & zoom
+ * - Real-time BUY and SELL reversal tags + Take Profit (TP) fractal markers
+ * - Volume overlay histogram
+ * - Synchronized MACD (12, 26, close, 9) sub-chart with Histogram & Signal lines
+ * - Real-time Sound Chimes, Mobile Vibration, and Phone Push Notifications
  */
 
 window.TrendTraderEngine = {
+  mainChart: null,
+  macdChart: null,
+  candleSeries: null,
+  volumeSeries: null,
+  psarSeries: null,
+  histSeries: null,
+  macdLineSeries: null,
+  signalLineSeries: null,
+
   currentPair: 'BTC / USDT',
-  currentTimeframe: '5m', // '5m' or '1h'
-  candles: [],
-  signals: [],
-  lastSignal: null,
-  activeIntervalTimer: null,
-  isMonitoring: false,
+  currentTimeframe: '5m',
+  lastCandles: [],
+  lastAnalysis: null,
 
   /**
-   * Fetch live exchange candles for 5m or 1h
+   * Fetch live Binance candles for 5m, 15m, or 1h
    */
   fetchCandles: async function (pairName, interval = '5m') {
     let cleanSymbol = 'BTCUSDT';
@@ -27,17 +34,21 @@ window.TrendTraderEngine = {
         cleanSymbol = raw;
       } else if (raw.endsWith('USD')) {
         cleanSymbol = `${raw.replace(/USD$/, '')}USDT`;
-      } else if (['EURUSD', 'GBPUSD', 'XAUUSD'].includes(raw)) {
-        cleanSymbol = 'BTCUSDT'; // Use BTC proxy for synthetic live demo if forex
+      } else if (['EURUSD', 'GBPUSD', 'XAUUSD', 'USOIL'].includes(raw)) {
+        cleanSymbol = 'BTCUSDT';
       } else {
         cleanSymbol = `${raw}USDT`;
       }
     }
 
-    const binanceInterval = interval === '1h' ? '1h' : '5m';
+    let binanceInterval = '5m';
+    if (interval === '60' || interval === '1h') binanceInterval = '1h';
+    else if (interval === '15' || interval === '15m') binanceInterval = '15m';
+    else binanceInterval = '5m';
+
     const endpoints = [
-      `https://data-api.binance.vision/api/v3/klines?symbol=${cleanSymbol}&interval=${binanceInterval}&limit=80`,
-      `https://api.binance.com/api/v3/klines?symbol=${cleanSymbol}&interval=${binanceInterval}&limit=80`
+      `https://data-api.binance.vision/api/v3/klines?symbol=${cleanSymbol}&interval=${binanceInterval}&limit=120`,
+      `https://api.binance.com/api/v3/klines?symbol=${cleanSymbol}&interval=${binanceInterval}&limit=120`
     ];
 
     for (let url of endpoints) {
@@ -47,7 +58,7 @@ window.TrendTraderEngine = {
           const raw = await res.json();
           if (Array.isArray(raw) && raw.length >= 20) {
             return raw.map(k => ({
-              time: k[0],
+              time: Math.floor(k[0] / 1000), // Unix seconds for Lightweight Charts
               open: parseFloat(k[1]),
               high: parseFloat(k[2]),
               low: parseFloat(k[3]),
@@ -57,28 +68,32 @@ window.TrendTraderEngine = {
           }
         }
       } catch (e) {
-        // try next
+        // try next endpoint
       }
     }
 
-    // High fidelity fallback generator if network/proxy blocked
-    return this.generateFallbackCandles(cleanSymbol, interval, 80);
+    // High fidelity synthetic candle model for offline / rate-limited requests
+    return this.generateFallbackCandles(cleanSymbol, binanceInterval, 100);
   },
 
-  generateFallbackCandles: function (symbol, interval, count = 80) {
+  generateFallbackCandles: function (symbol, interval, count = 100) {
     const candles = [];
-    const intervalMs = interval === '1h' ? 60 * 60 * 1000 : 5 * 60 * 1000;
-    const now = Date.now();
+    let intervalSec = 300;
+    if (interval === '1h') intervalSec = 3600;
+    else if (interval === '15m') intervalSec = 900;
+
+    const nowSec = Math.floor(Date.now() / 1000);
+    const startSec = nowSec - (count * intervalSec);
     let current = symbol.includes('BTC') ? 66500.0 : symbol.includes('ETH') ? 2600.0 : symbol.includes('AAVE') ? 125.36 : 100.0;
 
-    for (let i = count; i >= 0; i--) {
-      const t = now - (i * intervalMs);
-      const volatility = current * (interval === '1h' ? 0.008 : 0.003);
-      const change = (Math.sin(i * 0.3) * 0.7 + (Math.random() - 0.48)) * volatility;
+    for (let i = 0; i < count; i++) {
+      const t = startSec + (i * intervalSec);
+      const volatility = current * (interval === '1h' ? 0.006 : 0.003);
+      const change = (Math.sin(i * 0.25) * 0.6 + (Math.random() - 0.48)) * volatility;
       const open = current;
       const close = current + change;
-      const high = Math.max(open, close) + Math.random() * volatility * 0.6;
-      const low = Math.min(open, close) - Math.random() * volatility * 0.6;
+      const high = Math.max(open, close) + Math.random() * volatility * 0.5;
+      const low = Math.min(open, close) - Math.random() * volatility * 0.5;
       const volume = Math.floor(Math.random() * 500) + 150;
 
       candles.push({ time: t, open, high, low, close, volume });
@@ -88,8 +103,7 @@ window.TrendTraderEngine = {
   },
 
   /**
-   * Parabolic SAR (Stop and Reverse)
-   * Parameters: start = 0.02, step = 0.02, max = 0.2
+   * Parabolic SAR (start: 0.02, step: 0.02, max: 0.2)
    */
   calculatePSAR: function (candles, start = 0.02, step = 0.02, max = 0.2) {
     if (!candles || candles.length < 3) return [];
@@ -112,14 +126,11 @@ window.TrendTraderEngine = {
       let tag = null;
 
       if (isUp) {
-        // Clamping: in uptrend, SAR cannot exceed previous two lows
         nextSar = Math.min(nextSar, prev.low, prev2.low);
-
-        // Check if price fell below SAR -> SELL reversal
         if (cur.low < nextSar) {
           isUp = false;
           flipped = true;
-          sar = ep; // Reversal point is previous EP
+          sar = ep;
           ep = cur.low;
           af = start;
           tag = 'SELL';
@@ -131,14 +142,11 @@ window.TrendTraderEngine = {
           }
         }
       } else {
-        // Clamping: in downtrend, SAR cannot be lower than previous two highs
         nextSar = Math.max(nextSar, prev.high, prev2.high);
-
-        // Check if price rose above SAR -> BUY reversal
         if (cur.high > nextSar) {
           isUp = true;
           flipped = true;
-          sar = ep; // Reversal point is previous EP
+          sar = ep;
           ep = cur.high;
           af = start;
           tag = 'BUY';
@@ -158,9 +166,7 @@ window.TrendTraderEngine = {
   },
 
   /**
-   * Bill Williams 2-Bar Fractals (2 2 0)
-   * High Fractal: high > previous 2 highs && high > subsequent 2 highs
-   * Low Fractal: low < previous 2 lows && low < subsequent 2 lows
+   * Bill Williams 2-bar Fractals (2 2 0)
    */
   calculateFractals: function (candles, n = 2) {
     const fractals = [];
@@ -188,20 +194,15 @@ window.TrendTraderEngine = {
     return fractals;
   },
 
-  /**
-   * Exponential Moving Average (EMA) helper
-   */
   calcEMA: function (values, period) {
     if (!values || values.length === 0) return [];
     const k = 2 / (period + 1);
     const ema = [];
-    
-    // Initial SMA seed
     let sum = 0;
     const initialLen = Math.min(period, values.length);
     for (let i = 0; i < initialLen; i++) sum += values[i];
     let prev = sum / initialLen;
-    
+
     for (let i = 0; i < values.length; i++) {
       if (i < initialLen) {
         ema.push(prev);
@@ -214,9 +215,6 @@ window.TrendTraderEngine = {
     return ema;
   },
 
-  /**
-   * MACD Calculation (12, 26, close, 9)
-   */
   calculateMACD: function (candles, fastLen = 12, slowLen = 26, sigLen = 9) {
     const closes = candles.map(c => c.close);
     const fastEMA = this.calcEMA(closes, fastLen);
@@ -238,7 +236,7 @@ window.TrendTraderEngine = {
   },
 
   /**
-   * Synthesize full Trend Trader Remastered dataset with BUY, SELL, TP tags and MACD
+   * Run full technical analysis
    */
   analyzeCandles: function (candles) {
     const psar = this.calculatePSAR(candles, 0.02, 0.02, 0.2);
@@ -257,10 +255,8 @@ window.TrendTraderEngine = {
         tag = p.tag; // 'BUY' or 'SELL'
         currentTrend = p.isUp;
       } else if (currentTrend && f.isHigh) {
-        // In an uptrend, structural fractal high acts as Take Profit (TP)
         tag = 'TP';
       } else if (!currentTrend && f.isLow) {
-        // In a downtrend, structural fractal low acts as Take Profit (TP)
         tag = 'TP';
       }
 
@@ -271,288 +267,248 @@ window.TrendTraderEngine = {
   },
 
   /**
-   * Render interactive High-DPI Canvas with Trend Trader candles, tags and MACD panel
+   * Initializes or updates the complete TradingView Lightweight Chart & MACD sub-chart
    */
-  renderToCanvas: function (canvas, analysis) {
-    if (!canvas || !analysis) return;
-    const ctx = canvas.getContext('2d');
-    const dpr = window.devicePixelRatio || 1;
-
-    const width = canvas.parentElement ? canvas.parentElement.clientWidth : 800;
-    const height = canvas.parentElement ? canvas.parentElement.clientHeight : 520;
-
-    canvas.width = width * dpr;
-    canvas.height = height * dpr;
-    canvas.style.width = `${width}px`;
-    canvas.style.height = `${height}px`;
-
-    ctx.scale(dpr, dpr);
+  renderLightweightChart: function (mainContainer, macdContainer, analysis) {
+    if (!window.LightweightCharts || !mainContainer || !macdContainer || !analysis) return;
 
     const { candles, psar, macd, tags } = analysis;
-    const count = candles.length;
-    if (count < 2) return;
+    if (!candles || candles.length < 2) return;
 
-    // Layout Panes
-    const mainHeight = height * 0.68;
-    const dividerY = mainHeight;
-    const macdHeight = height * 0.28;
-    const macdTop = mainHeight + (height * 0.04);
-    const rightMargin = 68;
-    const chartWidth = width - rightMargin;
-
-    // Background
-    ctx.fillStyle = '#080a0f';
-    ctx.fillRect(0, 0, width, height);
-
-    // Calculate Min & Max for Main Price Chart
-    let minPrice = Infinity;
-    let maxPrice = -Infinity;
-    for (let c of candles) {
-      if (c.low < minPrice) minPrice = c.low;
-      if (c.high > maxPrice) maxPrice = c.high;
+    // Dispose previous chart instances if they exist
+    if (this.seriesMarkers) {
+      this.seriesMarkers = null;
     }
-    const pricePadding = (maxPrice - minPrice) * 0.12 || 1;
-    minPrice -= pricePadding;
-    maxPrice += pricePadding;
-
-    const candleSlotW = chartWidth / count;
-    const candleBarW = Math.max(2, candleSlotW * 0.65);
-
-    function getX(i) {
-      return i * candleSlotW + candleSlotW / 2;
+    if (this.mainChart) {
+      try { this.mainChart.remove(); } catch (e) {}
+      this.mainChart = null;
     }
-    function getYPrice(val) {
-      return mainHeight - ((val - minPrice) / (maxPrice - minPrice)) * mainHeight;
+    if (this.macdChart) {
+      try { this.macdChart.remove(); } catch (e) {}
+      this.macdChart = null;
     }
 
-    // 1. Grid Lines (Main Chart)
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
-    ctx.lineWidth = 1;
-    for (let k = 1; k <= 4; k++) {
-      const y = (mainHeight / 5) * k;
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(chartWidth, y);
-      ctx.stroke();
+    mainContainer.innerHTML = '';
+    macdContainer.innerHTML = '';
 
-      const pVal = maxPrice - (k / 5) * (maxPrice - minPrice);
-      ctx.fillStyle = '#64748b';
-      ctx.font = '10px JetBrains Mono, monospace';
-      ctx.textAlign = 'left';
-      ctx.fillText(pVal.toFixed(2), chartWidth + 6, y + 3);
-    }
+    // ==========================================
+    // 1. CREATE MAIN TRADINGVIEW CANDLESTICK CHART
+    // ==========================================
+    this.mainChart = window.LightweightCharts.createChart(mainContainer, {
+      autoSize: true,
+      layout: {
+        background: { type: 'solid', color: '#080a0f' },
+        textColor: '#94a3b8',
+        fontSize: 11,
+        fontFamily: 'Inter, -apple-system, sans-serif'
+      },
+      grid: {
+        vertLines: { color: 'rgba(255, 255, 255, 0.04)' },
+        horzLines: { color: 'rgba(255, 255, 255, 0.04)' },
+      },
+      crosshair: {
+        mode: window.LightweightCharts.CrosshairMode.Normal,
+      },
+      rightPriceScale: {
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+        scaleMargins: {
+          top: 0.1,
+          bottom: 0.2,
+        },
+      },
+      timeScale: {
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+        timeVisible: true,
+        secondsVisible: false,
+      },
+    });
 
-    // 2. Draw Candlesticks & PSAR Dots
-    for (let i = 0; i < count; i++) {
-      const c = candles[i];
-      const p = psar[i];
-      const x = getX(i);
-      const isGreen = c.close >= c.open;
-      const color = isGreen ? '#00ff88' : '#ff3366';
+    // Add Candlestick Series (exact TradingView neon styling)
+    this.candleSeries = this.mainChart.addCandlestickSeries({
+      upColor: '#00ff88',
+      downColor: '#ff3366',
+      borderUpColor: '#00ff88',
+      borderDownColor: '#ff3366',
+      wickUpColor: '#00ff88',
+      wickDownColor: '#ff3366',
+    });
+    this.candleSeries.setData(candles);
 
-      // Candle Wick
-      const yHigh = getYPrice(c.high);
-      const yLow = getYPrice(c.low);
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 1.2;
-      ctx.beginPath();
-      ctx.moveTo(x, yHigh);
-      ctx.lineTo(x, yLow);
-      ctx.stroke();
+    // Add Volume Series (overlay at bottom)
+    this.volumeSeries = this.mainChart.addHistogramSeries({
+      priceFormat: { type: 'volume' },
+      priceScaleId: '', // overlay
+    });
+    this.volumeSeries.priceScale().applyOptions({
+      scaleMargins: {
+        top: 0.82,
+        bottom: 0,
+      },
+    });
+    const volumeData = candles.map(c => ({
+      time: c.time,
+      value: c.volume,
+      color: c.close >= c.open ? 'rgba(0, 255, 136, 0.22)' : 'rgba(255, 51, 102, 0.22)'
+    }));
+    this.volumeSeries.setData(volumeData);
 
-      // Candle Body
-      const yOpen = getYPrice(c.open);
-      const yClose = getYPrice(c.close);
-      const bodyTop = Math.min(yOpen, yClose);
-      const bodyH = Math.max(1.5, Math.abs(yClose - yOpen));
-
-      ctx.fillStyle = color;
-      ctx.fillRect(x - candleBarW / 2, bodyTop, candleBarW, bodyH);
-
-      // PSAR Dot
-      if (p && p.sar) {
-        const ySar = getYPrice(p.sar);
-        ctx.fillStyle = p.isUp ? '#00e479' : '#38bdf8';
-        ctx.beginPath();
-        ctx.arc(x, ySar, 1.8, 0, Math.PI * 2);
-        ctx.fill();
+    // Add Parabolic SAR Series (trailing dots)
+    this.psarSeries = this.mainChart.addLineSeries({
+      color: '#38bdf8',
+      lineWidth: 1,
+      lineStyle: window.LightweightCharts.LineStyle.Dotted,
+      lastValueVisible: false,
+      priceLineVisible: false,
+    });
+    const psarData = [];
+    for (let i = 0; i < candles.length; i++) {
+      if (psar[i] && psar[i].sar) {
+        psarData.push({ time: candles[i].time, value: psar[i].sar });
       }
     }
+    this.psarSeries.setData(psarData);
 
-    // 3. Draw BUY, SELL, and TP Tags
-    for (let i = 0; i < count; i++) {
+    // Add Real-time BUY, SELL, and TP Markers
+    const markers = [];
+    for (let i = 0; i < candles.length; i++) {
       const tag = tags[i];
       if (!tag) continue;
       const c = candles[i];
-      const x = getX(i);
 
       if (tag === 'BUY') {
-        const yAnchor = getYPrice(c.low) + 8;
-        this.drawSignalBadge(ctx, x, yAnchor, 'BUY', '#00e479', '#000000', true);
+        markers.push({
+          time: c.time,
+          position: 'belowBar',
+          color: '#00e479',
+          shape: 'arrowUp',
+          text: 'BUY',
+          size: 2
+        });
       } else if (tag === 'SELL') {
-        const yAnchor = getYPrice(c.high) - 8;
-        this.drawSignalBadge(ctx, x, yAnchor, 'SELL', '#ff3366', '#ffffff', false);
+        markers.push({
+          time: c.time,
+          position: 'aboveBar',
+          color: '#ff3366',
+          shape: 'arrowDown',
+          text: 'SELL',
+          size: 2
+        });
       } else if (tag === 'TP') {
-        const isUpCandle = c.close >= c.open;
-        const yAnchor = isUpCandle ? (getYPrice(c.high) - 6) : (getYPrice(c.low) + 6);
-        this.drawSignalBadge(ctx, x, yAnchor, 'TP', '#c084fc', '#ffffff', !isUpCandle);
+        const isUp = c.close >= c.open;
+        markers.push({
+          time: c.time,
+          position: isUp ? 'aboveBar' : 'belowBar',
+          color: '#c084fc',
+          shape: 'circle',
+          text: 'TP',
+          size: 1.2
+        });
       }
     }
-
-    // 4. Current Live Price Line & Label on Right Axis
-    const lastCandle = candles[candles.length - 1];
-    const liveY = getYPrice(lastCandle.close);
-    ctx.strokeStyle = 'rgba(0, 228, 121, 0.4)';
-    ctx.setLineDash([3, 3]);
-    ctx.beginPath();
-    ctx.moveTo(0, liveY);
-    ctx.lineTo(chartWidth, liveY);
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    // Live Price Pill
-    ctx.fillStyle = '#00e479';
-    ctx.beginPath();
-    ctx.roundRect(chartWidth + 4, liveY - 9, 60, 18, 4);
-    ctx.fill();
-    ctx.fillStyle = '#000000';
-    ctx.font = 'bold 10px JetBrains Mono, monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText(lastCandle.close.toFixed(2), chartWidth + 34, liveY + 3.5);
-
-    // 5. Pane Divider & Sub-Chart Header
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
-    ctx.fillRect(0, dividerY, width, 1);
-
-    ctx.fillStyle = '#94a3b8';
-    ctx.font = 'bold 10px Inter, sans-serif';
-    ctx.textAlign = 'left';
-    ctx.fillText('MACD (12, 26, close, 9)', 10, macdTop - 6);
-
-    // 6. MACD Sub-Chart Calculation & Scaling
-    let maxMacdAbs = 0.001;
-    for (let i = 0; i < count; i++) {
-      const m = Math.abs(macd.macdLine[i] || 0);
-      const s = Math.abs(macd.signalLine[i] || 0);
-      const h = Math.abs(macd.histogram[i] || 0);
-      maxMacdAbs = Math.max(maxMacdAbs, m, s, h);
-    }
-    maxMacdAbs *= 1.25;
-
-    const macdCenterY = macdTop + (macdHeight / 2);
-
-    function getYMacd(val) {
-      return macdCenterY - (val / maxMacdAbs) * (macdHeight * 0.45);
+    if (typeof this.candleSeries.setMarkers === 'function') {
+      this.candleSeries.setMarkers(markers);
+    } else if (window.LightweightCharts && window.LightweightCharts.createSeriesMarkers) {
+      this.seriesMarkers = window.LightweightCharts.createSeriesMarkers(this.candleSeries, markers);
     }
 
-    // Zero Line
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-    ctx.setLineDash([2, 2]);
-    ctx.beginPath();
-    ctx.moveTo(0, macdCenterY);
-    ctx.lineTo(chartWidth, macdCenterY);
-    ctx.stroke();
-    ctx.setLineDash([]);
+    // ==========================================
+    // 2. CREATE SYNCHRONIZED MACD SUB-CHART
+    // ==========================================
+    this.macdChart = window.LightweightCharts.createChart(macdContainer, {
+      autoSize: true,
+      layout: {
+        background: { type: 'solid', color: '#05070a' },
+        textColor: '#94a3b8',
+        fontSize: 10,
+        fontFamily: 'Inter, -apple-system, sans-serif'
+      },
+      grid: {
+        vertLines: { color: 'rgba(255, 255, 255, 0.03)' },
+        horzLines: { color: 'rgba(255, 255, 255, 0.03)' },
+      },
+      crosshair: {
+        mode: window.LightweightCharts.CrosshairMode.Normal,
+      },
+      rightPriceScale: {
+        borderColor: 'rgba(255, 255, 255, 0.08)',
+        scaleMargins: {
+          top: 0.15,
+          bottom: 0.15,
+        },
+      },
+      timeScale: {
+        borderColor: 'rgba(255, 255, 255, 0.08)',
+        timeVisible: true,
+        secondsVisible: false,
+      },
+    });
 
-    // Histogram Bars
-    for (let i = 0; i < count; i++) {
-      const h = macd.histogram[i] || 0;
-      const x = getX(i);
-      const yZero = macdCenterY;
-      const yVal = getYMacd(h);
-      const barH = Math.abs(yVal - yZero);
-      const isPos = h >= 0;
-
-      ctx.fillStyle = isPos ? 'rgba(0, 255, 136, 0.7)' : 'rgba(255, 51, 102, 0.7)';
-      if (isPos) {
-        ctx.fillRect(x - candleBarW / 2, yVal, candleBarW, barH);
-      } else {
-        ctx.fillRect(x - candleBarW / 2, yZero, candleBarW, barH);
-      }
-    }
+    // MACD Histogram Bars
+    this.histSeries = this.macdChart.addHistogramSeries({
+      priceFormat: { type: 'price', precision: 2, minMove: 0.01 },
+    });
+    const histData = candles.map((c, i) => {
+      const val = macd.histogram[i] || 0;
+      return {
+        time: c.time,
+        value: val,
+        color: val >= 0 ? 'rgba(0, 255, 136, 0.75)' : 'rgba(255, 51, 102, 0.75)'
+      };
+    });
+    this.histSeries.setData(histData);
 
     // MACD Line (Cyan)
-    ctx.strokeStyle = '#38bdf8';
-    ctx.lineWidth = 1.6;
-    ctx.beginPath();
-    for (let i = 0; i < count; i++) {
-      const x = getX(i);
-      const y = getYMacd(macd.macdLine[i] || 0);
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    }
-    ctx.stroke();
+    this.macdLineSeries = this.macdChart.addLineSeries({
+      color: '#38bdf8',
+      lineWidth: 1.5,
+      lastValueVisible: false,
+    });
+    const macdLineData = candles.map((c, i) => ({
+      time: c.time,
+      value: macd.macdLine[i] || 0
+    }));
+    this.macdLineSeries.setData(macdLineData);
 
     // Signal Line (Amber)
-    ctx.strokeStyle = '#fbbf24';
-    ctx.lineWidth = 1.4;
-    ctx.beginPath();
-    for (let i = 0; i < count; i++) {
-      const x = getX(i);
-      const y = getYMacd(macd.signalLine[i] || 0);
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    }
-    ctx.stroke();
+    this.signalLineSeries = this.macdChart.addLineSeries({
+      color: '#fbbf24',
+      lineWidth: 1.5,
+      lastValueVisible: false,
+    });
+    const signalLineData = candles.map((c, i) => ({
+      time: c.time,
+      value: macd.signalLine[i] || 0
+    }));
+    this.signalLineSeries.setData(signalLineData);
 
-    // Current MACD readout values
-    const curM = (macd.macdLine[count - 1] || 0).toFixed(2);
-    const curS = (macd.signalLine[count - 1] || 0).toFixed(2);
-    const curH = (macd.histogram[count - 1] || 0).toFixed(2);
+    // ==========================================
+    // 3. SYNCHRONIZE SCROLLING & ZOOMING BETWEEN PANES
+    // ==========================================
+    let isSyncing = false;
+    this.mainChart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+      if (isSyncing || !range) return;
+      isSyncing = true;
+      try { this.macdChart.timeScale().setVisibleLogicalRange(range); } catch (e) {}
+      isSyncing = false;
+    });
 
-    ctx.font = '10px JetBrains Mono, monospace';
-    ctx.textAlign = 'left';
-    ctx.fillStyle = '#38bdf8';
-    ctx.fillText(`MACD: ${curM}`, 150, macdTop - 6);
-    ctx.fillStyle = '#fbbf24';
-    ctx.fillText(`Signal: ${curS}`, 235, macdTop - 6);
-    ctx.fillStyle = parseFloat(curH) >= 0 ? '#00ff88' : '#ff3366';
-    ctx.fillText(`Hist: ${curH}`, 320, macdTop - 6);
-  },
+    this.macdChart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+      if (isSyncing || !range) return;
+      isSyncing = true;
+      try { this.mainChart.timeScale().setVisibleLogicalRange(range); } catch (e) {}
+      isSyncing = false;
+    });
 
-  /**
-   * Draw crisp rounded signal badge matching TradingView TTR styling
-   */
-  drawSignalBadge: function (ctx, x, y, text, bgColor, textColor, pointsUp) {
-    const padX = 7;
-    const padY = 3.5;
-    ctx.font = 'bold 9px Inter, sans-serif';
-    const textW = ctx.measureText(text).width;
-    const badgeW = textW + padX * 2;
-    const badgeH = 16;
-    const badgeX = x - badgeW / 2;
-    const badgeY = pointsUp ? y + 4 : y - badgeH - 4;
+    // Fit content smoothly
+    this.mainChart.timeScale().fitContent();
+    this.macdChart.timeScale().fitContent();
 
-    // Badge Body
-    ctx.fillStyle = bgColor;
-    ctx.beginPath();
-    ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 4);
-    ctx.fill();
-
-    // Border
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 0.8;
-    ctx.stroke();
-
-    // Little indicator pointer arrow
-    ctx.fillStyle = bgColor;
-    ctx.beginPath();
-    if (pointsUp) {
-      ctx.moveTo(x, y);
-      ctx.lineTo(x - 3.5, badgeY);
-      ctx.lineTo(x + 3.5, badgeY);
-    } else {
-      ctx.moveTo(x, y);
-      ctx.lineTo(x - 3.5, badgeY + badgeH);
-      ctx.lineTo(x + 3.5, badgeY + badgeH);
-    }
-    ctx.closePath();
-    ctx.fill();
-
-    // Text Label
-    ctx.fillStyle = textColor;
-    ctx.textAlign = 'center';
-    ctx.fillText(text, x, badgeY + 11.5);
+    setTimeout(() => {
+      try {
+        if (this.mainChart) this.mainChart.timeScale().fitContent();
+        if (this.macdChart) this.macdChart.timeScale().fitContent();
+      } catch (e) {}
+    }, 60);
   }
 };
 
@@ -565,23 +521,12 @@ window.TrendTraderAlerts = {
   HISTORY_KEY: 'alphachart_signal_history_v1',
   audioCtx: null,
 
-  init: function () {
-    this.checkPermissionState();
-  },
-
   isAlertsEnabled: function () {
     return localStorage.getItem(this.STORAGE_KEY) === 'true';
   },
 
   setAlertsEnabled: function (val) {
     localStorage.setItem(this.STORAGE_KEY, val ? 'true' : 'false');
-  },
-
-  checkPermissionState: function () {
-    if ('Notification' in window) {
-      return Notification.permission;
-    }
-    return 'unsupported';
   },
 
   requestPermission: async function () {
@@ -598,10 +543,10 @@ window.TrendTraderAlerts = {
         this.vibrate();
         this.sendNotification({
           type: 'BUY',
-          pair: 'SYSTEM DEMO',
-          price: 66500.0,
+          pair: window.ScannerModule.fullChartPair || 'AAVE / USDT',
+          price: 125.36,
           timeframe: '5m',
-          notes: 'AlphaChart Signal Alerts successfully activated on your device!'
+          notes: 'AlphaChart Signal Alerts successfully activated on your phone!'
         });
         return true;
       }
@@ -612,9 +557,6 @@ window.TrendTraderAlerts = {
     }
   },
 
-  /**
-   * Synthesize real-time audio chime using Web Audio API (No external sound files required)
-   */
   playAlertSound: function (signalType) {
     try {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -656,9 +598,6 @@ window.TrendTraderAlerts = {
     }
   },
 
-  /**
-   * Device haptic vibration for mobile phones
-   */
   vibrate: function () {
     if ('navigator' in window && 'vibrate' in navigator) {
       try {
@@ -667,14 +606,10 @@ window.TrendTraderAlerts = {
     }
   },
 
-  /**
-   * Send Native Browser / Phone Notification
-   */
   sendNotification: function (signal) {
     this.playAlertSound(signal.type);
     this.vibrate();
 
-    // Log to history
     this.saveSignalToHistory(signal);
 
     if ('Notification' in window && Notification.permission === 'granted') {
@@ -689,12 +624,9 @@ window.TrendTraderAlerts = {
           badge: 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=128&auto=format&fit=crop',
           tag: `signal-${signal.pair}-${Date.now()}`
         });
-      } catch (e) {
-        console.warn('Notification construct note:', e);
-      }
+      } catch (e) {}
     }
 
-    // In-app Toast Alert
     if (window.App) {
       window.App.showToast(`🚨 ${signal.type} SIGNAL on ${signal.pair} at $${signal.price.toFixed(2)}!`);
     }
@@ -720,7 +652,7 @@ window.TrendTraderAlerts = {
     }
 
     const pair = (window.ScannerModule && window.ScannerModule.fullChartPair) ? window.ScannerModule.fullChartPair : 'AAVE / USDT';
-    const tf = (window.ScannerModule && window.ScannerModule.fullChartInterval === '60') ? '1h' : '5m';
+    const tf = (window.ScannerModule && window.ScannerModule.fullChartInterval) ? `${window.ScannerModule.fullChartInterval}m` : '5m';
 
     this.sendNotification({
       type: 'BUY',

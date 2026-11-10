@@ -160,11 +160,15 @@ window.ScannerModule = {
       });
     }
 
-    // Timeframe buttons (Strictly 5min and 1 hour)
+    // Timeframe buttons (Strictly 5min, 15min and 1 hour)
     const tf5mBtn = document.getElementById('full-chart-tf-5m');
+    const tf15mBtn = document.getElementById('full-chart-tf-15m');
     const tf1hBtn = document.getElementById('full-chart-tf-1h');
     if (tf5mBtn) {
       tf5mBtn.addEventListener('click', () => self.setFullChartTimeframe('5'));
+    }
+    if (tf15mBtn) {
+      tf15mBtn.addEventListener('click', () => self.setFullChartTimeframe('15'));
     }
     if (tf1hBtn) {
       tf1hBtn.addEventListener('click', () => self.setFullChartTimeframe('60'));
@@ -197,14 +201,18 @@ window.ScannerModule = {
       });
     }
 
-    // Window Resize listener to keep Trend Trader canvas sharp
+    // Window Resize listener to keep TradingView chart sharp and auto-fitted
     window.addEventListener('resize', () => {
       const modal = document.getElementById('full-chart-modal');
       if (modal && !modal.classList.contains('hidden') && self.fullChartMode === 'ttr') {
-        if (self.currentTTRAnalysis) {
-          const canvas = document.getElementById('trend-trader-canvas');
-          if (canvas && window.TrendTraderEngine) {
-            window.TrendTraderEngine.renderToCanvas(canvas, self.currentTTRAnalysis);
+        const mainBox = document.getElementById('tv-main-chart-container');
+        const macdBox = document.getElementById('tv-macd-chart-container');
+        if (window.TrendTraderEngine) {
+          if (mainBox && window.TrendTraderEngine.mainChart) {
+            window.TrendTraderEngine.mainChart.resize(mainBox.clientWidth, mainBox.clientHeight);
+          }
+          if (macdBox && window.TrendTraderEngine.macdChart) {
+            window.TrendTraderEngine.macdChart.resize(macdBox.clientWidth, macdBox.clientHeight);
           }
         }
       }
@@ -568,7 +576,7 @@ window.ScannerModule = {
         } else {
           scannerTtrText.innerHTML = `Trend Trader: Holding ${data.signal} Momentum • 5m Confluence`;
         }
-      }).catch(() => {});
+      }).catch(() => { });
     }
     this.updatePhoneAlertsUI();
   },
@@ -654,7 +662,8 @@ window.ScannerModule = {
 
     if (coinTitle) coinTitle.innerText = pair;
     if (priceDisplay) {
-      priceDisplay.innerText = `Real-time ${this.fullChartInterval === '5' ? '5-Minute' : '1-Hour'} Candles & Signals`;
+      const tfLabel = this.fullChartInterval === '5' ? '5-Minute' : this.fullChartInterval === '15' ? '15-Minute' : '1-Hour';
+      priceDisplay.innerText = `Real-time ${tfLabel} Candles & Signals`;
     }
 
     if (modal) {
@@ -694,32 +703,37 @@ window.ScannerModule = {
   },
 
   /**
-   * Set chart timeframe strictly to 5min ('5') or 1 hour ('60')
+   * Set chart timeframe to 5min ('5'), 15min ('15'), or 1 hour ('60')
    */
   setFullChartTimeframe: function (interval) {
-    if (interval !== '5' && interval !== '60') return;
+    if (interval !== '5' && interval !== '15' && interval !== '60') return;
     this.fullChartInterval = interval;
     this.updateTimeframeButtonsUI(interval);
 
     const priceDisplay = document.getElementById('full-chart-price-display');
     if (priceDisplay) {
-      priceDisplay.innerText = `Real-time ${interval === '5' ? '5-Minute' : '1-Hour'} Candles & Signals`;
+      const tfLabel = interval === '5' ? '5-Minute' : interval === '15' ? '15-Minute' : '1-Hour';
+      priceDisplay.innerText = `Real-time ${tfLabel} Candles & Signals`;
     }
 
     this.renderFullChart(this.fullChartPair, this.fullChartInterval);
   },
 
   /**
-   * Update active button styling for timeframe toggles
+   * Update active button styling for timeframe toggles (5min, 15min, 1h)
    */
   updateTimeframeButtonsUI: function (interval) {
     const tf5mBtn = document.getElementById('full-chart-tf-5m');
+    const tf15mBtn = document.getElementById('full-chart-tf-15m');
     const tf1hBtn = document.getElementById('full-chart-tf-1h');
     const activeClasses = 'px-2.5 py-1.5 rounded-lg text-xs font-extrabold transition-all bg-primary-container text-black shadow-sm';
     const inactiveClasses = 'px-2.5 py-1.5 rounded-lg text-xs font-extrabold transition-all text-on-surface-variant hover:text-white';
 
     if (tf5mBtn) {
       tf5mBtn.className = interval === '5' ? activeClasses : inactiveClasses;
+    }
+    if (tf15mBtn) {
+      tf15mBtn.className = interval === '15' ? activeClasses : inactiveClasses;
     }
     if (tf1hBtn) {
       tf1hBtn.className = interval === '60' ? activeClasses : inactiveClasses;
@@ -788,16 +802,20 @@ window.ScannerModule = {
         loader.classList.remove('pointer-events-none');
       }
 
-      const canvas = document.getElementById('trend-trader-canvas');
-      const tfCode = intv === '60' ? '1h' : '5m';
+      const mainContainer = document.getElementById('tv-main-chart-container');
+      const macdContainer = document.getElementById('tv-macd-chart-container');
+      let tfCode = '5m';
+      if (intv === '60') tfCode = '1h';
+      else if (intv === '15') tfCode = '15m';
+      else tfCode = '5m';
 
       try {
         const candles = await window.TrendTraderEngine.fetchCandles(pair, tfCode);
         const analysis = window.TrendTraderEngine.analyzeCandles(candles);
         this.currentTTRAnalysis = analysis;
 
-        if (canvas) {
-          window.TrendTraderEngine.renderToCanvas(canvas, analysis);
+        if (mainContainer && macdContainer && window.TrendTraderEngine && window.TrendTraderEngine.renderLightweightChart) {
+          window.TrendTraderEngine.renderLightweightChart(mainContainer, macdContainer, analysis);
         }
 
         // Determine latest signal from analysis
