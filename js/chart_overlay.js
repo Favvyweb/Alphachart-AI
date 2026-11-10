@@ -316,10 +316,10 @@ window.ChartOverlay = {
       ctx.fillStyle = isLong ? '#00e479' : '#ff4d4d';
       ctx.fillText('TREND TRADER [aybarsm]', obBoxX + 10, ttLineY);
 
-      // 3. Top 5 Elite Confluence Badge in Header
+      // 3. Top 4 Elite Confluence Badge in Header
       const bullCount = analysisData.eliteIndicators.filter(i => i.isBullish).length;
-      const activeCount = isLong ? bullCount : (5 - bullCount);
-      const badgeText = `★ ${activeCount}/5 Top Indicators: Trend Trader • SMC • AlphaTrend • Chandelier • Impulse MACD`;
+      const activeCount = isLong ? bullCount : (4 - bullCount);
+      const badgeText = `★ ${activeCount}/4 Top Indicators: Trend Trader • SMC • Chandelier • Impulse MACD`;
       ctx.font = 'bold 9px Inter, sans-serif';
       const bW = ctx.measureText(badgeText).width + 16;
       const bH = 20;

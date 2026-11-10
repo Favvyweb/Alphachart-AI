@@ -627,17 +627,15 @@ window.AIEngine = {
     const avgVol20 = volumes.slice(-20).reduce((sum, v) => sum + v, 0) / 20;
     const volExpansion = (lastCandle.volume / (avgVol20 || 1)) >= 1.15;
 
-    // 2. Compute Top 5 Elite Quantitative Indicators (from user's TradingView favorites)
+    // 2. Compute Top 4 Elite Quantitative Indicators (from TradingView favorites)
     const indTrendTrader = this.calculateTrendTraderRemastered(candles, 21, 3.0);
     const indSMC = this.calculateSmartMoneyConcepts(candles);
-    const indAlphaTrend = this.calculateAlphaTrend(candles, 1.0, 14);
     const indChandelier = this.calculateChandelierExit(candles, 22, 3.0);
     const indImpulseMACD = this.calculateImpulseMACD(candles, 34, 9);
 
     const eliteIndicators = [
       indTrendTrader,
       indSMC,
-      indAlphaTrend,
       indChandelier,
       indImpulseMACD
     ];
@@ -649,9 +647,9 @@ window.AIEngine = {
     let bullishScore = 0;
     let bearishScore = 0;
 
-    // Elite Indicators Confluence (30 pts)
-    bullishScore += (eliteBullCount * 6);
-    bearishScore += (eliteBearCount * 6);
+    // Elite Indicators Confluence (30 pts: 4 * 7.5)
+    bullishScore += Math.round(eliteBullCount * 7.5);
+    bearishScore += Math.round(eliteBearCount * 7.5);
 
     // Trend Confluence (25 pts)
     if (livePrice > ema20 && ema20 > ema50) bullishScore += 20;
@@ -731,8 +729,8 @@ window.AIEngine = {
       badgeText: activeConfluence >= 70 ? 'ENTER NOW' : 'WAIT FOR RETEST',
       reason: activeConfluence >= 70
         ? (isBullish
-          ? `${eliteBullCount}/5 Top Indicators confirm Bullish (Trend Trader, SMC, AlphaTrend). High-probability confluence confirms immediate upside expansion.`
-          : `${eliteBearCount}/5 Top Indicators confirm Bearish (Trend Trader, SMC, AlphaTrend). High-probability confluence confirms downside breakdown vector.`)
+          ? `${eliteBullCount}/4 Top Indicators confirm Bullish (Trend Trader, SMC, Chandelier, Impulse MACD). High-probability confluence confirms immediate upside expansion.`
+          : `${eliteBearCount}/4 Top Indicators confirm Bearish (Trend Trader, SMC, Chandelier, Impulse MACD). High-probability confluence confirms downside breakdown vector.`)
         : `Confluence is at ${activeConfluence}%. Market is consolidating near range boundaries. Wait for candle close confirmation.`
     };
 
