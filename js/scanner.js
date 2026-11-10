@@ -173,6 +173,35 @@ window.ScannerModule = {
         self.closeFullChartModal();
       }
     });
+
+    // Indicator telemetry pill clicks
+    const indPills = document.querySelectorAll('.elite-ind-pill');
+    indPills.forEach(pill => {
+      pill.addEventListener('click', () => {
+        indPills.forEach(p => {
+          p.classList.remove('bg-primary-container/20', 'border-primary-container', 'shadow-sm');
+          p.classList.add('bg-white/5', 'border-white/10');
+        });
+        pill.classList.remove('bg-white/5', 'border-white/10');
+        pill.classList.add('bg-primary-container/20', 'border-primary-container', 'shadow-sm');
+
+        const indKey = pill.getAttribute('data-ind');
+        self.selectTelemetryIndicator(indKey);
+      });
+    });
+
+    // Copy Pine Script Name button
+    const copyScriptBtn = document.getElementById('telemetry-action-btn');
+    if (copyScriptBtn) {
+      copyScriptBtn.addEventListener('click', () => {
+        const scriptName = copyScriptBtn.getAttribute('data-script-name') || 'Trend Trader - Remastered';
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(scriptName).then(() => {
+            if (window.App) window.App.showToast(`Copied "${scriptName}"! Search it in 'fx Indicators'.`);
+          });
+        }
+      });
+    }
   },
 
   recalculateWithParameters: function (isBullish) {
@@ -632,30 +661,122 @@ window.ScannerModule = {
   },
 
   /**
-   * Load real-time candlestick stream into TradingView embed iframe
+   * Update active indicator telemetry data in the full chart view
+   */
+  selectTelemetryIndicator: function (indKey) {
+    const nameEl = document.getElementById('telemetry-ind-name');
+    const detailEl = document.getElementById('telemetry-ind-detail');
+    const actionBtn = document.getElementById('telemetry-action-btn');
+
+    const indMap = {
+      'trend-trader': {
+        name: 'Trend Trader Remastered (aybarsm)',
+        detail: 'Adaptive ATR Trailing Stop (Len: 21, Mult: 3.0)',
+        scriptName: 'Trend Trader - Remastered'
+      },
+      'smc': {
+        name: 'Smart Money Concepts (LuxAlgo)',
+        detail: 'Institutional Order Blocks & Fair Value Gaps (FVG)',
+        scriptName: 'Smart Money Concepts [LuxAlgo]'
+      },
+      'alpha-trend': {
+        name: 'AlphaTrend (KivancOzbilgic)',
+        detail: 'Volume & MFI/RSI Momentum Trailing Filter (Coeff: 1.0)',
+        scriptName: 'AlphaTrend'
+      },
+      'chandelier': {
+        name: 'Chandelier Exit (everget)',
+        detail: 'Highest High Volatility Stop (Len: 22, Mult: 3.0)',
+        scriptName: 'Chandelier Exit [everget]'
+      },
+      'impulse-macd': {
+        name: 'Impulse MACD (LazyBear)',
+        detail: 'Zero-Lag Impulse Momentum Histogram (Len: 34, Sig: 9)',
+        scriptName: 'Impulse MACD [LazyBear]'
+      }
+    };
+
+    const target = indMap[indKey] || indMap['trend-trader'];
+    if (nameEl) nameEl.innerText = target.name;
+    if (detailEl) detailEl.innerText = target.detail;
+    if (actionBtn) {
+      actionBtn.setAttribute('data-script-name', target.scriptName);
+      actionBtn.innerHTML = `<span class="material-symbols-outlined text-[12px]">content_copy</span><span>Copy "${target.scriptName}"</span>`;
+    }
+  },
+
+  /**
+   * Load real-time candlestick stream with TradingView Advanced Chart & Studies
    */
   renderFullChart: function (pairName, interval) {
+    const container = document.getElementById('full-chart-tv-container');
     const iframe = document.getElementById('full-chart-iframe');
     const loader = document.getElementById('full-chart-loader');
-    if (!iframe) return;
 
     if (loader) {
       loader.style.opacity = '1';
       loader.classList.remove('pointer-events-none');
     }
 
-    iframe.onload = () => {
-      if (loader) {
-        loader.style.opacity = '0';
-        setTimeout(() => {
-          loader.classList.add('pointer-events-none');
-        }, 300);
-      }
-    };
-
     const tvSymbol = this.getTradingViewSymbol(pairName);
-    const embedUrl = `https://s.tradingview.com/widgetembed/?frameElementId=tradingview_widget&symbol=${encodeURIComponent(tvSymbol)}&interval=${interval}&theme=dark&style=1&timezone=Etc%2FUTC&studies=[]&hide_top_toolbar=0&hide_legend=0&hide_side_toolbar=0&save_image=0&locale=en`;
 
-    iframe.src = embedUrl;
+    // If TradingView advanced widget library is loaded, use full widget with Indicators (fx) toolbar enabled!
+    if (window.TradingView && typeof window.TradingView.widget === 'function' && container) {
+      if (iframe) iframe.classList.add('hidden');
+      container.classList.remove('hidden');
+      container.innerHTML = '';
+
+      try {
+        new window.TradingView.widget({
+          autosize: true,
+          symbol: tvSymbol,
+          interval: interval,
+          timezone: "Etc/UTC",
+          theme: "dark",
+          style: "1",
+          locale: "en",
+          toolbar_bg: "#000000",
+          enable_publishing: false,
+          hide_top_toolbar: false, // FULL TOOLBAR WITH "Indicators" BUTTON!
+          hide_side_toolbar: false,
+          allow_symbol_change: true,
+          save_image: false,
+          container_id: "full-chart-tv-container",
+          studies: [
+            "SuperTrend@tv-basicstudies",
+            "MACD@tv-basicstudies",
+            "MAExp@tv-basicstudies"
+          ]
+        });
+
+        setTimeout(() => {
+          if (loader) {
+            loader.style.opacity = '0';
+            setTimeout(() => loader.classList.add('pointer-events-none'), 300);
+          }
+        }, 1200);
+        return;
+      } catch (err) {
+        console.warn('TradingView advanced widget error, falling back to iframe:', err);
+      }
+    }
+
+    // Fallback to iframe if tv.js is unavailable
+    if (iframe) {
+      if (container) container.classList.add('hidden');
+      iframe.classList.remove('hidden');
+
+      iframe.onload = () => {
+        if (loader) {
+          loader.style.opacity = '0';
+          setTimeout(() => {
+            loader.classList.add('pointer-events-none');
+          }, 300);
+        }
+      };
+
+      const embedUrl = `https://s.tradingview.com/widgetembed/?frameElementId=tradingview_widget&symbol=${encodeURIComponent(tvSymbol)}&interval=${interval}&theme=dark&style=1&timezone=Etc%2FUTC&studies=${encodeURIComponent(JSON.stringify(["SuperTrend@tv-basicstudies","MACD@tv-basicstudies"]))}&hide_top_toolbar=0&hide_legend=0&hide_side_toolbar=0&save_image=0&locale=en`;
+      iframe.src = embedUrl;
+    }
   }
 };

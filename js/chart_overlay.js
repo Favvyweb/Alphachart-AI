@@ -263,19 +263,70 @@ window.ChartOverlay = {
     drawFutureTargetLine(tp2Y, '#00ff88', 'TP2', analysisData.tp2, false);
     drawFutureTargetLine(tp3Y, '#00ff88', 'FUTURE TP', analysisData.tp3, true);
 
-    // Top 5 Elite Confluence Badge on Chart Overlay
+    // ==========================================
+    // VISUALLY DRAW THE TOP 5 ELITE INDICATORS DIRECTLY ON CHART
+    // ==========================================
     if (analysisData.eliteIndicators) {
       ctx.save();
+
+      // 1. Draw Smart Money Concepts (SMC) Institutional Order Block Zone
+      const obBoxX = Math.max(10, presentX - 190);
+      const obBoxW = Math.min(230, width - obBoxX - 20);
+      const obBoxY = isLong ? Math.min(chartBottom - 28, entryY + 12) : Math.max(chartTop + 14, entryY - 28);
+      const obBoxH = 22;
+
+      ctx.fillStyle = isLong ? 'rgba(0, 228, 121, 0.12)' : 'rgba(255, 77, 77, 0.12)';
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(obBoxX, obBoxY, obBoxW, obBoxH, 4);
+      else ctx.rect(obBoxX, obBoxY, obBoxW, obBoxH);
+      ctx.fill();
+
+      ctx.strokeStyle = isLong ? 'rgba(0, 228, 121, 0.65)' : 'rgba(255, 77, 77, 0.65)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 3]);
+      ctx.stroke();
+
+      ctx.fillStyle = isLong ? '#00e479' : '#ff4d4d';
+      ctx.font = 'bold 9px Inter, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(isLong ? '● SMC DEMAND ORDER BLOCK [LuxAlgo]' : '● SMC SUPPLY ORDER BLOCK [LuxAlgo]', obBoxX + 6, obBoxY + obBoxH / 2);
+
+      // 2. Draw Trend Trader Remastered (aybarsm) Trailing Line
+      const ttLineY = isLong ? Math.min(chartBottom - 10, slY + 8) : Math.max(chartTop + 12, slY - 8);
+      ctx.beginPath();
+      ctx.setLineDash([6, 3, 2, 3]);
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = isLong ? '#00e479' : '#ff4d4d';
+      ctx.moveTo(obBoxX, ttLineY);
+      ctx.lineTo(presentX + 30, ttLineY);
+      ctx.stroke();
+
+      // Trend Trader Pill Tag
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(obBoxX + 6, ttLineY - 8, 145, 16, 3);
+      else ctx.rect(obBoxX + 6, ttLineY - 8, 145, 16);
+      ctx.fill();
+      ctx.strokeStyle = isLong ? '#00e479' : '#ff4d4d';
+      ctx.lineWidth = 0.8;
+      ctx.setLineDash([]);
+      ctx.stroke();
+
+      ctx.fillStyle = isLong ? '#00e479' : '#ff4d4d';
+      ctx.fillText('TREND TRADER [aybarsm]', obBoxX + 10, ttLineY);
+
+      // 3. Top 5 Elite Confluence Badge in Header
       const bullCount = analysisData.eliteIndicators.filter(i => i.isBullish).length;
       const activeCount = isLong ? bullCount : (5 - bullCount);
-      const badgeText = `★ ${activeCount}/5 Elite Confluence (Trend Trader • SMC • AlphaTrend)`;
+      const badgeText = `★ ${activeCount}/5 Top Indicators: Trend Trader • SMC • AlphaTrend • Chandelier • Impulse MACD`;
       ctx.font = 'bold 9px Inter, sans-serif';
-      const bW = ctx.measureText(badgeText).width + 14;
-      const bH = 18;
+      const bW = ctx.measureText(badgeText).width + 16;
+      const bH = 20;
       const bX = 12;
       const bY = chartTop + 6;
 
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.88)';
       ctx.beginPath();
       if (ctx.roundRect) ctx.roundRect(bX, bY, bW, bH, 4);
       else ctx.rect(bX, bY, bW, bH);
@@ -288,7 +339,8 @@ window.ChartOverlay = {
       ctx.fillStyle = isLong ? '#00ff88' : '#ff4d4d';
       ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
-      ctx.fillText(badgeText, bX + 7, bY + bH / 2);
+      ctx.fillText(badgeText, bX + 8, bY + bH / 2);
+
       ctx.restore();
     }
   }

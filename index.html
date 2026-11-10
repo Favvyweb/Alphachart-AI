@@ -18,6 +18,9 @@
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0"
     rel="stylesheet">
 
+  <!-- TradingView Advanced Real-Time Charting Library -->
+  <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
   <script>
@@ -994,12 +997,58 @@
         </div>
 
         <!-- Realtime Interactive Chart Container -->
-        <div class="flex-1 w-full relative bg-black">
-          <div id="full-chart-loader" class="absolute inset-0 flex items-center justify-center bg-black gap-2 z-10 transition-opacity duration-300">
-            <span class="material-symbols-outlined text-primary-container animate-spin text-[26px]">autorenew</span>
-            <span class="text-xs font-mono text-on-surface-variant">Streaming Real-time Market Candles...</span>
+        <div class="flex-1 w-full relative bg-black flex flex-col overflow-hidden">
+          
+          <!-- Top 5 Indicators Quick Bar -->
+          <div class="px-3 sm:px-5 py-2 bg-[#0c1017] border-b border-white/10 flex items-center gap-2 overflow-x-auto scrollbar-none shrink-0">
+            <span class="text-[10px] font-mono text-on-surface-variant uppercase tracking-wider font-bold shrink-0 flex items-center gap-1">
+              <span class="material-symbols-outlined text-primary-container text-[14px]">tune</span>
+              Indicators:
+            </span>
+            <button type="button" class="elite-ind-pill px-2.5 py-1 rounded-lg bg-primary-container/20 border border-primary-container text-white text-[11px] font-bold shrink-0 flex items-center gap-1 transition-all active:scale-95 shadow-sm" data-ind="trend-trader">
+              <span class="w-2 h-2 rounded-full bg-primary-container"></span>
+              <span>Trend Trader (aybarsm)</span>
+            </button>
+            <button type="button" class="elite-ind-pill px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white text-[11px] font-bold shrink-0 flex items-center gap-1 transition-all active:scale-95" data-ind="smc">
+              <span class="w-2 h-2 rounded-full bg-[#38bdf8]"></span>
+              <span>SMC Order Blocks (LuxAlgo)</span>
+            </button>
+            <button type="button" class="elite-ind-pill px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white text-[11px] font-bold shrink-0 flex items-center gap-1 transition-all active:scale-95" data-ind="alpha-trend">
+              <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+              <span>AlphaTrend (KivancOzbilgic)</span>
+            </button>
+            <button type="button" class="elite-ind-pill px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white text-[11px] font-bold shrink-0 flex items-center gap-1 transition-all active:scale-95" data-ind="chandelier">
+              <span class="w-2 h-2 rounded-full bg-purple-400"></span>
+              <span>Chandelier Exit (everget)</span>
+            </button>
+            <button type="button" class="elite-ind-pill px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white text-[11px] font-bold shrink-0 flex items-center gap-1 transition-all active:scale-95" data-ind="impulse-macd">
+              <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+              <span>Impulse MACD (LazyBear)</span>
+            </button>
           </div>
-          <iframe id="full-chart-iframe" class="w-full h-full border-0" src="" allowtransparency="true" scrolling="no" allowfullscreen></iframe>
+
+          <!-- Indicator Live Telemetry Ribbon -->
+          <div id="full-chart-indicator-telemetry" class="px-4 py-1.5 bg-[#121722] border-b border-white/5 flex items-center justify-between text-xs text-white shrink-0">
+            <div class="flex items-center gap-2 truncate">
+              <span id="telemetry-ind-name" class="font-bold text-primary-container shrink-0">Trend Trader Remastered (aybarsm)</span>
+              <span class="text-white/40">•</span>
+              <span id="telemetry-ind-detail" class="font-mono text-[11px] text-[#38bdf8] truncate">Trailing Support Active</span>
+            </div>
+            <button id="telemetry-action-btn" type="button" class="text-[10px] font-mono font-bold text-primary-container hover:underline flex items-center gap-1 shrink-0 ml-2">
+              <span class="material-symbols-outlined text-[12px]">content_copy</span>
+              <span>Copy Script Name</span>
+            </button>
+          </div>
+
+          <!-- Main Interactive Chart Display -->
+          <div class="flex-1 w-full relative bg-black">
+            <div id="full-chart-loader" class="absolute inset-0 flex items-center justify-center bg-black gap-2 z-10 transition-opacity duration-300">
+              <span class="material-symbols-outlined text-primary-container animate-spin text-[26px]">autorenew</span>
+              <span class="text-xs font-mono text-on-surface-variant">Streaming Real-time Market Candles & Indicators...</span>
+            </div>
+            <div id="full-chart-tv-container" class="w-full h-full"></div>
+            <iframe id="full-chart-iframe" class="w-full h-full border-0 hidden" src="" allowtransparency="true" scrolling="no" allowfullscreen></iframe>
+          </div>
         </div>
 
         <!-- Modal Footer -->
