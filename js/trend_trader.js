@@ -835,6 +835,7 @@ window.TrendTraderEngine = {
         // When price drops -5.0% from entry before reaching TP1
         if (curLowDrawdown <= -5.0 && !hitTp1 && !hitSL) {
           hitSL = true;
+          tradeClosed = true;
           exitPrice = isBuy ? (entryPrice * 0.95) : (entryPrice * 1.05);
           tpEvents.push({ time: nextC.time, level: 'SL', text: 'SL (-5%) • -$5.00', isBuy });
           reason = `Hit -5.00% SL ($${exitPrice.toFixed(2)})`;
@@ -843,50 +844,77 @@ window.TrendTraderEngine = {
 
         // Opposite Reversal Signal:
         if ((isBuy && nextTag === 'SELL') || (!isBuy && nextTag === 'BUY')) {
+          tradeClosed = true;
           exitPrice = nextC.close;
+          const closedReturnPct = isBuy ? ((exitPrice - entryPrice) / entryPrice) * 100 : ((entryPrice - exitPrice) / entryPrice) * 100;
           if (hitTp1) {
-            reason = `Reversal closed after TP1 (+${maxRoePct.toFixed(1)}%)`;
+            reason = `Reversal closed after TP1 (+${maxRoePct.toFixed(1)}%) • Exit $${exitPrice.toFixed(2)}`;
+          } else if (closedReturnPct >= 0) {
+            reason = `Reversed in profit (+${closedReturnPct.toFixed(2)}%) • Exit $${exitPrice.toFixed(2)}`;
           } else {
-            reason = `Reversed before TP1 (${maxDrawdownPct.toFixed(1)}%) • Loss -$5.00`;
+            reason = `Reversed before TP1 (${closedReturnPct.toFixed(2)}%) • Exit $${exitPrice.toFixed(2)}`;
           }
           break;
         }
       }
 
-      // STRICT WIN/LOSS RULE (3 TP TIERS: TP1 +2%, TP2 +10%, TP3 +30%):
-      // ONLY when it reaches +2.0% is it counted as a WIN!
-      // If it reaches +30.0%+: TP3 Super Runner (+$82.05+)
-      // If it reaches +10.0%+: TP2 Major Win (+$30.30+)
-      // If it reaches +2.0%: TP1 Base Win (+$10.06)
-      // If it reverses or drops before reaching +2%: LOSS (-$5.00)
-      if (maxRoePct >= 30.0) {
+      // If trade has not closed by reversal or SL, its exit price is the latest candle (Active In Play!)
+      if (!tradeClosed) {
+        const lastCandle = candles[candles.length - 1];
+        exitPrice = lastCandle.close;
+      }
+
+      // Calculate real percentage return from Entry to Exit Price
+      const finalReturnPct = isBuy
+        ? ((exitPrice - entryPrice) / entryPrice) * 100
+        : ((entryPrice - exitPrice) / entryPrice) * 100;
+
+      // DYNAMIC ACCURATE WIN/LOSS & PnL EVALUATION:
+      // - TP3 (+30%+): Super Runner
+      // - TP2 (+10%+): Major Win
+      // - TP1 (+2%+): Base Win
+      // - If positive return (> 0%): WIN! Calculates actual dollar profit based on $100 entry
+      // - If negative return (< 0%): LOSS!
+      if (maxRoePct >= 30.0 || finalReturnPct >= 30.0) {
         isWin = true;
         isLoss = false;
         tpTier = 'TP3 (+30%)';
-        const effPct = maxRoePct;
+        const effPct = Math.max(maxRoePct, finalReturnPct);
         pnl = Math.round((10.0616 + ((effPct - 2.0) * 2.5876)) * 100) / 100;
-        reason = `Hit TP3 Super Runner (+${maxRoePct.toFixed(1)}% Price) • Exit $${exitPrice.toFixed(2)}`;
-      } else if (maxRoePct >= 10.0) {
+        reason = `Hit TP3 Super Runner (+${effPct.toFixed(1)}% Price) • Exit $${exitPrice.toFixed(2)}`;
+      } else if (maxRoePct >= 10.0 || finalReturnPct >= 10.0) {
         isWin = true;
         isLoss = false;
         tpTier = 'TP2 (+10%)';
-        const effPct = maxRoePct;
+        const effPct = Math.max(maxRoePct, finalReturnPct);
         pnl = Math.round((10.0616 + ((effPct - 2.0) * 2.5876)) * 100) / 100;
-        reason = `Hit TP2 Runner (+${maxRoePct.toFixed(1)}% Price) • Exit $${exitPrice.toFixed(2)}`;
-      } else if (maxRoePct >= 2.0) {
+        reason = `Hit TP2 Runner (+${effPct.toFixed(1)}% Price) • Exit $${exitPrice.toFixed(2)}`;
+      } else if (hitTp1 || maxRoePct >= 2.0) {
         isWin = true;
         isLoss = false;
         tpTier = 'TP1 (+2%)';
         pnl = 10.06;
         reason = `Hit TP1 (+${maxRoePct.toFixed(1)}% Price) • Exit $${exitPrice.toFixed(2)}`;
+      } else if (finalReturnPct > 0) {
+        // Trade in PROFIT! (e.g. from 123.44 down to 122.53 = +0.74% profit!)
+        isWin = true;
+        isLoss = false;
+        tpTier = `+${finalReturnPct.toFixed(1)}%`;
+        // With 10x leverage (standard crypto futures), +0.74% move makes +$7.37 on $100 entry
+        pnl = Math.max(0.10, Math.round(finalReturnPct * 10 * 100) / 100);
+        reason = !tradeClosed
+          ? `Active In Profit (+${finalReturnPct.toFixed(2)}%) • Current $${exitPrice.toFixed(2)}`
+          : `Closed in Profit (+${finalReturnPct.toFixed(2)}%) • Exit $${exitPrice.toFixed(2)}`;
       } else {
+        // Trade in Loss or hit Stop Loss
         isWin = false;
         isLoss = true;
         tpTier = 'SL';
-        pnl = -5.00;
-        if (!reason || reason === 'In Play') {
-          reason = `Did not reach +2% price increase • Loss -$5.00`;
-        }
+        // Max loss capped at -5% (-$5.00)
+        pnl = Math.max(-5.00, Math.round(finalReturnPct * 10 * 100) / 100);
+        reason = hitSL
+          ? `Hit -5.00% SL ($${exitPrice.toFixed(2)})`
+          : `Loss (${finalReturnPct.toFixed(2)}%) • Exit $${exitPrice.toFixed(2)}`;
       }
 
       const outcome = isWin ? 'win' : 'loss';
@@ -1109,9 +1137,12 @@ window.TrendTraderEngine = {
             ? `<span class="px-1.5 py-0.5 rounded text-[8px] font-bold bg-[#00e479]/20 text-[#00e479] border border-[#00e479]/30">BUY</span>`
             : `<span class="px-1.5 py-0.5 rounded text-[8px] font-bold bg-[#ff3366]/20 text-[#ff3366] border border-[#ff3366]/30">SELL</span>`;
 
+          const pnlFormatted = s.pnl >= 0 ? `+$${s.pnl.toFixed(2)}` : `-$${Math.abs(s.pnl).toFixed(2)}`;
           const outcomeBadge = isWin
-            ? `<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-primary-container/20 text-primary-container border border-primary-container/30">+$${s.pnl.toFixed(2)} WIN (${s.tpTier})</span>`
-            : `<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-error-container/20 text-[#ff453a] border border-[#ff453a]/30">-$5.00 LOSS (SL)</span>`;
+            ? `<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-primary-container/20 text-primary-container border border-primary-container/30">${pnlFormatted} WIN (${s.tpTier})</span>`
+            : `<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-error-container/20 text-[#ff453a] border border-[#ff453a]/30">${pnlFormatted} LOSS (${s.tpTier})</span>`;
+
+          const subText = s.reason || (isWin ? `${s.tpTier} • Exit $${s.exitPrice.toFixed(2)}` : `Exit $${s.exitPrice.toFixed(2)}`);
 
           logHtml += `
             <div class="px-2.5 py-2 hover:bg-white/[0.04] cursor-pointer transition-colors group"
@@ -1127,7 +1158,7 @@ window.TrendTraderEngine = {
               </div>
               <div class="mt-1 flex items-center justify-between text-[8px] text-on-surface-variant/80">
                 <span class="truncate max-w-[190px]">
-                  ${isWin ? `${s.tpTier} Hit (+${(s.maxRoePct || 2).toFixed(2)}%) • Exit $${s.exitPrice.toFixed(2)}` : `Stopped Out (-5.00% SL) • Exit $${s.exitPrice.toFixed(2)}`}
+                  ${subText}
                 </span>
                 <span class="text-primary-container/70 group-hover:text-primary-container flex items-center gap-0.5 transition-colors font-medium">
                   Focus on chart ↗
