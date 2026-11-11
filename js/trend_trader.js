@@ -600,14 +600,23 @@ window.TrendTraderEngine = {
 
   /**
    * Evaluates historical BUY & SELL signals on a $100 investment mark
+   * Strictly tracks ONLY the current day (12:00 AM to 11:59 PM) - no yesterday information
    * Maintains ONLY 1:2 Risk to Reward ratio with real-time Take Profit (TP) recognition
    * Win 1:2 = +$10.00 (hits 1:2 target or TP level in profit)
    * Loss = -$5.00 (hits stop loss or opposite reversal before target/TP)
    */
   calculateDailySignalPerformance: function (candles, tags, psar) {
     if (!candles || candles.length < 2 || !tags || !psar) {
-      return { sortedDays: [], totalNet12: 0, totalTrades: 0, winRate: 0 };
+      return { sortedDays: [], totalNet12: 0, totalTrades: 0, winRate: 0, todayDayName: '' };
     }
+
+    const now = new Date();
+    // Midnight 00:00:00 UTC of today (12:00:00 AM)
+    const midnightUtcMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0);
+    const midnightSec = Math.floor(midnightUtcMs / 1000);
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const todayDayName = dayNames[now.getUTCDay()];
+    const todayDateKey = now.toISOString().slice(0, 10);
 
     const evaluatedSignals = [];
 
@@ -616,6 +625,9 @@ window.TrendTraderEngine = {
       if (tag !== 'BUY' && tag !== 'SELL') continue;
 
       const c = candles[i];
+      // STRICT FILTER: Only include signals from THAT DAY (from 12:00:00 AM midnight onward)
+      if (c.time < midnightSec) continue;
+
       const isBuy = (tag === 'BUY');
       const entryPrice = c.close;
 
@@ -715,16 +727,11 @@ window.TrendTraderEngine = {
       const outcome = isWin ? 'win' : 'loss';
       const pnl = isWin ? 10.00 : -5.00;
 
-      const dateObj = new Date(c.time * 1000);
-      const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-      const dayName = dayNames[dateObj.getDay()];
-      const dateKey = dateObj.toISOString().slice(0, 10);
-
       evaluatedSignals.push({
         index: i,
         time: c.time,
-        dateKey,
-        dayName,
+        dateKey: todayDateKey,
+        dayName: todayDayName,
         type: tag,
         entryPrice,
         outcome,
@@ -734,89 +741,35 @@ window.TrendTraderEngine = {
       });
     }
 
-    const todayDateObj = new Date();
-    const todayDateKey = todayDateObj.toISOString().slice(0, 10);
-    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const todayDayName = dayNames[todayDateObj.getDay()];
+    // Only build today's data (strictly that day's own per day)
+    const todayData = {
+      dateKey: todayDateKey,
+      dayName: todayDayName,
+      isToday: true,
+      buySignals: evaluatedSignals.filter(s => s.type === 'BUY'),
+      sellSignals: evaluatedSignals.filter(s => s.type === 'SELL')
+    };
 
-    const daysMap = {};
-    for (const sig of evaluatedSignals) {
-      if (!daysMap[sig.dateKey]) {
-        daysMap[sig.dateKey] = {
-          dateKey: sig.dateKey,
-          dayName: sig.dayName,
-          isToday: (sig.dateKey === todayDateKey),
-          buySignals: [],
-          sellSignals: []
-        };
-      }
-      if (sig.type === 'BUY') {
-        daysMap[sig.dateKey].buySignals.push(sig);
-      } else {
-        daysMap[sig.dateKey].sellSignals.push(sig);
-      }
-    }
-
-    if (!daysMap[todayDateKey]) {
-      daysMap[todayDateKey] = {
-        dateKey: todayDateKey,
-        dayName: todayDayName,
-        isToday: true,
-        buySignals: [],
-        sellSignals: []
-      };
-    }
-
-    // Persist completed days in localStorage under dedicated 1:2 key
-    const STORAGE_KEY = 'alphachart_daily_signal_perf_1_2_v2';
-    let storedHistory = {};
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) storedHistory = JSON.parse(raw);
-    } catch (e) { }
-
-    for (const dKey in daysMap) {
-      if (dKey !== todayDateKey) {
-        storedHistory[dKey] = {
-          dateKey: daysMap[dKey].dateKey,
-          dayName: daysMap[dKey].dayName,
-          buySignals: daysMap[dKey].buySignals,
-          sellSignals: daysMap[dKey].sellSignals
-        };
-      }
-    }
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(storedHistory));
-    } catch (e) { }
-
-    for (const dKey in storedHistory) {
-      if (!daysMap[dKey] && dKey !== todayDateKey) {
-        daysMap[dKey] = {
-          dateKey: storedHistory[dKey].dateKey,
-          dayName: storedHistory[dKey].dayName,
-          isToday: false,
-          buySignals: storedHistory[dKey].buySignals || [],
-          sellSignals: storedHistory[dKey].sellSignals || []
-        };
-      }
-    }
-
-    const sortedDays = Object.values(daysMap).sort((a, b) => b.dateKey.localeCompare(a.dateKey));
+    const sortedDays = [todayData];
 
     let totalNet12 = 0;
     let totalWins12 = 0;
     let totalTrades = 0;
 
-    for (const day of sortedDays) {
-      const allDaySignals = [...day.buySignals, ...day.sellSignals];
-      for (const s of allDaySignals) {
-        totalTrades++;
-        totalNet12 += s.pnl;
-        if (s.outcome === 'win') totalWins12++;
-      }
+    for (const s of evaluatedSignals) {
+      totalTrades++;
+      totalNet12 += s.pnl;
+      if (s.outcome === 'win') totalWins12++;
     }
 
     const winRate = totalTrades > 0 ? Math.round((totalWins12 / totalTrades) * 100) : 0;
+
+    // Clear legacy multi-day storage so only current day is tracked
+    try {
+      localStorage.removeItem('alphachart_daily_signal_perf_1_2_v2');
+      localStorage.removeItem('alphachart_daily_signal_history_v2');
+      localStorage.removeItem('alphachart_daily_signals_history_v2');
+    } catch (e) { }
 
     return { sortedDays, totalNet12, totalTrades, winRate, todayDayName };
   },
