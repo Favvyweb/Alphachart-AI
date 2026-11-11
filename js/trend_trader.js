@@ -632,7 +632,8 @@ window.TrendTraderEngine = {
    * - Capital: $100 entered per trade
    * - Signal candle closes to confirm entry price
    * - TP1: +2.0% gain -> Base Win (+$10.06)
-   * - TP2: +10.0%+ gain -> Runner Win (+$30.30+)
+   * - TP2: +10.0% gain -> Major Win (+$30.30)
+   * - TP3: +30.0%+ gain -> Super Runner (+$82.05+)
    * - SL: -5.0% loss -> Loss (-$5.00) if drops before TP1 or reverses before TP1
    * Strictly tracks ONLY the current day (12:00 AM to 11:59 PM)
    */
@@ -706,16 +707,21 @@ window.TrendTraderEngine = {
           maxDrawdownPct = curLowDrawdown;
         }
 
-        // Progressive TP milestone triggers (Clean 2-tier system requested by user):
+        // Progressive TP milestone triggers (Clean 3-tier system: TP1 +2%, TP2 +10%, TP3 +30%):
         // 1. TP1 at +2% (+2% ROE -> +$10.06)
         if (curHighRoe >= 2.0 && !hitTp1) {
           hitTp1 = true;
           tpEvents.push({ time: nextC.time, level: 'TP1', text: 'TP1 (+2%) • +$10.06', isBuy });
         }
-        // 2. TP2 at +10% and above (+10% ROE -> +$30.30+)
+        // 2. TP2 at +10% (+10% ROE -> +$30.30)
         if (curHighRoe >= 10.0 && !hitTp2) {
           hitTp2 = true;
           tpEvents.push({ time: nextC.time, level: 'TP2', text: 'TP2 (+10%) • +$30.30', isBuy });
+        }
+        // 3. TP3 at +30% and above (+30% ROE -> +$82.05+)
+        if (curHighRoe >= 30.0 && !hitTp3) {
+          hitTp3 = true;
+          tpEvents.push({ time: nextC.time, level: 'TP3', text: 'TP3 (+30%) • +$82.05', isBuy });
         }
 
         // Stop Loss Check:
@@ -740,16 +746,25 @@ window.TrendTraderEngine = {
         }
       }
 
-      // STRICT WIN/LOSS RULE (2 TP TIERS):
+      // STRICT WIN/LOSS RULE (3 TP TIERS: TP1 +2%, TP2 +10%, TP3 +30%):
       // ONLY when it reaches +2.0% is it counted as a WIN!
-      // If it reaches +10.0%+: TP2 Runner (+$30.30+)
-      // If it reaches +2.0%: TP1 (+$10.06)
+      // If it reaches +30.0%+: TP3 Super Runner (+$82.05+)
+      // If it reaches +10.0%+: TP2 Major Win (+$30.30+)
+      // If it reaches +2.0%: TP1 Base Win (+$10.06)
       // If it reverses or drops before reaching +2%: LOSS (-$5.00)
-      if (maxRoePct >= 10.0) {
+      if (maxRoePct >= 30.0) {
+        isWin = true;
+        isLoss = false;
+        tpTier = 'TP3 (+30%)';
+        const effPct = maxRoePct;
+        pnl = Math.round((10.0616 + ((effPct - 2.18) * 2.5876)) * 100) / 100;
+        reason = `Hit TP3 Super Runner (+${maxRoePct.toFixed(1)}%) • Exit $${exitPrice.toFixed(2)}`;
+      } else if (maxRoePct >= 10.0) {
         isWin = true;
         isLoss = false;
         tpTier = 'TP2 (+10%)';
-        pnl = 30.30;
+        const effPct = maxRoePct;
+        pnl = Math.round((10.0616 + ((effPct - 2.18) * 2.5876)) * 100) / 100;
         reason = `Hit TP2 Runner (+${maxRoePct.toFixed(1)}%) • Exit $${exitPrice.toFixed(2)}`;
       } else if (maxRoePct >= 2.0) {
         isWin = true;
