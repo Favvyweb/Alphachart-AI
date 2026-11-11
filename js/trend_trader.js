@@ -427,29 +427,50 @@ window.TrendTraderEngine = {
     }
     this.psarSeries.setData(psarData);
 
-    // Add Real-time BUY, SELL, and TP Markers
+    // Calculate start of day (12:00:00 AM UTC) to strictly isolate today's signals
+    const nowDayObj = new Date();
+    const midnightUtcMs = Date.UTC(nowDayObj.getUTCFullYear(), nowDayObj.getUTCMonth(), nowDayObj.getUTCDate(), 0, 0, 0, 0);
+    const midnightSec = Math.floor(midnightUtcMs / 1000);
+    const endOfDaySec = midnightSec + 86399; // 11:59:59 PM
+
+    // Pre-calculate daily signal outcomes to display Win/Loss badges directly on the chart markers
+    const prePerf = this.calculateDailySignalPerformance(candles, tags, psar);
+    const signalOutcomesMap = {};
+    if (prePerf && prePerf.evaluatedSignals) {
+      for (const s of prePerf.evaluatedSignals) {
+        signalOutcomesMap[s.index] = s;
+      }
+    }
+
+    // Add Real-time BUY, SELL, and TP Markers with Win/Loss badges on chart (today only from 12:00 AM)
     const markers = [];
     for (let i = 0; i < candles.length; i++) {
       const tag = tags[i];
       if (!tag) continue;
       const c = candles[i];
+      if (c.time < midnightSec) continue; // Strictly display today's signals from 12:00 AM onwards
+      const outcomeData = signalOutcomesMap[i];
 
       if (tag === 'BUY') {
+        const isWin = outcomeData ? (outcomeData.outcome === 'win') : true;
+        const textLabel = outcomeData ? (isWin ? 'BUY • +$10' : 'BUY • -$5') : 'BUY';
         markers.push({
           time: c.time,
           position: 'belowBar',
-          color: '#00e479',
+          color: isWin ? '#00e479' : '#ff453a',
           shape: 'arrowUp',
-          text: 'BUY',
+          text: textLabel,
           size: 2
         });
       } else if (tag === 'SELL') {
+        const isWin = outcomeData ? (outcomeData.outcome === 'win') : true;
+        const textLabel = outcomeData ? (isWin ? 'SELL • +$10' : 'SELL • -$5') : 'SELL';
         markers.push({
           time: c.time,
           position: 'aboveBar',
-          color: '#ff3366',
+          color: isWin ? '#00e479' : '#ff453a',
           shape: 'arrowDown',
-          text: 'SELL',
+          text: textLabel,
           size: 2
         });
       } else if (tag === 'TP') {
@@ -568,11 +589,6 @@ window.TrendTraderEngine = {
     });
 
     // Display full day from 12:00 AM (00:00:00) to 11:59 PM (23:59:59)
-    const nowObj = new Date();
-    const midnightUtcMs = Date.UTC(nowObj.getUTCFullYear(), nowObj.getUTCMonth(), nowObj.getUTCDate(), 0, 0, 0, 0);
-    const midnightSec = Math.floor(midnightUtcMs / 1000);
-    const endOfDaySec = midnightSec + 86399; // 11:59:59 PM
-
     setTimeout(() => {
       try {
         const midnightCandle = candles.find(c => c.time >= midnightSec) || candles[0];
@@ -644,6 +660,8 @@ window.TrendTraderEngine = {
       let isWin = false;
       let isLoss = false;
       let hitTP = false;
+      let reason = 'In Progress';
+      let exitPrice = entryPrice;
 
       // Scan subsequent candles forward
       const maxK = Math.min(candles.length - 1, i + 50);
@@ -655,25 +673,35 @@ window.TrendTraderEngine = {
           // Hit 1:2 target price
           if (nextC.high >= target12) {
             isWin = true;
+            exitPrice = target12;
+            reason = `Hit 1:2 Target ($${target12.toFixed(2)})`;
             break;
           }
           // Hit Take Profit (TP) marker while in profit
           if (nextTag === 'TP' && nextC.high > entryPrice) {
             isWin = true;
             hitTP = true;
+            exitPrice = nextC.high;
+            reason = `Hit TP Fractal ($${nextC.high.toFixed(2)})`;
             break;
           }
           // Hit stop loss
           if (nextC.low <= stopLoss) {
             isLoss = true;
+            exitPrice = stopLoss;
+            reason = `Stopped Out ($${stopLoss.toFixed(2)})`;
             break;
           }
           // Opposite reversal signal (SELL)
           if (nextTag === 'SELL') {
             if (nextC.close > entryPrice + (0.5 * riskDist)) {
               isWin = true;
+              exitPrice = nextC.close;
+              reason = `Reversal in Profit ($${nextC.close.toFixed(2)})`;
             } else {
               isLoss = true;
+              exitPrice = nextC.close;
+              reason = `Reversal in Loss ($${nextC.close.toFixed(2)})`;
             }
             break;
           }
@@ -682,25 +710,35 @@ window.TrendTraderEngine = {
           // Hit 1:2 target price
           if (nextC.low <= target12) {
             isWin = true;
+            exitPrice = target12;
+            reason = `Hit 1:2 Target ($${target12.toFixed(2)})`;
             break;
           }
           // Hit Take Profit (TP) marker while in profit
           if (nextTag === 'TP' && nextC.low < entryPrice) {
             isWin = true;
             hitTP = true;
+            exitPrice = nextC.low;
+            reason = `Hit TP Fractal ($${nextC.low.toFixed(2)})`;
             break;
           }
           // Hit stop loss
           if (nextC.high >= stopLoss) {
             isLoss = true;
+            exitPrice = stopLoss;
+            reason = `Stopped Out ($${stopLoss.toFixed(2)})`;
             break;
           }
           // Opposite reversal signal (BUY)
           if (nextTag === 'BUY') {
             if (nextC.close < entryPrice - (0.5 * riskDist)) {
               isWin = true;
+              exitPrice = nextC.close;
+              reason = `Reversal in Profit ($${nextC.close.toFixed(2)})`;
             } else {
               isLoss = true;
+              exitPrice = nextC.close;
+              reason = `Reversal in Loss ($${nextC.close.toFixed(2)})`;
             }
             break;
           }
@@ -711,13 +749,33 @@ window.TrendTraderEngine = {
       if (!isWin && !isLoss) {
         const lastC = candles[candles.length - 1];
         if (isBuy) {
-          if (lastC.close >= entryPrice + riskDist) isWin = true;
-          else if (lastC.close <= stopLoss) isLoss = true;
-          else isWin = (lastC.close > entryPrice);
+          if (lastC.close >= entryPrice + riskDist) {
+            isWin = true;
+            exitPrice = lastC.close;
+            reason = `In Profit ($${lastC.close.toFixed(2)})`;
+          } else if (lastC.close <= stopLoss) {
+            isLoss = true;
+            exitPrice = lastC.close;
+            reason = `Stopped Out ($${lastC.close.toFixed(2)})`;
+          } else {
+            isWin = (lastC.close > entryPrice);
+            exitPrice = lastC.close;
+            reason = isWin ? `Floating Gain ($${lastC.close.toFixed(2)})` : `Floating Loss ($${lastC.close.toFixed(2)})`;
+          }
         } else {
-          if (lastC.close <= entryPrice - riskDist) isWin = true;
-          else if (lastC.close >= stopLoss) isLoss = true;
-          else isWin = (lastC.close < entryPrice);
+          if (lastC.close <= entryPrice - riskDist) {
+            isWin = true;
+            exitPrice = lastC.close;
+            reason = `In Profit ($${lastC.close.toFixed(2)})`;
+          } else if (lastC.close >= stopLoss) {
+            isLoss = true;
+            exitPrice = lastC.close;
+            reason = `Stopped Out ($${lastC.close.toFixed(2)})`;
+          } else {
+            isWin = (lastC.close < entryPrice);
+            exitPrice = lastC.close;
+            reason = isWin ? `Floating Gain ($${lastC.close.toFixed(2)})` : `Floating Loss ($${lastC.close.toFixed(2)})`;
+          }
         }
       }
 
@@ -727,15 +785,23 @@ window.TrendTraderEngine = {
       const outcome = isWin ? 'win' : 'loss';
       const pnl = isWin ? 10.00 : -5.00;
 
+      const dateObj = new Date(c.time * 1000);
+      const hours = String(dateObj.getHours()).padStart(2, '0');
+      const mins = String(dateObj.getMinutes()).padStart(2, '0');
+      const timeFormatted = `${hours}:${mins}`;
+
       evaluatedSignals.push({
         index: i,
         time: c.time,
+        timeFormatted,
         dateKey: todayDateKey,
         dayName: todayDayName,
         type: tag,
         entryPrice,
+        exitPrice,
         outcome,
         pnl,
+        reason,
         isWin,
         hitTP
       });
@@ -771,7 +837,7 @@ window.TrendTraderEngine = {
       localStorage.removeItem('alphachart_daily_signals_history_v2');
     } catch (e) { }
 
-    return { sortedDays, totalNet12, totalTrades, winRate, todayDayName };
+    return { sortedDays, totalNet12, totalTrades, winRate, todayDayName, evaluatedSignals };
   },
 
   /**
@@ -907,8 +973,128 @@ window.TrendTraderEngine = {
       tbody.innerHTML = html;
     }
 
+    // Update count badge on Signals Log tab
+    const countBadgeEl = document.getElementById('ttr-signals-count-badge');
+    if (countBadgeEl) {
+      countBadgeEl.innerText = (perf.evaluatedSignals ? perf.evaluatedSignals.length : 0);
+    }
+
+    // Render VIEW B: Individual Signals Log (Detailed Chronological Trades)
+    const signalsLogEl = document.getElementById('ttr-view-signals-log');
+    if (signalsLogEl) {
+      if (!perf.evaluatedSignals || perf.evaluatedSignals.length === 0) {
+        signalsLogEl.innerHTML = `
+          <div class="py-6 px-3 text-center text-on-surface-variant text-[10px] italic">
+            Awaiting today's signals...
+          </div>
+        `;
+      } else {
+        // Show newest signals at top for instant visibility
+        const reversed = [...perf.evaluatedSignals].reverse();
+        let logHtml = '';
+        for (const s of reversed) {
+          const isBuy = s.type === 'BUY';
+          const isWin = s.outcome === 'win';
+
+          const typeBadge = isBuy
+            ? `<span class="px-1.5 py-0.5 rounded text-[8px] font-bold bg-[#00e479]/20 text-[#00e479] border border-[#00e479]/30">BUY</span>`
+            : `<span class="px-1.5 py-0.5 rounded text-[8px] font-bold bg-[#ff3366]/20 text-[#ff3366] border border-[#ff3366]/30">SELL</span>`;
+
+          const outcomeBadge = isWin
+            ? `<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-primary-container/20 text-primary-container border border-primary-container/30">+$10.00 WIN</span>`
+            : `<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-error-container/20 text-[#ff453a] border border-[#ff453a]/30">-$5.00 LOSS</span>`;
+
+          logHtml += `
+            <div class="px-2.5 py-2 hover:bg-white/[0.04] cursor-pointer transition-colors group"
+                 onclick="window.TrendTraderEngine.jumpToCandle(${s.time})"
+                 title="Click to focus this trade on the chart">
+              <div class="flex items-center justify-between gap-1">
+                <div class="flex items-center gap-1.5">
+                  <span class="text-white/60 text-[9px] font-mono">${s.timeFormatted}</span>
+                  ${typeBadge}
+                  <span class="text-white/90 text-[10px] font-medium">$${s.entryPrice.toFixed(2)}</span>
+                </div>
+                ${outcomeBadge}
+              </div>
+              <div class="mt-1 flex items-center justify-between text-[8px] text-on-surface-variant/80">
+                <span class="truncate max-w-[180px]">${s.reason || ''}</span>
+                <span class="text-primary-container/70 group-hover:text-primary-container flex items-center gap-0.5 transition-colors font-medium">
+                  Focus on chart ↗
+                </span>
+              </div>
+            </div>
+          `;
+        }
+        signalsLogEl.innerHTML = logHtml;
+      }
+    }
+
+    this.setupViewTabs();
+    this.applyActiveViewTab();
     this.setupTableToggle();
     this.updateTableCollapseUI();
+  },
+
+  activeViewTab: 'summary',
+  _viewTabsInitialized: false,
+
+  setupViewTabs: function () {
+    if (this._viewTabsInitialized) return;
+    this._viewTabsInitialized = true;
+
+    const summaryBtn = document.getElementById('ttr-tab-summary-btn');
+    const logBtn = document.getElementById('ttr-tab-log-btn');
+
+    if (summaryBtn) {
+      summaryBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.activeViewTab = 'summary';
+        this.applyActiveViewTab();
+      });
+    }
+
+    if (logBtn) {
+      logBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.activeViewTab = 'log';
+        this.applyActiveViewTab();
+      });
+    }
+  },
+
+  applyActiveViewTab: function () {
+    const summaryBtn = document.getElementById('ttr-tab-summary-btn');
+    const logBtn = document.getElementById('ttr-tab-log-btn');
+    const summaryView = document.getElementById('ttr-view-summary');
+    const logView = document.getElementById('ttr-view-signals-log');
+
+    if (!summaryView || !logView) return;
+
+    if (this.activeViewTab === 'log') {
+      summaryView.classList.add('hidden');
+      logView.classList.remove('hidden');
+      if (logBtn) logBtn.className = 'px-2 py-0.5 rounded text-[9px] font-bold bg-primary-container text-black transition-all';
+      if (summaryBtn) summaryBtn.className = 'px-2 py-0.5 rounded text-[9px] font-bold text-on-surface-variant hover:text-white transition-all';
+    } else {
+      summaryView.classList.remove('hidden');
+      logView.classList.add('hidden');
+      if (summaryBtn) summaryBtn.className = 'px-2 py-0.5 rounded text-[9px] font-bold bg-primary-container text-black transition-all';
+      if (logBtn) logBtn.className = 'px-2 py-0.5 rounded text-[9px] font-bold text-on-surface-variant hover:text-white transition-all';
+    }
+  },
+
+  jumpToCandle: function (timeSec) {
+    if (!this.mainChart || !this.mainChart.timeScale) return;
+    try {
+      const from = Math.max(0, timeSec - (15 * 300));
+      const to = timeSec + (25 * 300);
+      this.mainChart.timeScale().setVisibleRange({ from, to });
+      if (this.macdChart && this.macdChart.timeScale) {
+        this.macdChart.timeScale().setVisibleRange({ from, to });
+      }
+    } catch (e) {
+      console.warn('Error focusing candle:', e);
+    }
   },
 
   tableCollapsed: false,

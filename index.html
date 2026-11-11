@@ -1120,8 +1120,23 @@
                   </div>
                 </div>
 
-                <!-- Compact Table (Maintains ONLY 1:2 Ratio) -->
-                <div class="max-h-[190px] overflow-y-auto overflow-x-hidden">
+                <!-- View Mode Tabs (Summary vs All Signals Log) -->
+                <div class="px-2.5 py-1 border-b border-white/[0.06] bg-black/20 flex items-center justify-between text-[10px]">
+                  <div class="flex items-center gap-1">
+                    <button id="ttr-tab-summary-btn" type="button"
+                      class="px-2 py-0.5 rounded text-[9px] font-bold bg-primary-container text-black transition-all">
+                      Summary
+                    </button>
+                    <button id="ttr-tab-log-btn" type="button"
+                      class="px-2 py-0.5 rounded text-[9px] font-bold text-on-surface-variant hover:text-white transition-all">
+                      Signals Log (<span id="ttr-signals-count-badge">0</span>)
+                    </button>
+                  </div>
+                  <span class="text-[9px] text-on-surface-variant/80 font-mono">1:2 R:R</span>
+                </div>
+
+                <!-- VIEW A: Compact Table (Summary) -->
+                <div id="ttr-view-summary" class="max-h-[190px] overflow-y-auto overflow-x-hidden">
                   <table class="w-full text-[10px] font-mono border-collapse">
                     <thead>
                       <tr
@@ -1135,6 +1150,11 @@
                       <!-- Dynamic rows will be rendered here -->
                     </tbody>
                   </table>
+                </div>
+
+                <!-- VIEW B: Individual Signals Log (Detailed Chronological Trades) -->
+                <div id="ttr-view-signals-log" class="hidden max-h-[190px] overflow-y-auto overflow-x-hidden divide-y divide-white/[0.04] text-[10px] font-mono">
+                  <!-- Dynamic signal rows will be rendered here -->
                 </div>
 
                 <!-- Footer Summary Bar -->
