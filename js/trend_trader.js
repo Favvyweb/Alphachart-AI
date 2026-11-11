@@ -560,6 +560,439 @@ window.TrendTraderEngine = {
         if (this.macdChart) this.macdChart.timeScale().fitContent();
       } catch (e) { }
     }, 60);
+
+    // Render Compact Daily Signal Performance Table ($100 Mark)
+    this.renderDailyPerformanceTable(analysis);
+  },
+
+  /**
+   * Evaluates historical BUY & SELL signals on a $100 investment mark
+   * Evaluates Risk to Reward ratios: 1:2 (Win +$10) and 1:3 (Win +$14, or Loss -$5 if didn't meet ratio)
+   * Tracks daily Win & Loss breakdown, auto-refreshes daily, and persists historical records
+   */
+  calculateDailySignalPerformance: function (candles, tags, psar) {
+    if (!candles || candles.length < 2 || !tags || !psar) {
+      return { sortedDays: [], totalNet13: 0, totalTrades: 0, winRate: 0 };
+    }
+
+    const evaluatedSignals = [];
+
+    for (let i = 0; i < candles.length; i++) {
+      const tag = tags[i];
+      if (tag !== 'BUY' && tag !== 'SELL') continue;
+
+      const c = candles[i];
+      const isBuy = (tag === 'BUY');
+      const entryPrice = c.close;
+      const sar = (psar[i] && typeof psar[i].sar === 'number')
+        ? psar[i].sar
+        : (isBuy ? entryPrice * 0.985 : entryPrice * 1.015);
+
+      // Scalp risk model based on $100 mark:
+      // Base risk = $5 (5% of $100 investment mark)
+      // Price stop distance bounded between 0.6% and 3.5%
+      const rawRiskDist = Math.abs(entryPrice - sar);
+      const riskDist = Math.max(Math.min(rawRiskDist, entryPrice * 0.035), entryPrice * 0.006);
+
+      const target12 = isBuy ? (entryPrice + 2 * riskDist) : (entryPrice - 2 * riskDist);
+      const target13 = isBuy ? (entryPrice + 3 * riskDist) : (entryPrice - 3 * riskDist);
+      const stopLoss = isBuy ? (entryPrice - riskDist) : (entryPrice + riskDist);
+
+      let hit12 = false;
+      let hit13 = false;
+      let hitStop = false;
+
+      // Scan subsequent candles up to next opposite reversal or max 60 candles
+      const maxK = Math.min(candles.length - 1, i + 60);
+      for (let k = i + 1; k <= maxK; k++) {
+        const nextC = candles[k];
+        const nextTag = tags[k];
+
+        if (isBuy) {
+          if (nextC.high >= target13) {
+            hit13 = true;
+            hit12 = true;
+            break;
+          }
+          if (nextC.high >= target12) {
+            hit12 = true;
+          }
+          if (nextC.low <= stopLoss) {
+            hitStop = true;
+            break;
+          }
+          if (nextTag === 'SELL') {
+            break;
+          }
+        } else {
+          // SELL
+          if (nextC.low <= target13) {
+            hit13 = true;
+            hit12 = true;
+            break;
+          }
+          if (nextC.low <= target12) {
+            hit12 = true;
+          }
+          if (nextC.high >= stopLoss) {
+            hitStop = true;
+            break;
+          }
+          if (nextTag === 'BUY') {
+            break;
+          }
+        }
+      }
+
+      // $100 Investment Mark PnL:
+      // Win 1:2 -> +$10.00
+      // Win 1:3 -> +$14.00
+      // Loss (didn't meet ratio) -> -$5.00
+      const outcome12 = hit12 ? 'win' : 'loss';
+      const pnl12 = hit12 ? 10.00 : -5.00;
+
+      const outcome13 = hit13 ? 'win' : 'loss';
+      const pnl13 = hit13 ? 14.00 : -5.00;
+
+      const dateObj = new Date(c.time * 1000);
+      const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const dayName = dayNames[dateObj.getDay()];
+      const dateKey = dateObj.toISOString().slice(0, 10);
+
+      evaluatedSignals.push({
+        index: i,
+        time: c.time,
+        dateKey,
+        dayName,
+        type: tag,
+        entryPrice,
+        outcome12,
+        pnl12,
+        outcome13,
+        pnl13,
+        hit12,
+        hit13,
+        hitStop
+      });
+    }
+
+    const todayDateObj = new Date();
+    const todayDateKey = todayDateObj.toISOString().slice(0, 10);
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const todayDayName = dayNames[todayDateObj.getDay()];
+
+    // Group signals by day
+    const daysMap = {};
+    for (const sig of evaluatedSignals) {
+      if (!daysMap[sig.dateKey]) {
+        daysMap[sig.dateKey] = {
+          dateKey: sig.dateKey,
+          dayName: sig.dayName,
+          isToday: (sig.dateKey === todayDateKey),
+          buySignals: [],
+          sellSignals: []
+        };
+      }
+      if (sig.type === 'BUY') {
+        daysMap[sig.dateKey].buySignals.push(sig);
+      } else {
+        daysMap[sig.dateKey].sellSignals.push(sig);
+      }
+    }
+
+    // Ensure today is always present
+    if (!daysMap[todayDateKey]) {
+      daysMap[todayDateKey] = {
+        dateKey: todayDateKey,
+        dayName: todayDayName,
+        isToday: true,
+        buySignals: [],
+        sellSignals: []
+      };
+    }
+
+    // Persist completed historical days in localStorage
+    const STORAGE_KEY = 'alphachart_daily_signal_history_v2';
+    let storedHistory = {};
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) storedHistory = JSON.parse(raw);
+    } catch (e) { }
+
+    for (const dKey in daysMap) {
+      if (dKey !== todayDateKey) {
+        storedHistory[dKey] = {
+          dateKey: daysMap[dKey].dateKey,
+          dayName: daysMap[dKey].dayName,
+          buySignals: daysMap[dKey].buySignals,
+          sellSignals: daysMap[dKey].sellSignals
+        };
+      }
+    }
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(storedHistory));
+    } catch (e) { }
+
+    for (const dKey in storedHistory) {
+      if (!daysMap[dKey] && dKey !== todayDateKey) {
+        daysMap[dKey] = {
+          dateKey: storedHistory[dKey].dateKey,
+          dayName: storedHistory[dKey].dayName,
+          isToday: false,
+          buySignals: storedHistory[dKey].buySignals || [],
+          sellSignals: storedHistory[dKey].sellSignals || []
+        };
+      }
+    }
+
+    const sortedDays = Object.values(daysMap).sort((a, b) => b.dateKey.localeCompare(a.dateKey));
+
+    let totalNet13 = 0;
+    let totalWins13 = 0;
+    let totalTrades = 0;
+
+    for (const day of sortedDays) {
+      const allDaySignals = [...day.buySignals, ...day.sellSignals];
+      for (const s of allDaySignals) {
+        totalTrades++;
+        totalNet13 += s.pnl13;
+        if (s.outcome13 === 'win') totalWins13++;
+      }
+    }
+
+    const winRate = totalTrades > 0 ? Math.round((totalWins13 / totalTrades) * 100) : 0;
+
+    return { sortedDays, totalNet13, totalTrades, winRate, todayDayName };
+  },
+
+  /**
+   * Renders the compact daily performance table inside the chart overlay
+   */
+  renderDailyPerformanceTable: function (analysis) {
+    if (!analysis || !analysis.candles) return;
+
+    const tbody = document.getElementById('ttr-compact-table-tbody');
+    const netPnlEl = document.getElementById('ttr-compact-net-pnl');
+    const winRateEl = document.getElementById('ttr-compact-win-rate');
+    const totalTradesEl = document.getElementById('ttr-compact-total-trades');
+    const pillPnlEl = document.getElementById('ttr-compact-pill-pnl');
+    const pillRateEl = document.getElementById('ttr-compact-pill-rate');
+    const todayTagEl = document.getElementById('ttr-compact-today-tag');
+
+    const perf = this.calculateDailySignalPerformance(analysis.candles, analysis.tags, analysis.psar);
+
+    if (todayTagEl) {
+      todayTagEl.innerText = `${perf.todayDayName || ''} (Today)`;
+    }
+
+    // Format Net PnL (1:3 ratio based on $100 mark)
+    const pnlSign = perf.totalNet13 >= 0 ? '+' : '-';
+    const pnlAbs = Math.abs(perf.totalNet13).toFixed(2);
+    const pnlFormatted = `${pnlSign}$${pnlAbs}`;
+    const pnlColor = perf.totalNet13 >= 0 ? 'text-primary-container' : 'text-[#ff3366]';
+
+    if (netPnlEl) {
+      netPnlEl.innerText = pnlFormatted;
+      netPnlEl.className = `font-bold ${pnlColor}`;
+    }
+    if (winRateEl) {
+      winRateEl.innerText = `${perf.winRate}% Win`;
+      winRateEl.className = `font-semibold ${perf.winRate >= 50 ? 'text-primary-container' : 'text-white'}`;
+    }
+    if (totalTradesEl) {
+      totalTradesEl.innerText = `${perf.totalTrades} Trade${perf.totalTrades === 1 ? '' : 's'}`;
+    }
+
+    if (pillPnlEl) {
+      pillPnlEl.innerText = pnlFormatted;
+      pillPnlEl.className = `font-mono font-bold ${pnlColor}`;
+    }
+    if (pillRateEl) {
+      pillRateEl.innerText = `(${perf.winRate}% W)`;
+    }
+
+    if (tbody) {
+      let html = '';
+
+      for (const day of perf.sortedDays) {
+        const hasBuy = day.buySignals && day.buySignals.length > 0;
+        const hasSell = day.sellSignals && day.sellSignals.length > 0;
+
+        if (!hasBuy && !hasSell) {
+          // Day with no signals yet
+          html += `
+            <tr class="border-b border-white/[0.04] bg-white/[0.01]">
+              <td class="py-1 px-2 text-left">
+                <div class="flex items-center gap-1.5">
+                  ${day.isToday ? '<span class="w-1.5 h-1.5 rounded-full bg-primary-container animate-pulse"></span>' : ''}
+                  <span class="font-bold ${day.isToday ? 'text-primary-container' : 'text-white/80'}">${day.dayName}</span>
+                  ${day.isToday ? '<span class="text-[8px] text-primary-container/80 uppercase">Today</span>' : ''}
+                </div>
+              </td>
+              <td colspan="2" class="py-1 px-2 text-center text-on-surface-variant text-[9px] italic">
+                Awaiting signals...
+              </td>
+            </tr>
+          `;
+          continue;
+        }
+
+        // Render BUY row if exists
+        if (hasBuy) {
+          const buyCount = day.buySignals.length;
+          const buyWins12 = day.buySignals.filter(s => s.outcome12 === 'win').length;
+          const buyLosses12 = day.buySignals.filter(s => s.outcome12 === 'loss').length;
+          const buyPnl12 = (buyWins12 * 10) - (buyLosses12 * 5);
+
+          const buyWins13 = day.buySignals.filter(s => s.outcome13 === 'win').length;
+          const buyLosses13 = day.buySignals.filter(s => s.outcome13 === 'loss').length;
+          const buyPnl13 = (buyWins13 * 14) - (buyLosses13 * 5);
+
+          let text12 = '';
+          if (buyCount === 1) {
+            text12 = buyWins12 > 0
+              ? '<span class="text-primary-container font-bold">win 1:2 - $10</span>'
+              : '<span class="text-[#ff3366] font-semibold">loss -$5</span>';
+          } else {
+            text12 = buyPnl12 >= 0
+              ? `<span class="text-primary-container font-bold">+$${buyPnl12} (${buyWins12}W)</span>`
+              : `<span class="text-[#ff3366] font-semibold">-$${Math.abs(buyPnl12)} (${buyLosses12}L)</span>`;
+          }
+
+          let text13 = '';
+          if (buyCount === 1) {
+            text13 = buyWins13 > 0
+              ? '<span class="text-primary-container font-bold">1:3 - $14</span>'
+              : '<span class="text-[#ff3366] font-semibold">didnt meet -$5</span>';
+          } else {
+            text13 = buyPnl13 >= 0
+              ? `<span class="text-primary-container font-bold">+$${buyPnl13} (${buyWins13}W)</span>`
+              : `<span class="text-[#ff3366] font-semibold">didnt meet -$${Math.abs(buyPnl13)}</span>`;
+          }
+
+          const dayLabel = `
+            <div class="flex items-center gap-1">
+              ${day.isToday ? '<span class="w-1.5 h-1.5 rounded-full bg-primary-container animate-pulse shrink-0"></span>' : ''}
+              <span class="font-bold ${day.isToday ? 'text-primary-container' : 'text-white'}">${day.dayName}:</span>
+              <span class="px-1 py-0.2 rounded text-[8px] font-bold bg-[#00e479]/20 text-[#00e479] border border-[#00e479]/30">BUY</span>
+              ${buyCount > 1 ? `<span class="text-[8px] text-white/50">(${buyCount})</span>` : ''}
+            </div>
+          `;
+
+          html += `
+            <tr class="border-b border-white/[0.04] ${day.isToday ? 'bg-primary-container/[0.04]' : 'bg-white/[0.01]'}">
+              <td class="py-1 px-2 text-left">${dayLabel}</td>
+              <td class="py-1 px-1.5 text-center">${text12}</td>
+              <td class="py-1 px-2 text-right">${text13}</td>
+            </tr>
+          `;
+        }
+
+        // Render SELL row if exists
+        if (hasSell) {
+          const sellCount = day.sellSignals.length;
+          const sellWins12 = day.sellSignals.filter(s => s.outcome12 === 'win').length;
+          const sellLosses12 = day.sellSignals.filter(s => s.outcome12 === 'loss').length;
+          const sellPnl12 = (sellWins12 * 10) - (sellLosses12 * 5);
+
+          const sellWins13 = day.sellSignals.filter(s => s.outcome13 === 'win').length;
+          const sellLosses13 = day.sellSignals.filter(s => s.outcome13 === 'loss').length;
+          const sellPnl13 = (sellWins13 * 14) - (sellLosses13 * 5);
+
+          let text12 = '';
+          if (sellCount === 1) {
+            text12 = sellWins12 > 0
+              ? '<span class="text-primary-container font-bold">win 1:2 - $10</span>'
+              : '<span class="text-[#ff3366] font-semibold">loss -$5</span>';
+          } else {
+            text12 = sellPnl12 >= 0
+              ? `<span class="text-primary-container font-bold">+$${sellPnl12} (${sellWins12}W)</span>`
+              : `<span class="text-[#ff3366] font-semibold">-$${Math.abs(sellPnl12)} (${sellLosses12}L)</span>`;
+          }
+
+          let text13 = '';
+          if (sellCount === 1) {
+            text13 = sellWins13 > 0
+              ? '<span class="text-primary-container font-bold">1:3 - $14</span>'
+              : '<span class="text-[#ff3366] font-semibold">didnt meet -$5</span>';
+          } else {
+            text13 = sellPnl13 >= 0
+              ? `<span class="text-primary-container font-bold">+$${sellPnl13} (${sellWins13}W)</span>`
+              : `<span class="text-[#ff3366] font-semibold">didnt meet -$${Math.abs(sellPnl13)}</span>`;
+          }
+
+          const dayLabel = `
+            <div class="flex items-center gap-1">
+              ${day.isToday && !hasBuy ? '<span class="w-1.5 h-1.5 rounded-full bg-primary-container animate-pulse shrink-0"></span>' : ''}
+              <span class="font-bold ${day.isToday ? 'text-primary-container' : 'text-white'}">${day.dayName}:</span>
+              <span class="px-1 py-0.2 rounded text-[8px] font-bold bg-[#ff3366]/20 text-[#ff3366] border border-[#ff3366]/30">SELL</span>
+              ${sellCount > 1 ? `<span class="text-[8px] text-white/50">(${sellCount})</span>` : ''}
+            </div>
+          `;
+
+          html += `
+            <tr class="border-b border-white/[0.04] ${day.isToday ? 'bg-primary-container/[0.04]' : 'bg-white/[0.01]'}">
+              <td class="py-1 px-2 text-left">${dayLabel}</td>
+              <td class="py-1 px-1.5 text-center">${text12}</td>
+              <td class="py-1 px-2 text-right">${text13}</td>
+            </tr>
+          `;
+        }
+      }
+
+      tbody.innerHTML = html;
+    }
+
+    this.setupTableToggle();
+    this.updateTableCollapseUI();
+  },
+
+  tableCollapsed: false,
+  _tableToggleInitialized: false,
+
+  setupTableToggle: function () {
+    if (this._tableToggleInitialized) return;
+    this._tableToggleInitialized = true;
+
+    const saved = localStorage.getItem('alphachart_ttr_table_collapsed');
+    if (saved !== null) {
+      this.tableCollapsed = (saved === 'true');
+    }
+
+    const toggleBtn = document.getElementById('ttr-compact-table-toggle-btn');
+    const collapsedEl = document.getElementById('ttr-compact-table-collapsed');
+
+    if (toggleBtn) {
+      toggleBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.tableCollapsed = true;
+        localStorage.setItem('alphachart_ttr_table_collapsed', 'true');
+        this.updateTableCollapseUI();
+      });
+    }
+
+    if (collapsedEl) {
+      collapsedEl.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.tableCollapsed = false;
+        localStorage.setItem('alphachart_ttr_table_collapsed', 'false');
+        this.updateTableCollapseUI();
+      });
+    }
+  },
+
+  updateTableCollapseUI: function () {
+    const collapsedEl = document.getElementById('ttr-compact-table-collapsed');
+    const expandedEl = document.getElementById('ttr-compact-table-expanded');
+    if (!collapsedEl || !expandedEl) return;
+
+    if (this.tableCollapsed) {
+      expandedEl.classList.add('hidden');
+      collapsedEl.classList.remove('hidden');
+    } else {
+      collapsedEl.classList.add('hidden');
+      expandedEl.classList.remove('hidden');
+    }
   }
 };
 
