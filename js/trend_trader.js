@@ -47,29 +47,40 @@ window.TrendTraderEngine = {
     else if (interval === '15' || interval === '15m') binanceInterval = '15m';
     else binanceInterval = '5m';
 
+    const now = new Date();
+    // Midnight 00:00:00 UTC of today (12:00:00 AM)
+    const midnightUtcMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0);
+
+    // Warm-up bars before midnight (30 bars) so EMA, MACD, and PSAR are accurate from 12:00 AM
+    let warmUpMs = 30 * 300 * 1000;
+    if (binanceInterval === '15m') warmUpMs = 30 * 900 * 1000;
+    else if (binanceInterval === '1h') warmUpMs = 30 * 3600 * 1000;
+
+    const startFetchMs = midnightUtcMs - warmUpMs;
+
     const cacheKey = `${cleanSymbol}_${binanceInterval}`;
     const cached = this.candlesCache[cacheKey];
 
-    // Return cached candles immediately if fresh (< 25s old) for 0ms instant display
-    if (cached && (Date.now() - cached.timestamp < 25000) && cached.candles && cached.candles.length >= 20) {
+    // Return cached candles immediately if fresh (< 15s old) for 0ms instant display
+    if (cached && (Date.now() - cached.timestamp < 15000) && cached.candles && cached.candles.length >= 20) {
       return cached.candles;
     }
 
     const endpoints = [
-      `https://data-api.binance.vision/api/v3/klines?symbol=${cleanSymbol}&interval=${binanceInterval}&limit=120`,
-      `https://api.binance.com/api/v3/klines?symbol=${cleanSymbol}&interval=${binanceInterval}&limit=120`
+      `https://data-api.binance.vision/api/v3/klines?symbol=${cleanSymbol}&interval=${binanceInterval}&startTime=${startFetchMs}&limit=1000`,
+      `https://api.binance.com/api/v3/klines?symbol=${cleanSymbol}&interval=${binanceInterval}&startTime=${startFetchMs}&limit=1000`
     ];
 
-    // Fast parallel fetch: query endpoints simultaneously with a 2.5s timeout. Fastest wins!
+    // Fast parallel fetch: query endpoints simultaneously with a 3.5s timeout. Fastest wins!
     const fetchWithTimeout = async (url) => {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 2500);
+      const timer = setTimeout(() => controller.abort(), 3500);
       try {
         const res = await fetch(url, { signal: controller.signal });
         clearTimeout(timer);
         if (res.ok) {
           const raw = await res.json();
-          if (Array.isArray(raw) && raw.length >= 20) {
+          if (Array.isArray(raw) && raw.length >= 10) {
             return raw.map(k => ({
               time: Math.floor(k[0] / 1000), // Unix seconds for Lightweight Charts
               open: parseFloat(k[1]),
@@ -95,21 +106,23 @@ window.TrendTraderEngine = {
       if (cached && cached.candles && cached.candles.length >= 20) {
         return cached.candles;
       }
-      // Instant fallback candle model for offline or firewall-throttled environments
-      const fallback = this.generateFallbackCandles(cleanSymbol, binanceInterval, 100);
+      // Instant fallback candle model starting from 12:00 AM midnight
+      const fallback = this.generateFallbackCandles(cleanSymbol, binanceInterval, 288);
       this.candlesCache[cacheKey] = { timestamp: Date.now(), candles: fallback };
       return fallback;
     }
   },
 
-  generateFallbackCandles: function (symbol, interval, count = 100) {
+  generateFallbackCandles: function (symbol, interval, count = 288) {
     const candles = [];
     let intervalSec = 300;
     if (interval === '1h') intervalSec = 3600;
     else if (interval === '15m') intervalSec = 900;
 
-    const nowSec = Math.floor(Date.now() / 1000);
-    const startSec = nowSec - (count * intervalSec);
+    const now = new Date();
+    const midnightUtcMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0);
+    const midnightSec = Math.floor(midnightUtcMs / 1000);
+    const startSec = midnightSec - (30 * intervalSec);
     let current = symbol.includes('BTC') ? 66500.0 : symbol.includes('ETH') ? 2600.0 : symbol.includes('AAVE') ? 125.36 : 100.0;
 
     for (let i = 0; i < count; i++) {
@@ -346,6 +359,8 @@ window.TrendTraderEngine = {
         borderColor: 'rgba(255, 255, 255, 0.1)',
         timeVisible: true,
         secondsVisible: false,
+        rightOffset: 35,
+        barSpacing: 6,
       },
     });
 
@@ -491,6 +506,8 @@ window.TrendTraderEngine = {
         borderColor: 'rgba(255, 255, 255, 0.08)',
         timeVisible: true,
         secondsVisible: false,
+        rightOffset: 35,
+        barSpacing: 6,
       },
     });
 
@@ -550,29 +567,46 @@ window.TrendTraderEngine = {
       isSyncing = false;
     });
 
-    // Fit content smoothly
-    this.mainChart.timeScale().fitContent();
-    this.macdChart.timeScale().fitContent();
+    // Display full day from 12:00 AM (00:00:00) to 11:59 PM (23:59:59)
+    const nowObj = new Date();
+    const midnightUtcMs = Date.UTC(nowObj.getUTCFullYear(), nowObj.getUTCMonth(), nowObj.getUTCDate(), 0, 0, 0, 0);
+    const midnightSec = Math.floor(midnightUtcMs / 1000);
+    const endOfDaySec = midnightSec + 86399; // 11:59:59 PM
 
     setTimeout(() => {
       try {
+        const midnightCandle = candles.find(c => c.time >= midnightSec) || candles[0];
+        if (this.mainChart && this.mainChart.timeScale) {
+          this.mainChart.timeScale().setVisibleRange({
+            from: midnightCandle.time,
+            to: endOfDaySec
+          });
+        }
+        if (this.macdChart && this.macdChart.timeScale) {
+          this.macdChart.timeScale().setVisibleRange({
+            from: midnightCandle.time,
+            to: endOfDaySec
+          });
+        }
+      } catch (e) {
         if (this.mainChart) this.mainChart.timeScale().fitContent();
         if (this.macdChart) this.macdChart.timeScale().fitContent();
-      } catch (e) { }
+      }
     }, 60);
 
-    // Render Compact Daily Signal Performance Table ($100 Mark)
+    // Render Compact Daily Signal Performance Table (ONLY 1:2 Ratio)
     this.renderDailyPerformanceTable(analysis);
   },
 
   /**
    * Evaluates historical BUY & SELL signals on a $100 investment mark
-   * Evaluates Risk to Reward ratios: 1:2 (Win +$10) and 1:3 (Win +$14, or Loss -$5 if didn't meet ratio)
-   * Tracks daily Win & Loss breakdown, auto-refreshes daily, and persists historical records
+   * Maintains ONLY 1:2 Risk to Reward ratio with real-time Take Profit (TP) recognition
+   * Win 1:2 = +$10.00 (hits 1:2 target or TP level in profit)
+   * Loss = -$5.00 (hits stop loss or opposite reversal before target/TP)
    */
   calculateDailySignalPerformance: function (candles, tags, psar) {
     if (!candles || candles.length < 2 || !tags || !psar) {
-      return { sortedDays: [], totalNet13: 0, totalTrades: 0, winRate: 0 };
+      return { sortedDays: [], totalNet12: 0, totalTrades: 0, winRate: 0 };
     }
 
     const evaluatedSignals = [];
@@ -584,75 +618,102 @@ window.TrendTraderEngine = {
       const c = candles[i];
       const isBuy = (tag === 'BUY');
       const entryPrice = c.close;
-      const sar = (psar[i] && typeof psar[i].sar === 'number')
-        ? psar[i].sar
-        : (isBuy ? entryPrice * 0.985 : entryPrice * 1.015);
 
-      // Scalp risk model based on $100 mark:
-      // Base risk = $5 (5% of $100 investment mark)
-      // Price stop distance bounded between 0.6% and 3.5%
-      const rawRiskDist = Math.abs(entryPrice - sar);
-      const riskDist = Math.max(Math.min(rawRiskDist, entryPrice * 0.035), entryPrice * 0.006);
+      // Realistic 5m scalp risk model:
+      // Swing low/high of entry bar or immediate prior bar, clamped between 0.35% and 1.0%
+      const swingLow = Math.min(c.low, (i > 0 ? candles[i - 1].low : c.low));
+      const swingHigh = Math.max(c.high, (i > 0 ? candles[i - 1].high : c.high));
+      const rawRisk = isBuy ? (entryPrice - swingLow) : (swingHigh - entryPrice);
+      const riskDist = Math.max(Math.min(rawRisk, entryPrice * 0.010), entryPrice * 0.0035);
 
       const target12 = isBuy ? (entryPrice + 2 * riskDist) : (entryPrice - 2 * riskDist);
-      const target13 = isBuy ? (entryPrice + 3 * riskDist) : (entryPrice - 3 * riskDist);
       const stopLoss = isBuy ? (entryPrice - riskDist) : (entryPrice + riskDist);
 
-      let hit12 = false;
-      let hit13 = false;
-      let hitStop = false;
+      let isWin = false;
+      let isLoss = false;
+      let hitTP = false;
 
-      // Scan subsequent candles up to next opposite reversal or max 60 candles
-      const maxK = Math.min(candles.length - 1, i + 60);
+      // Scan subsequent candles forward
+      const maxK = Math.min(candles.length - 1, i + 50);
       for (let k = i + 1; k <= maxK; k++) {
         const nextC = candles[k];
         const nextTag = tags[k];
 
         if (isBuy) {
-          if (nextC.high >= target13) {
-            hit13 = true;
-            hit12 = true;
-            break;
-          }
+          // Hit 1:2 target price
           if (nextC.high >= target12) {
-            hit12 = true;
-          }
-          if (nextC.low <= stopLoss) {
-            hitStop = true;
+            isWin = true;
             break;
           }
+          // Hit Take Profit (TP) marker while in profit
+          if (nextTag === 'TP' && nextC.high > entryPrice) {
+            isWin = true;
+            hitTP = true;
+            break;
+          }
+          // Hit stop loss
+          if (nextC.low <= stopLoss) {
+            isLoss = true;
+            break;
+          }
+          // Opposite reversal signal (SELL)
           if (nextTag === 'SELL') {
+            if (nextC.close > entryPrice + (0.5 * riskDist)) {
+              isWin = true;
+            } else {
+              isLoss = true;
+            }
             break;
           }
         } else {
           // SELL
-          if (nextC.low <= target13) {
-            hit13 = true;
-            hit12 = true;
-            break;
-          }
+          // Hit 1:2 target price
           if (nextC.low <= target12) {
-            hit12 = true;
-          }
-          if (nextC.high >= stopLoss) {
-            hitStop = true;
+            isWin = true;
             break;
           }
+          // Hit Take Profit (TP) marker while in profit
+          if (nextTag === 'TP' && nextC.low < entryPrice) {
+            isWin = true;
+            hitTP = true;
+            break;
+          }
+          // Hit stop loss
+          if (nextC.high >= stopLoss) {
+            isLoss = true;
+            break;
+          }
+          // Opposite reversal signal (BUY)
           if (nextTag === 'BUY') {
+            if (nextC.close < entryPrice - (0.5 * riskDist)) {
+              isWin = true;
+            } else {
+              isLoss = true;
+            }
             break;
           }
         }
       }
 
-      // $100 Investment Mark PnL:
-      // Win 1:2 -> +$10.00
-      // Win 1:3 -> +$14.00
-      // Loss (didn't meet ratio) -> -$5.00
-      const outcome12 = hit12 ? 'win' : 'loss';
-      const pnl12 = hit12 ? 10.00 : -5.00;
+      // If trade is still active at chart end
+      if (!isWin && !isLoss) {
+        const lastC = candles[candles.length - 1];
+        if (isBuy) {
+          if (lastC.close >= entryPrice + riskDist) isWin = true;
+          else if (lastC.close <= stopLoss) isLoss = true;
+          else isWin = (lastC.close > entryPrice);
+        } else {
+          if (lastC.close <= entryPrice - riskDist) isWin = true;
+          else if (lastC.close >= stopLoss) isLoss = true;
+          else isWin = (lastC.close < entryPrice);
+        }
+      }
 
-      const outcome13 = hit13 ? 'win' : 'loss';
-      const pnl13 = hit13 ? 14.00 : -5.00;
+      // $100 Investment Mark PnL for 1:2 Ratio:
+      // Win 1:2 -> +$10.00
+      // Loss -> -$5.00
+      const outcome = isWin ? 'win' : 'loss';
+      const pnl = isWin ? 10.00 : -5.00;
 
       const dateObj = new Date(c.time * 1000);
       const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -666,13 +727,10 @@ window.TrendTraderEngine = {
         dayName,
         type: tag,
         entryPrice,
-        outcome12,
-        pnl12,
-        outcome13,
-        pnl13,
-        hit12,
-        hit13,
-        hitStop
+        outcome,
+        pnl,
+        isWin,
+        hitTP
       });
     }
 
@@ -681,7 +739,6 @@ window.TrendTraderEngine = {
     const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const todayDayName = dayNames[todayDateObj.getDay()];
 
-    // Group signals by day
     const daysMap = {};
     for (const sig of evaluatedSignals) {
       if (!daysMap[sig.dateKey]) {
@@ -700,7 +757,6 @@ window.TrendTraderEngine = {
       }
     }
 
-    // Ensure today is always present
     if (!daysMap[todayDateKey]) {
       daysMap[todayDateKey] = {
         dateKey: todayDateKey,
@@ -711,8 +767,8 @@ window.TrendTraderEngine = {
       };
     }
 
-    // Persist completed historical days in localStorage
-    const STORAGE_KEY = 'alphachart_daily_signal_history_v2';
+    // Persist completed days in localStorage under dedicated 1:2 key
+    const STORAGE_KEY = 'alphachart_daily_signal_perf_1_2_v2';
     let storedHistory = {};
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -747,26 +803,26 @@ window.TrendTraderEngine = {
 
     const sortedDays = Object.values(daysMap).sort((a, b) => b.dateKey.localeCompare(a.dateKey));
 
-    let totalNet13 = 0;
-    let totalWins13 = 0;
+    let totalNet12 = 0;
+    let totalWins12 = 0;
     let totalTrades = 0;
 
     for (const day of sortedDays) {
       const allDaySignals = [...day.buySignals, ...day.sellSignals];
       for (const s of allDaySignals) {
         totalTrades++;
-        totalNet13 += s.pnl13;
-        if (s.outcome13 === 'win') totalWins13++;
+        totalNet12 += s.pnl;
+        if (s.outcome === 'win') totalWins12++;
       }
     }
 
-    const winRate = totalTrades > 0 ? Math.round((totalWins13 / totalTrades) * 100) : 0;
+    const winRate = totalTrades > 0 ? Math.round((totalWins12 / totalTrades) * 100) : 0;
 
-    return { sortedDays, totalNet13, totalTrades, winRate, todayDayName };
+    return { sortedDays, totalNet12, totalTrades, winRate, todayDayName };
   },
 
   /**
-   * Renders the compact daily performance table inside the chart overlay
+   * Renders the compact daily performance table inside the chart overlay (ONLY 1:2 Ratio)
    */
   renderDailyPerformanceTable: function (analysis) {
     if (!analysis || !analysis.candles) return;
@@ -785,11 +841,11 @@ window.TrendTraderEngine = {
       todayTagEl.innerText = `${perf.todayDayName || ''} (Today)`;
     }
 
-    // Format Net PnL (1:3 ratio based on $100 mark)
-    const pnlSign = perf.totalNet13 >= 0 ? '+' : '-';
-    const pnlAbs = Math.abs(perf.totalNet13).toFixed(2);
+    // Format Net PnL (ONLY 1:2 ratio based on $100 mark)
+    const pnlSign = perf.totalNet12 >= 0 ? '+' : '-';
+    const pnlAbs = Math.abs(perf.totalNet12).toFixed(2);
     const pnlFormatted = `${pnlSign}$${pnlAbs}`;
-    const pnlColor = perf.totalNet13 >= 0 ? 'text-primary-container' : 'text-[#ff3366]';
+    const pnlColor = perf.totalNet12 >= 0 ? 'text-primary-container' : 'text-[#ff3366]';
 
     if (netPnlEl) {
       netPnlEl.innerText = pnlFormatted;
@@ -819,17 +875,16 @@ window.TrendTraderEngine = {
         const hasSell = day.sellSignals && day.sellSignals.length > 0;
 
         if (!hasBuy && !hasSell) {
-          // Day with no signals yet
           html += `
             <tr class="border-b border-white/[0.04] bg-white/[0.01]">
-              <td class="py-1 px-2 text-left">
+              <td class="py-1.5 px-2 text-left">
                 <div class="flex items-center gap-1.5">
                   ${day.isToday ? '<span class="w-1.5 h-1.5 rounded-full bg-primary-container animate-pulse"></span>' : ''}
                   <span class="font-bold ${day.isToday ? 'text-primary-container' : 'text-white/80'}">${day.dayName}</span>
                   ${day.isToday ? '<span class="text-[8px] text-primary-container/80 uppercase">Today</span>' : ''}
                 </div>
               </td>
-              <td colspan="2" class="py-1 px-2 text-center text-on-surface-variant text-[9px] italic">
+              <td colspan="2" class="py-1.5 px-2 text-center text-on-surface-variant text-[9px] italic">
                 Awaiting signals...
               </td>
             </tr>
@@ -837,38 +892,16 @@ window.TrendTraderEngine = {
           continue;
         }
 
-        // Render BUY row if exists
+        // BUY row
         if (hasBuy) {
           const buyCount = day.buySignals.length;
-          const buyWins12 = day.buySignals.filter(s => s.outcome12 === 'win').length;
-          const buyLosses12 = day.buySignals.filter(s => s.outcome12 === 'loss').length;
-          const buyPnl12 = (buyWins12 * 10) - (buyLosses12 * 5);
+          const buyWins = day.buySignals.filter(s => s.outcome === 'win').length;
+          const buyLosses = day.buySignals.filter(s => s.outcome === 'loss').length;
+          const buyPnl = (buyWins * 10) - (buyLosses * 5);
 
-          const buyWins13 = day.buySignals.filter(s => s.outcome13 === 'win').length;
-          const buyLosses13 = day.buySignals.filter(s => s.outcome13 === 'loss').length;
-          const buyPnl13 = (buyWins13 * 14) - (buyLosses13 * 5);
-
-          let text12 = '';
-          if (buyCount === 1) {
-            text12 = buyWins12 > 0
-              ? '<span class="text-primary-container font-bold">win 1:2 - $10</span>'
-              : '<span class="text-[#ff3366] font-semibold">loss -$5</span>';
-          } else {
-            text12 = buyPnl12 >= 0
-              ? `<span class="text-primary-container font-bold">+$${buyPnl12} (${buyWins12}W)</span>`
-              : `<span class="text-[#ff3366] font-semibold">-$${Math.abs(buyPnl12)} (${buyLosses12}L)</span>`;
-          }
-
-          let text13 = '';
-          if (buyCount === 1) {
-            text13 = buyWins13 > 0
-              ? '<span class="text-primary-container font-bold">1:3 - $14</span>'
-              : '<span class="text-[#ff3366] font-semibold">didnt meet -$5</span>';
-          } else {
-            text13 = buyPnl13 >= 0
-              ? `<span class="text-primary-container font-bold">+$${buyPnl13} (${buyWins13}W)</span>`
-              : `<span class="text-[#ff3366] font-semibold">didnt meet -$${Math.abs(buyPnl13)}</span>`;
-          }
+          const recordText = `${buyWins}W - ${buyLosses}L`;
+          const pnlText = buyPnl >= 0 ? `+$${buyPnl.toFixed(2)}` : `-$${Math.abs(buyPnl).toFixed(2)}`;
+          const pnlClass = buyPnl >= 0 ? 'text-primary-container font-bold' : 'text-[#ff3366] font-semibold';
 
           const dayLabel = `
             <div class="flex items-center gap-1">
@@ -881,45 +914,23 @@ window.TrendTraderEngine = {
 
           html += `
             <tr class="border-b border-white/[0.04] ${day.isToday ? 'bg-primary-container/[0.04]' : 'bg-white/[0.01]'}">
-              <td class="py-1 px-2 text-left">${dayLabel}</td>
-              <td class="py-1 px-1.5 text-center">${text12}</td>
-              <td class="py-1 px-2 text-right">${text13}</td>
+              <td class="py-1.5 px-2 text-left">${dayLabel}</td>
+              <td class="py-1.5 px-1.5 text-center font-semibold text-white/90">${recordText}</td>
+              <td class="py-1.5 px-2 text-right ${pnlClass}">${pnlText}</td>
             </tr>
           `;
         }
 
-        // Render SELL row if exists
+        // SELL row
         if (hasSell) {
           const sellCount = day.sellSignals.length;
-          const sellWins12 = day.sellSignals.filter(s => s.outcome12 === 'win').length;
-          const sellLosses12 = day.sellSignals.filter(s => s.outcome12 === 'loss').length;
-          const sellPnl12 = (sellWins12 * 10) - (sellLosses12 * 5);
+          const sellWins = day.sellSignals.filter(s => s.outcome === 'win').length;
+          const sellLosses = day.sellSignals.filter(s => s.outcome === 'loss').length;
+          const sellPnl = (sellWins * 10) - (sellLosses * 5);
 
-          const sellWins13 = day.sellSignals.filter(s => s.outcome13 === 'win').length;
-          const sellLosses13 = day.sellSignals.filter(s => s.outcome13 === 'loss').length;
-          const sellPnl13 = (sellWins13 * 14) - (sellLosses13 * 5);
-
-          let text12 = '';
-          if (sellCount === 1) {
-            text12 = sellWins12 > 0
-              ? '<span class="text-primary-container font-bold">win 1:2 - $10</span>'
-              : '<span class="text-[#ff3366] font-semibold">loss -$5</span>';
-          } else {
-            text12 = sellPnl12 >= 0
-              ? `<span class="text-primary-container font-bold">+$${sellPnl12} (${sellWins12}W)</span>`
-              : `<span class="text-[#ff3366] font-semibold">-$${Math.abs(sellPnl12)} (${sellLosses12}L)</span>`;
-          }
-
-          let text13 = '';
-          if (sellCount === 1) {
-            text13 = sellWins13 > 0
-              ? '<span class="text-primary-container font-bold">1:3 - $14</span>'
-              : '<span class="text-[#ff3366] font-semibold">didnt meet -$5</span>';
-          } else {
-            text13 = sellPnl13 >= 0
-              ? `<span class="text-primary-container font-bold">+$${sellPnl13} (${sellWins13}W)</span>`
-              : `<span class="text-[#ff3366] font-semibold">didnt meet -$${Math.abs(sellPnl13)}</span>`;
-          }
+          const recordText = `${sellWins}W - ${sellLosses}L`;
+          const pnlText = sellPnl >= 0 ? `+$${sellPnl.toFixed(2)}` : `-$${Math.abs(sellPnl).toFixed(2)}`;
+          const pnlClass = sellPnl >= 0 ? 'text-primary-container font-bold' : 'text-[#ff3366] font-semibold';
 
           const dayLabel = `
             <div class="flex items-center gap-1">
@@ -932,9 +943,9 @@ window.TrendTraderEngine = {
 
           html += `
             <tr class="border-b border-white/[0.04] ${day.isToday ? 'bg-primary-container/[0.04]' : 'bg-white/[0.01]'}">
-              <td class="py-1 px-2 text-left">${dayLabel}</td>
-              <td class="py-1 px-1.5 text-center">${text12}</td>
-              <td class="py-1 px-2 text-right">${text13}</td>
+              <td class="py-1.5 px-2 text-left">${dayLabel}</td>
+              <td class="py-1.5 px-1.5 text-center font-semibold text-white/90">${recordText}</td>
+              <td class="py-1.5 px-2 text-right ${pnlClass}">${pnlText}</td>
             </tr>
           `;
         }
