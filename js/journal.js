@@ -309,20 +309,20 @@ window.JournalModule = {
       const displayTime = this.formatTradeTime(t.timestamp || t.id || t.time);
 
       return `
-        <div class="bg-[#181c24] border border-white/5 rounded-2xl p-4 sm:p-5 flex flex-col gap-3.5 transition-all">
+        <div class="bg-[#1c1c1e] border border-white/[0.08] rounded-2xl p-4 sm:p-5 flex flex-col gap-3.5 transition-all shadow-sm">
           
           <!-- Header: Pair, Direction, Time & Outcome PnL -->
           <div class="flex justify-between items-start gap-2">
             <div class="flex items-center gap-3">
-              <div class="w-11 h-11 rounded-xl bg-black border border-white/10 flex items-center justify-center shrink-0">
-                <span class="material-symbols-outlined ${t.isProfit ? 'text-primary-fixed-dim' : 'text-error'} text-[24px]">
+              <div class="w-10 h-10 rounded-xl bg-[#2c2c2e] border border-white/[0.08] flex items-center justify-center shrink-0">
+                <span class="material-symbols-outlined ${t.isProfit ? 'text-primary-container' : 'text-error'} text-[22px]">
                   ${t.market === 'Crypto' ? 'currency_bitcoin' : t.market === 'Gold' ? 'paid' : 'candlestick_chart'}
                 </span>
               </div>
               <div>
-                <p class="font-display text-[15px] font-bold text-white">${t.pair}</p>
+                <p class="font-bold text-sm sm:text-base text-white">${t.pair}</p>
                 <div class="flex items-center gap-2 mt-0.5 flex-wrap">
-                  <span class="font-label-sm text-[10px] px-2 py-0.5 rounded ${t.type === 'LONG' ? 'bg-primary-container/10 text-primary-container' : 'bg-error/10 text-error'} uppercase font-bold tracking-wider">
+                  <span class="text-[10px] px-2 py-0.5 rounded ${t.type === 'LONG' ? 'bg-primary-container/15 text-primary-container' : 'bg-error/15 text-error'} uppercase font-bold tracking-wider">
                     ${t.type}
                   </span>
                   <span class="text-[11px] text-on-surface-variant flex items-center gap-1 font-mono">
@@ -335,7 +335,7 @@ window.JournalModule = {
             </div>
 
             <div class="text-right flex flex-col items-end">
-              <p class="font-mono-data text-[16px] font-bold ${pnlDisplayClass}">${t.pnl}</p>
+              <p class="font-mono text-base font-bold ${pnlDisplayClass}">${t.pnl}</p>
               <button onclick="window.JournalModule.deleteTrade(${t.id})" class="text-[11px] text-on-surface-variant/40 hover:text-error transition-colors mt-1" title="Delete trade">
                 <span class="material-symbols-outlined text-[16px]">delete</span>
               </button>
@@ -343,14 +343,14 @@ window.JournalModule = {
           </div>
 
           <!-- Trade Setup Summary Note -->
-          <div class="bg-black/40 border border-white/5 rounded-xl px-3.5 py-2.5">
-            <p class="text-[12px] text-on-surface-variant leading-relaxed">
-              <span class="text-white/80 font-medium">Observation:</span> ${t.notes}
+          <div class="bg-[#2c2c2e] border border-white/[0.06] rounded-xl px-3.5 py-2.5">
+            <p class="text-xs text-on-surface-variant leading-relaxed">
+              <span class="text-white/90 font-medium">Observation:</span> ${t.notes}
             </p>
           </div>
 
           <!-- Dedicated Feedback Box: How much did you make/loss? & Your observation -->
-          <div class="bg-black/60 border border-white/10 rounded-xl p-3.5 flex flex-col gap-3">
+          <div class="bg-[#2c2c2e] border border-white/[0.08] rounded-xl p-3.5 flex flex-col gap-3">
             
             <div class="flex items-center justify-between">
               <span class="text-[11px] font-bold uppercase tracking-wider text-primary-container flex items-center gap-1.5">
@@ -372,7 +372,7 @@ window.JournalModule = {
                   id="feedback-pnl-${t.id}" 
                   value="${t.userOutcomePnl || t.pnl || ''}" 
                   placeholder="e.g. +$450.00 or -$120.00" 
-                  class="w-full bg-[#10141d] border border-white/10 rounded-lg px-3 py-2 text-xs font-mono text-white placeholder:text-on-surface-variant/40 focus:outline-none focus:border-primary-container transition-all"
+                  class="w-full bg-[#000000] border border-white/[0.1] rounded-lg px-3 py-2 text-xs font-mono text-white placeholder:text-on-surface-variant/40 focus:outline-none focus:border-primary-container transition-all"
                 />
               </div>
 
@@ -385,7 +385,7 @@ window.JournalModule = {
                   id="feedback-time-${t.id}" 
                   value="${this.getLocalISOString(new Date(t.timestamp || t.id || Date.now()))}" 
                   style="color-scheme: dark;"
-                  class="w-full bg-[#10141d] border border-white/10 rounded-lg px-2.5 py-2 text-xs font-mono text-white focus:outline-none focus:border-primary-container transition-all"
+                  class="w-full bg-[#000000] border border-white/[0.1] rounded-lg px-2.5 py-2 text-xs font-mono text-white focus:outline-none focus:border-primary-container transition-all"
                 />
               </div>
             </div>
@@ -399,7 +399,7 @@ window.JournalModule = {
                 id="feedback-obs-${t.id}" 
                 rows="2" 
                 placeholder="Review what worked, execution discipline, or lessons learned..." 
-                class="w-full bg-[#10141d] border border-white/10 rounded-lg p-2.5 text-xs text-white placeholder:text-on-surface-variant/40 focus:outline-none focus:border-primary-container resize-none transition-all leading-relaxed"
+                class="w-full bg-[#000000] border border-white/[0.1] rounded-lg p-2.5 text-xs text-white placeholder:text-on-surface-variant/40 focus:outline-none focus:border-primary-container resize-none transition-all leading-relaxed"
               >${t.userObservation || t.notes || ''}</textarea>
             </div>
 
@@ -410,7 +410,7 @@ window.JournalModule = {
               </span>
               <button 
                 onclick="window.JournalModule.saveFeedback(${t.id})" 
-                class="px-3.5 py-1.5 rounded-lg bg-primary-container text-black font-bold text-xs flex items-center gap-1.5 active:scale-95 hover:brightness-110 transition-all shadow-md">
+                class="px-3.5 py-1.5 rounded-xl bg-primary-container text-black font-bold text-xs flex items-center gap-1.5 active:scale-95 hover:brightness-105 transition-all shadow-sm">
                 <span class="material-symbols-outlined text-[15px]">save</span>
                 <span>Update Feedback</span>
               </button>

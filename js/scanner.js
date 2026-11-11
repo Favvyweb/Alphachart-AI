@@ -509,18 +509,18 @@ window.ScannerModule = {
       if (eliteBadge) {
         eliteBadge.innerText = `${activeCount} / 4 ${isLong ? 'Bullish' : 'Bearish'} Confluence`;
         eliteBadge.className = activeCount >= 3
-          ? 'px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-primary-container/20 text-primary-container border border-primary-container/40 whitespace-nowrap shrink-0'
-          : 'px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-400/20 text-amber-300 border border-amber-400/30 whitespace-nowrap shrink-0';
+          ? 'px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-primary-container/15 text-primary-container border border-primary-container/30 whitespace-nowrap shrink-0'
+          : 'px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-400/15 text-amber-300 border border-amber-400/30 whitespace-nowrap shrink-0';
       }
 
       if (eliteList) {
         eliteList.innerHTML = data.eliteIndicators.map(ind => `
-          <div class="p-2.5 rounded-xl bg-black/60 border border-white/5 flex items-center justify-between gap-2">
+          <div class="p-2.5 rounded-xl bg-[#2c2c2e] border border-white/[0.06] flex items-center justify-between gap-2">
             <div class="flex items-center gap-2 min-w-0">
               <span class="w-2 h-2 rounded-full ${ind.isBullish ? 'bg-primary-container' : 'bg-error'} shrink-0"></span>
               <div class="min-w-0">
-                <p class="text-xs font-bold text-white truncate">${ind.name} <span class="text-[10px] text-on-surface-variant font-normal">(${ind.author})</span></p>
-                <p class="text-[10px] text-on-surface-variant/80 font-mono truncate">${ind.detail}</p>
+                <p class="text-xs font-semibold text-white truncate">${ind.name} <span class="text-[10px] text-on-surface-variant font-normal">(${ind.author})</span></p>
+                <p class="text-[10px] text-on-surface-variant font-mono truncate">${ind.detail}</p>
               </div>
             </div>
             <span class="px-2 py-0.5 rounded text-[9px] font-mono font-bold shrink-0 whitespace-nowrap ${ind.isBullish ? 'bg-primary-container/15 text-primary-container border border-primary-container/20' : 'bg-error/15 text-error border border-error/20'}">
@@ -536,19 +536,19 @@ window.ScannerModule = {
     if (newsContainer && data.news && Array.isArray(data.news)) {
       newsContainer.innerHTML = data.news.slice(0, 3).map(item => `
         <a href="${item.url}" target="_blank" rel="noopener noreferrer" 
-           class="p-3 bg-black/50 border border-white/10 hover:border-primary-container/40 rounded-xl flex items-start justify-between gap-3 transition-all hover:bg-surface-container-high group">
+           class="p-3 bg-[#2c2c2e] border border-white/[0.06] hover:border-primary-container/40 rounded-xl flex items-start justify-between gap-3 transition-all hover:bg-[#3a3a3c] group">
           <div class="flex-1 min-w-0">
-            <p class="font-body-md text-xs text-white font-medium leading-snug line-clamp-2 group-hover:text-primary-container transition-colors">
+            <p class="text-xs text-white font-medium leading-snug line-clamp-2 group-hover:text-primary-container transition-colors">
               ${item.headline}
             </p>
-            <div class="flex items-center gap-2 mt-1.5 text-[10px] text-on-surface-variant opacity-80">
+            <div class="flex items-center gap-2 mt-1.5 text-[10px] text-on-surface-variant">
               <span class="font-semibold text-white/90">${item.source}</span>
               <span>•</span>
-              <span>${item.time}</span>
+              <span class="font-mono">${item.time}</span>
               <span class="material-symbols-outlined text-[12px] text-primary-container ml-auto group-hover:translate-x-0.5 transition-transform">open_in_new</span>
             </div>
           </div>
-          <span class="px-2 py-0.5 rounded text-[10px] font-extrabold shrink-0 ${item.sentiment === 'Bullish' ? 'bg-primary-container/20 text-primary-container border border-primary-container/30' : 'bg-error/20 text-error border border-error/30'}">
+          <span class="px-2 py-0.5 rounded text-[9px] font-mono font-bold shrink-0 whitespace-nowrap ${item.sentiment === 'Bullish' ? 'bg-primary-container/15 text-primary-container border border-primary-container/30' : 'bg-error/15 text-error border border-error/30'}">
             ${item.sentiment}
           </span>
         </a>

@@ -23,11 +23,11 @@ window.NewsModule = {
     document.querySelectorAll('#news-category-tabs .category-tab').forEach(tab => {
       tab.addEventListener('click', () => {
         document.querySelectorAll('#news-category-tabs .category-tab').forEach(t => {
-          t.classList.remove('bg-primary-container', 'text-on-primary-container', 'font-semibold');
-          t.classList.add('bg-surface-container-low', 'text-on-surface-variant', 'font-medium');
+          t.classList.remove('bg-primary-container', 'text-black', 'font-semibold', 'shadow-sm');
+          t.classList.add('bg-[#1c1c1e]', 'text-on-surface-variant', 'font-medium', 'border', 'border-white/[0.08]');
         });
-        tab.classList.remove('bg-surface-container-low', 'text-on-surface-variant', 'font-medium');
-        tab.classList.add('bg-primary-container', 'text-on-primary-container', 'font-semibold');
+        tab.classList.remove('bg-[#1c1c1e]', 'text-on-surface-variant', 'font-medium', 'border', 'border-white/[0.08]');
+        tab.classList.add('bg-primary-container', 'text-black', 'font-semibold', 'shadow-sm');
 
         const category = tab.dataset.category || 'Latest';
         self.filterNewsByCategory(category);
@@ -175,34 +175,34 @@ window.NewsModule = {
 
     const cardsHtml = articles.map(article => `
       <a href="${article.url}" target="_blank" rel="noopener noreferrer" 
-         class="news-item-card flex gap-3.5 group cursor-pointer bg-surface-container-low p-3.5 rounded-xl border border-white/5 hover:border-primary-container/40 transition-all hover:bg-surface-container-high" 
+         class="news-item-card flex gap-3.5 group cursor-pointer bg-[#1c1c1e] p-3 rounded-2xl border border-white/[0.08] hover:border-primary-container/30 transition-all hover:bg-[#2c2c2e] active:scale-[0.98] shadow-sm" 
          data-category="${article.category}">
-        <div class="w-20 h-20 shrink-0 rounded-xl overflow-hidden bg-surface-container flex items-center justify-center border border-white/10 relative">
-          <img class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
+        <div class="w-20 h-20 shrink-0 rounded-xl overflow-hidden bg-[#2c2c2e] flex items-center justify-center border border-white/[0.08] relative">
+          <img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" 
                src="${article.img}" 
                alt="${article.category} News"
                onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=200&auto=format&fit=crop';">
-          <span class="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/80 text-[8px] font-extrabold text-primary-container uppercase tracking-wider">
+          <span class="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/80 text-[8px] font-mono font-bold text-primary-container uppercase tracking-wider">
             ${article.category}
           </span>
         </div>
         <div class="flex flex-col flex-1 min-w-0 justify-between">
           <div class="flex items-center justify-between gap-1">
-            <div class="flex items-center gap-1.5 text-[11px] text-on-surface-variant opacity-80">
-              <span class="font-semibold text-white/90 truncate">${article.source}</span>
+            <div class="flex items-center gap-1.5 text-[11px] text-on-surface-variant">
+              <span class="font-medium text-white/90 truncate">${article.source}</span>
               <span>•</span>
-              <span>${article.time}</span>
+              <span class="font-mono">${article.time}</span>
             </div>
-            <span class="material-symbols-outlined text-[14px] text-primary-container opacity-80 group-hover:translate-x-0.5 transition-transform">open_in_new</span>
+            <span class="material-symbols-outlined text-[14px] text-primary-container group-hover:translate-x-0.5 transition-transform">open_in_new</span>
           </div>
-          <h4 class="font-semibold text-[13px] text-white line-clamp-2 leading-snug group-hover:text-primary-container transition-colors">
+          <h4 class="font-semibold text-xs sm:text-[13px] text-white line-clamp-2 leading-snug group-hover:text-primary-container transition-colors">
             ${article.headline}
           </h4>
-          <div class="flex items-center gap-3 text-[11px]">
+          <div class="flex items-center gap-2.5 text-[11px]">
             <span class="flex items-center gap-1 font-semibold ${article.sentiment === 'Bullish' ? 'text-primary-container' : 'text-error'}">
-              <span class="material-symbols-outlined text-[14px]">${article.sentiment === 'Bullish' ? 'trending_up' : 'trending_down'}</span> ${article.sentiment}
+              <span class="material-symbols-outlined text-[13px]">${article.sentiment === 'Bullish' ? 'trending_up' : 'trending_down'}</span> ${article.sentiment}
             </span>
-            <span class="px-2 py-0.5 rounded-full bg-primary-container/10 text-primary-container text-[10px] font-bold border border-primary-container/20">
+            <span class="px-2 py-0.5 rounded-full bg-primary-container/10 text-primary-container text-[9px] font-mono font-bold border border-primary-container/20">
               ${article.category}
             </span>
           </div>
