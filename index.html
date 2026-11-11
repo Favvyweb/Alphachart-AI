@@ -29,17 +29,17 @@
       theme: {
         extend: {
           colors: {
-            "surface": "#000000",
-            "surface-dim": "#000000",
-            "surface-bright": "#2c2c2e",
-            "surface-container-lowest": "#000000",
-            "surface-container-low": "#1c1c1e",
-            "surface-container": "#242426",
-            "surface-container-high": "#2c2c2e",
-            "surface-container-highest": "#3a3a3c",
+            "surface": "#06070a",
+            "surface-dim": "#040507",
+            "surface-bright": "#1a1f2c",
+            "surface-container-lowest": "#06070a",
+            "surface-container-low": "rgba(24, 28, 40, 0.72)",
+            "surface-container": "rgba(18, 21, 31, 0.75)",
+            "surface-container-high": "rgba(11, 13, 20, 0.65)",
+            "surface-container-highest": "rgba(32, 38, 52, 0.75)",
             "on-surface": "#ffffff",
-            "on-surface-variant": "#8e8e93",
-            "primary": "#f2f2f7",
+            "on-surface-variant": "#8f9bb3",
+            "primary": "#f2f4f8",
             "on-primary": "#000000",
             "primary-container": "#00e479",
             "on-primary-container": "#000000",
@@ -48,8 +48,8 @@
             "error": "#ff453a",
             "on-error": "#ffffff",
             "error-container": "rgba(255, 69, 58, 0.15)",
-            "tertiary-fixed-dim": "#8e8e93",
-            "background": "#000000"
+            "tertiary-fixed-dim": "#8f9bb3",
+            "background": "#06070a"
           },
           fontFamily: {
             sans: ["-apple-system", "BlinkMacSystemFont", "SF Pro Text", "Inter", "sans-serif"],
@@ -65,14 +65,14 @@
   <link rel="stylesheet" href="css/styles.css">
 </head>
 
-<body class="bg-black text-white antialiased selection:bg-primary-container selection:text-black">
+<body class="bg-[#06070a] text-white antialiased selection:bg-primary-container selection:text-black">
 
   <!-- Outer Mobile App Wrapper -->
   <div class="mobile-app-wrapper">
 
     <!-- Header bar (Fixed Top) -->
     <header
-      class="fixed top-0 max-w-[430px] w-full z-40 bg-[#121214]/85 backdrop-blur-xl pt-safe border-b border-white/[0.08] left-1/2 -translate-x-1/2">
+      class="fixed top-0 max-w-[430px] w-full z-40 ios-nav-header pt-safe left-1/2 -translate-x-1/2">
       <div class="h-14 px-4 flex items-center justify-between">
         <div class="flex items-center gap-2">
           <span class="material-symbols-outlined text-primary-container text-[22px]">show_chart</span>
@@ -101,7 +101,7 @@
 
         <!-- EMPTY STATE (Exact Fidelity to screen.png) -->
         <div id="home-empty-state" class="flex flex-col items-center justify-center text-center py-10 gap-5">
-          <div class="w-20 h-20 bg-primary-container rounded-full flex items-center justify-center mb-1 shadow-md">
+          <div class="w-20 h-20 rounded-full flex items-center justify-center mb-1 shadow-lg bg-gradient-to-b from-primary-container to-[#00b862] text-black">
             <span class="material-symbols-outlined text-black text-[38px]">show_chart</span>
           </div>
           <div class="space-y-1.5">
@@ -111,7 +111,7 @@
             </p>
           </div>
           <button id="analyze-chart-btn"
-            class="mt-4 flex items-center gap-2.5 bg-primary-container text-black px-7 py-3.5 rounded-2xl font-bold text-[15px] transition-all active:scale-[0.98] shadow-sm hover:brightness-105">
+            class="mt-4 flex items-center gap-2.5 btn-primary-brand px-7 py-3.5 rounded-2xl font-bold text-[15px] transition-all active:scale-[0.98]">
             <span class="material-symbols-outlined text-[22px]">photo_camera</span>
             <span>Analyze Chart</span>
           </button>
@@ -195,16 +195,14 @@
 
             <!-- View Full Chart Button -->
             <button id="view-full-chart-btn" type="button"
-              class="w-full py-2.5 px-3.5 rounded-xl bg-[#2c2c2e] hover:bg-[#3a3a3c] border border-white/[0.08] hover:border-primary-container/30 text-white text-xs font-semibold flex items-center justify-between gap-2 transition-all active:scale-[0.98]">
+              class="w-full py-2.5 px-3.5 glass-pill-btn text-white text-xs font-semibold flex items-center justify-between gap-2 transition-all active:scale-[0.98]">
               <div class="flex items-center gap-2 min-w-0">
                 <span
                   class="material-symbols-outlined text-primary-container text-[18px] shrink-0">candlestick_chart</span>
-                <span class="whitespace-nowrap font-semibold text-[11px] sm:text-xs">View Full Chart & Trend
-                  Signals</span>
+                <span class="whitespace-nowrap font-semibold text-[11px] sm:text-xs">View Full Chart & Trend Signals</span>
               </div>
               <span
-                class="ml-auto whitespace-nowrap shrink-0 text-[10px] font-mono text-primary-container bg-primary-container/10 px-2 py-0.5 rounded border border-primary-container/20">5m
-                • 1h</span>
+                class="ml-auto whitespace-nowrap shrink-0 text-[10px] font-mono font-bold text-primary-container bg-primary-container/15 px-2.5 py-0.5 rounded-full border border-primary-container/30">5m • 1h</span>
             </button>
           </div>
 
@@ -328,7 +326,7 @@
 
           <!-- Actions -->
           <button id="save-journal-btn"
-            class="bg-primary-container text-black font-bold py-3.5 rounded-2xl shadow-sm active:scale-[0.98] transition-all flex items-center justify-center gap-2 text-sm hover:brightness-105">
+            class="btn-primary-brand py-3.5 rounded-2xl active:scale-[0.98] transition-all flex items-center justify-center gap-2 text-sm">
             <span class="material-symbols-outlined text-[20px]">edit_note</span>
             <span>Log Trade to Journal</span>
           </button>
@@ -512,11 +510,11 @@
 
         </div>
 
-        <!-- Floating Log Trade Pill Button (iOS Style) -->
+        <!-- Floating Log Trade Pill Button (Cipher Brand Style) -->
         <div
           class="fixed bottom-24 max-w-[430px] w-full px-5 pointer-events-none left-1/2 -translate-x-1/2 flex justify-end z-30">
           <button id="log-trade-btn"
-            class="pointer-events-auto flex items-center gap-2 bg-primary-container text-black px-5 py-3 rounded-full shadow-lg active:scale-95 transition-transform hover:brightness-105">
+            class="pointer-events-auto flex items-center gap-2 btn-primary-brand px-5 py-3 rounded-full shadow-xl active:scale-95 transition-transform">
             <span class="material-symbols-outlined text-[20px]">add</span>
             <span class="text-xs font-bold tracking-wide">Log Trade</span>
           </button>
@@ -1107,9 +1105,9 @@
       </div>
     </div>
 
-    <!-- Persistent Bottom Navigation (iOS Tab Bar) -->
+    <!-- Persistent Bottom Navigation (Cipher Frosted Glass Nav) -->
     <nav
-      class="fixed bottom-0 max-w-[430px] w-full z-40 pb-safe glass-nav left-1/2 -translate-x-1/2 bg-[#121214]/85 backdrop-blur-xl border-t border-white/[0.08]">
+      class="fixed bottom-0 max-w-[430px] w-full z-40 pb-safe glass-nav left-1/2 -translate-x-1/2">
       <div class="flex justify-around items-center h-14 px-2">
         <a data-path="signal-scanner" href="#" aria-current="page"
           class="flex flex-col items-center gap-0.5 min-w-[64px] transition-colors duration-150 text-primary-container font-semibold">

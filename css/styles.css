@@ -1,32 +1,49 @@
-/* Apple iOS Premium Design System for AlphaChart AI */
-@import url('https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap');
+/* ==========================================================================
+   AlphaChart AI - Cipher Fintech Design System & Multi-Layered Atmosphere
+   Inspired by Cipher (Design Monks LLC):
+   - Deep charcoal & obsidian layered backgrounds
+   - Ethereal overhead blue-grey / slate ambient lighting
+   - Layered black-to-green brand radiance
+   - Dark glassmorphism cards with delicate borders & top-lit specular rims
+   - Minimalist, elegant typography & smooth micro-interactions
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap');
 
 :root {
-  /* Apple iOS Dark Palette */
-  --bg-primary: #000000;
-  --bg-secondary: #1c1c1e;
-  --bg-tertiary: #2c2c2e;
-  --bg-elevated: #3a3a3c;
+  /* Cipher Dark Fintech & Obsidian Charcoal Palette */
+  --bg-deep-base: #06070a;
+  --bg-charcoal: #0c0e16;
+  --bg-card-glass: rgba(22, 26, 38, 0.72);
+  --bg-card-glass-hover: rgba(28, 34, 48, 0.82);
+  --bg-nested-glass: rgba(11, 13, 20, 0.65);
   
   /* Brand Green Accent */
   --accent-green: #00e479;
   --accent-green-bright: #00ff88;
   --accent-green-dim: rgba(0, 228, 121, 0.12);
-  --accent-green-border: rgba(0, 228, 121, 0.28);
+  --accent-green-glow: rgba(0, 228, 121, 0.22);
+  --accent-green-border: rgba(0, 228, 121, 0.3);
   
-  /* Apple iOS System Grays & Text */
+  /* Ambient Blue-Grey & Slate Lighting (Cipher Signature Overhead Illumination) */
+  --ambient-zenith: rgba(110, 142, 198, 0.22);
+  --ambient-slate: rgba(65, 88, 130, 0.12);
+  
+  /* Minimalist Elegant Typography Colors */
   --label-primary: #ffffff;
-  --label-secondary: #8e8e93;
-  --label-tertiary: #636366;
-  --label-quaternary: #48484a;
+  --label-secondary: #8f9bb3;
+  --label-tertiary: #5e6b82;
+  --label-quaternary: #3d4659;
   
-  /* Hairline Borders */
-  --separator: rgba(255, 255, 255, 0.08);
-  --separator-subtle: rgba(255, 255, 255, 0.05);
+  /* Delicate Glass Borders & Specular Highlights */
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-border-subtle: rgba(255, 255, 255, 0.05);
+  --glass-specular: rgba(255, 255, 255, 0.12);
+  --glass-shadow: 0 16px 36px -4px rgba(0, 0, 0, 0.65);
   
   /* Semantic */
   --color-red: #ff453a;
-  --color-blue: #0a84ff;
+  --color-blue: #38bdf8;
   
   /* Apple iOS standard spring curve */
   --ease-ios: cubic-bezier(0.25, 1, 0.5, 1);
@@ -39,7 +56,7 @@
 }
 
 html, body {
-  background-color: var(--bg-primary);
+  background-color: var(--bg-deep-base);
   color: var(--label-primary);
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter", sans-serif;
   margin: 0;
@@ -64,65 +81,164 @@ html, body {
   padding-top: max(env(safe-area-inset-top, 0px), 16px);
 }
 
-/* iPhone Wrapper */
+/* ==========================================================================
+   2. Multi-Layered Background Gradient System (Cipher Visual Reference)
+   - Layer 1: Ethereal overhead blue-grey illumination (top zenith light)
+   - Layer 2: Soft atmospheric brand emerald glow in upper right
+   - Layer 3: Mid-field subtle blue-slate ambient depth
+   - Layer 4: Lower-screen deep brand green gradient radiance
+   - Layer 5: Vertical charcoal-to-obsidian foundational linear gradient
+   ========================================================================== */
+
 .mobile-app-wrapper {
   max-width: 430px;
   width: 100%;
   min-height: 100vh;
   margin: 0 auto;
   position: relative;
-  background-color: var(--bg-primary);
+  background-color: var(--bg-deep-base);
   display: flex;
   flex-direction: column;
+  overflow-x: hidden;
+}
+
+/* Fixed Multi-Layered Lighting Mesh Canvas */
+.mobile-app-wrapper::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 430px;
+  width: 100%;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    /* Layer 1: Overhead diffuse blue-grey ambient lighting (Cipher zenith aura) */
+    radial-gradient(ellipse 95% 45% at 50% -6%, rgba(110, 142, 198, 0.22) 0%, rgba(55, 75, 115, 0.08) 50%, transparent 80%),
+    
+    /* Layer 2: Brand Emerald atmospheric radiance (Upper Right) */
+    radial-gradient(ellipse 75% 35% at 85% 15%, rgba(0, 228, 121, 0.08) 0%, rgba(0, 228, 121, 0.015) 50%, transparent 70%),
+    
+    /* Layer 3: Mid-field cool blue-slate ambient fill (Left) */
+    radial-gradient(circle 380px at 10% 50%, rgba(70, 95, 140, 0.09) 0%, transparent 70%),
+    
+    /* Layer 4: Lower-screen subtle brand emerald gradient depth */
+    radial-gradient(circle 440px at 90% 82%, rgba(0, 228, 121, 0.06) 0%, transparent 70%),
+    
+    /* Layer 5: Deep charcoal-to-black vertical foundation */
+    linear-gradient(180deg, #090a10 0%, #0d1019 28%, #090b12 65%, #050608 100%);
+}
+
+/* Ensure all interactive content floats above ambient lighting */
+.mobile-app-wrapper > * {
+  position: relative;
+  z-index: 1;
 }
 
 @media (min-width: 431px) {
   .mobile-app-wrapper {
-    border-left: 0.5px solid var(--separator);
-    border-right: 0.5px solid var(--separator);
-    box-shadow: 0 0 40px rgba(0, 0, 0, 0.95);
+    border-left: 1px solid var(--glass-border);
+    border-right: 1px solid var(--glass-border);
+    box-shadow: 0 0 50px rgba(0, 0, 0, 0.95), 0 0 100px rgba(70, 95, 140, 0.1);
   }
 }
 
-/* iOS Grouped Card */
-.ios-card {
-  background-color: var(--bg-secondary);
-  border: 0.5px solid var(--separator);
-  border-radius: 18px;
+/* ==========================================================================
+   Dark Glassmorphism Cards & Containers (Cipher Inspired)
+   ========================================================================== */
+
+.glass-card,
+.ios-card,
+[class*="bg-[#1c1c1e]"] {
+  background: linear-gradient(180deg, rgba(24, 28, 40, 0.72) 0%, rgba(13, 16, 24, 0.82) 100%) !important;
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--glass-border) !important;
+  box-shadow: 
+    inset 0 1px 0 0 var(--glass-specular),
+    var(--glass-shadow);
+  border-radius: 20px;
+  position: relative;
 }
 
-.ios-card-subtle {
-  background-color: var(--bg-tertiary);
-  border: 0.5px solid var(--separator);
-  border-radius: 12px;
+/* Delicate subtle top-lit hairline shimmer on glass cards */
+.glass-card::before,
+.ios-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.12) 30%, rgba(255, 255, 255, 0.22) 50%, rgba(255, 255, 255, 0.12) 70%, transparent 100%);
+  pointer-events: none;
 }
 
-/* iOS Frosted Glass Header & Navigation */
+/* Nested Glass Boxes (Inputs, Target Boxes, Inner stats) */
+.glass-nested,
+.ios-card-subtle,
+[class*="bg-[#2c2c2e]"] {
+  background: rgba(11, 13, 20, 0.65) !important;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--glass-border-subtle) !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
+  border-radius: 14px;
+}
+
+/* Frosted Glass Inputs */
+input, select, textarea {
+  background: rgba(8, 10, 15, 0.75) !important;
+  border: 1px solid rgba(255, 255, 255, 0.09) !important;
+  color: #ffffff !important;
+  transition: all 180ms ease;
+}
+
+input:focus, select:focus, textarea:focus {
+  border-color: var(--accent-green) !important;
+  box-shadow: 0 0 0 1px var(--accent-green), 0 0 16px var(--accent-green-glow) !important;
+  outline: none !important;
+}
+
+/* ==========================================================================
+   Frosted Glass Header & Navigation
+   ========================================================================== */
+
 .ios-nav-header {
-  background: rgba(18, 18, 20, 0.85);
-  backdrop-filter: blur(25px);
-  -webkit-backdrop-filter: blur(25px);
-  border-bottom: 0.5px solid var(--separator);
+  background: rgba(11, 13, 19, 0.78);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+  border-bottom: 1px solid var(--glass-border);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
 }
 
 .glass-nav {
-  background: rgba(18, 18, 20, 0.88);
-  backdrop-filter: blur(25px);
-  -webkit-backdrop-filter: blur(25px);
-  border-top: 0.5px solid var(--separator);
+  background: rgba(11, 13, 19, 0.82);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+  border-top: 1px solid var(--glass-border);
+  box-shadow: 0 -4px 28px rgba(0, 0, 0, 0.5);
 }
 
 .glass-modal {
-  background: rgba(28, 28, 30, 0.96);
-  backdrop-filter: blur(30px);
-  -webkit-backdrop-filter: blur(30px);
-  border: 0.5px solid var(--separator);
-  border-radius: 22px;
+  background: linear-gradient(180deg, rgba(24, 28, 40, 0.95) 0%, rgba(13, 15, 23, 0.98) 100%) !important;
+  backdrop-filter: blur(35px);
+  -webkit-backdrop-filter: blur(35px);
+  border: 1px solid var(--glass-border) !important;
+  box-shadow: 
+    inset 0 1px 0 0 var(--glass-specular),
+    0 24px 60px rgba(0, 0, 0, 0.85);
+  border-radius: 26px;
 }
 
-/* iOS Interactive Tap Feedback */
+/* ==========================================================================
+   Tactile Interactive Tap Feedback & Buttons
+   ========================================================================== */
+
 button, [role="button"], a.group {
-  transition: opacity 120ms var(--ease-ios), transform 120ms var(--ease-ios), background-color 140ms ease;
+  transition: opacity 120ms var(--ease-ios), transform 120ms var(--ease-ios), background-color 140ms ease, box-shadow 140ms ease;
 }
 
 button:active, [role="button"]:active {
@@ -130,7 +246,35 @@ button:active, [role="button"]:active {
   opacity: 0.92;
 }
 
-/* Laser Scanner Beam (Clean Precision Line) */
+/* Action Quick Pills (like Cipher's Send/Receive/Swap/Buy buttons) */
+.glass-pill-btn {
+  background: linear-gradient(180deg, rgba(30, 35, 48, 0.75) 0%, rgba(16, 19, 27, 0.85) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 4px 12px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-radius: 14px;
+}
+
+.glass-pill-btn:hover {
+  background: linear-gradient(180deg, rgba(38, 44, 60, 0.85) 0%, rgba(20, 24, 34, 0.9) 100%);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+/* Primary Brand Action Button (Cipher luxury style in Emerald Green) */
+.btn-primary-brand {
+  background: linear-gradient(180deg, #00ff88 0%, #00d26d 100%);
+  color: #000000;
+  font-weight: 700;
+  box-shadow: 0 6px 20px -2px rgba(0, 228, 121, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.btn-primary-brand:hover {
+  filter: brightness(1.06);
+  box-shadow: 0 8px 24px -2px rgba(0, 228, 121, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+/* Laser Scanner Beam */
 @keyframes precision-scan {
   0% { top: 0%; opacity: 0; }
   10% { opacity: 0.95; }
@@ -161,15 +305,6 @@ button:active, [role="button"]:active {
 .hide-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
-}
-
-/* iOS Segmented Control */
-.ios-segment-control {
-  background-color: rgba(118, 118, 128, 0.24);
-  padding: 2px;
-  border-radius: 9px;
-  display: inline-flex;
-  align-items: center;
 }
 
 /* Tab Switching Animations */
