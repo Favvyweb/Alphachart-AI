@@ -442,59 +442,59 @@ window.TrendTraderEngine = {
       }
     }
 
-    // Add Real-time BUY, SELL, and TP Markers with Win/Loss badges on chart (today only from 12:00 AM)
+    // Add Real-time Signals (BUY/SELL on signal close) and Progressive TP & SL Markers
     const markers = [];
+
+    // 1. Initial Signal Markers (Clean BUY / SELL arrows on signal candle)
     for (let i = 0; i < candles.length; i++) {
       const tag = tags[i];
-      if (!tag) continue;
+      if (tag !== 'BUY' && tag !== 'SELL') continue;
       const c = candles[i];
       if (c.time < midnightSec) continue; // Strictly display today's signals from 12:00 AM onwards
-      const outcomeData = signalOutcomesMap[i];
 
       if (tag === 'BUY') {
-        const isWin = outcomeData ? (outcomeData.outcome === 'win') : true;
-        let textLabel = 'BUY';
-        if (outcomeData) {
-          textLabel = isWin
-            ? `BUY • +$${outcomeData.pnl.toFixed(2)} (${outcomeData.tpTier || 'TP1'} +${(outcomeData.maxRoePct || 2).toFixed(1)}%)`
-            : `BUY • -$5.00 (SL -5%)`;
-        }
         markers.push({
           time: c.time,
           position: 'belowBar',
-          color: isWin ? '#00e479' : '#ff453a',
+          color: '#00e479',
           shape: 'arrowUp',
-          text: textLabel,
+          text: 'BUY',
           size: 2
         });
       } else if (tag === 'SELL') {
-        const isWin = outcomeData ? (outcomeData.outcome === 'win') : true;
-        let textLabel = 'SELL';
-        if (outcomeData) {
-          textLabel = isWin
-            ? `SELL • +$${outcomeData.pnl.toFixed(2)} (${outcomeData.tpTier || 'TP1'} +${(outcomeData.maxRoePct || 2).toFixed(1)}%)`
-            : `SELL • -$5.00 (SL -5%)`;
-        }
         markers.push({
           time: c.time,
           position: 'aboveBar',
-          color: isWin ? '#00e479' : '#ff453a',
+          color: '#ff3366',
           shape: 'arrowDown',
-          text: textLabel,
+          text: 'SELL',
           size: 2
-        });
-      } else if (tag === 'TP') {
-        const isUp = c.close >= c.open;
-        markers.push({
-          time: c.time,
-          position: isUp ? 'aboveBar' : 'belowBar',
-          color: '#c084fc',
-          shape: 'circle',
-          text: 'TP',
-          size: 1.2
         });
       }
     }
+
+    // 2. Progressive TP (TP1, TP2, TP3, TP4, TP5) and SL Markers on the EXACT candles where reached
+    if (prePerf && prePerf.evaluatedSignals) {
+      for (const s of prePerf.evaluatedSignals) {
+        if (s.tpEvents && s.tpEvents.length > 0) {
+          for (const ev of s.tpEvents) {
+            if (ev.time < midnightSec) continue;
+            const isTp = ev.level.startsWith('TP');
+            markers.push({
+              time: ev.time,
+              position: ev.isBuy ? (isTp ? 'aboveBar' : 'belowBar') : (isTp ? 'belowBar' : 'aboveBar'),
+              color: isTp ? '#00e479' : '#ff453a',
+              shape: 'circle',
+              text: ev.text,
+              size: 1.4
+            });
+          }
+        }
+      }
+    }
+
+    // Sort markers by timestamp for Lightweight Charts
+    markers.sort((a, b) => a.time - b.time);
 
     if (markers.length > 0) {
       try {
@@ -669,8 +669,15 @@ window.TrendTraderEngine = {
       let exitPrice = entryPrice;
       let reason = 'In Play';
       let tpTier = '';
+      const tpEvents = [];
+      let hitTp1 = false;
+      let hitTp2 = false;
+      let hitTp3 = false;
+      let hitTp4 = false;
+      let hitTp5 = false;
+      let hitSL = false;
 
-      // Scan subsequent candles forward to track real % excursion
+      // Scan subsequent candles forward (candle i has closed, trade progresses on candle i+1 onwards)
       const maxK = Math.min(candles.length - 1, i + 60);
       for (let k = i + 1; k <= maxK; k++) {
         const nextC = candles[k];
@@ -699,68 +706,53 @@ window.TrendTraderEngine = {
           maxDrawdownPct = curLowDrawdown;
         }
 
-        // 1. STOP LOSS CHECK:
-        // If trade drops to -5.0% or worse BEFORE reaching +2.0% TP1, it's stopped out!
-        if (maxDrawdownPct <= -5.0 && maxRoePct < 2.0) {
-          isLoss = true;
+        // Progressive TP milestone triggers as subsequent candles accumulate profit:
+        if (curHighRoe >= 2.0 && !hitTp1) {
+          hitTp1 = true;
+          tpEvents.push({ time: nextC.time, level: 'TP1', text: 'TP1 • +$10.06 (+2%)', isBuy });
+        }
+        if (curHighRoe >= 4.0 && !hitTp2) {
+          hitTp2 = true;
+          tpEvents.push({ time: nextC.time, level: 'TP2', text: 'TP2 • +$14.78 (+4%)', isBuy });
+        }
+        if (curHighRoe >= 6.0 && !hitTp3) {
+          hitTp3 = true;
+          tpEvents.push({ time: nextC.time, level: 'TP3', text: 'TP3 • +$19.95 (+6%)', isBuy });
+        }
+        if (curHighRoe >= 7.5 && !hitTp4) {
+          hitTp4 = true;
+          tpEvents.push({ time: nextC.time, level: 'TP4', text: 'TP4 • +$23.75 (+7.5%)', isBuy });
+        }
+        if (curHighRoe >= 10.0 && !hitTp5) {
+          hitTp5 = true;
+          tpEvents.push({ time: nextC.time, level: 'TP5', text: 'TP5 • +$30.30 (+10%)', isBuy });
+        }
+
+        // Stop Loss Check:
+        // If drops to -5.0% or worse before reaching +2.0% TP1
+        if (maxDrawdownPct <= -5.0 && !hitTp1 && !hitSL) {
+          hitSL = true;
           exitPrice = isBuy ? (entryPrice * 0.995) : (entryPrice * 1.005);
+          tpEvents.push({ time: nextC.time, level: 'SL', text: 'SL • -$5.00 (-5%)', isBuy });
           reason = `Hit -5.00% SL ($${exitPrice.toFixed(2)})`;
           break;
         }
 
-        // 2. PROFIT TARGETS (TP Tiers):
-        if (maxRoePct >= 10.0) {
-          isWin = true;
-          tpTier = 'TP5';
-          reason = `Hit TP5 Runner (+${maxRoePct.toFixed(2)}%)`;
-          break;
-        }
-
-        // 3. REVERSAL SIGNAL CHECK:
-        if (isBuy && nextTag === 'SELL') {
-          if (maxRoePct >= 2.0) {
-            isWin = true;
-            reason = `Reversal closed in profit (+${maxRoePct.toFixed(2)}%)`;
-          } else if (curLowDrawdown <= -5.0) {
-            isLoss = true;
-            reason = `Stopped out at -5.00% SL`;
-          } else {
-            const curCloseRoe = ((nextC.close - entryPrice) / entryPrice) * 1000;
-            if (curCloseRoe >= 1.0) {
-              isWin = true;
-              maxRoePct = curCloseRoe;
-              reason = `Closed on Reversal (+${curCloseRoe.toFixed(2)}%)`;
-            } else {
-              isLoss = true;
-              reason = `Closed on Reversal (${curCloseRoe.toFixed(2)}%)`;
-            }
-          }
+        // Opposite Reversal Signal:
+        if ((isBuy && nextTag === 'SELL') || (!isBuy && nextTag === 'BUY')) {
           exitPrice = nextC.close;
-          break;
-        } else if (!isBuy && nextTag === 'BUY') {
-          if (maxRoePct >= 2.0) {
-            isWin = true;
-            reason = `Reversal closed in profit (+${maxRoePct.toFixed(2)}%)`;
-          } else if (curLowDrawdown <= -5.0) {
-            isLoss = true;
-            reason = `Stopped out at -5.00% SL`;
+          if (hitTp1) {
+            reason = `Reversal closed after TP (+${maxRoePct.toFixed(2)}%)`;
           } else {
-            const curCloseRoe = ((entryPrice - nextC.close) / entryPrice) * 1000;
-            if (curCloseRoe >= 1.0) {
-              isWin = true;
-              maxRoePct = curCloseRoe;
-              reason = `Closed on Reversal (+${curCloseRoe.toFixed(2)}%)`;
-            } else {
-              isLoss = true;
-              reason = `Closed on Reversal (${curCloseRoe.toFixed(2)}%)`;
-            }
+            reason = `Reversal before TP1 (${maxDrawdownPct.toFixed(2)}%) • Loss -$5.00`;
           }
-          exitPrice = nextC.close;
           break;
         }
       }
 
-      // If trade reached at least +2.0%, it is a WIN
+      // STRICT WIN/LOSS RULE:
+      // ONLY when it reaches +2.0% is it counted as a WIN!
+      // If it immediately reverses, gets to -5%, or prints reverse signal before +2%: it is a LOSS (-$5.00)
       if (maxRoePct >= 2.0) {
         isWin = true;
         isLoss = false;
@@ -769,33 +761,19 @@ window.TrendTraderEngine = {
         else if (maxRoePct >= 6.0) tpTier = 'TP3';
         else if (maxRoePct >= 4.0) tpTier = 'TP2';
         else tpTier = 'TP1';
-      }
 
-      // If trade is still floating (no SL and no TP reached yet)
-      if (!isWin && !isLoss) {
-        if (maxDrawdownPct <= -5.0) {
-          isLoss = true;
-          reason = `Hit -5.00% SL`;
-        } else if (maxRoePct >= 1.5) {
-          isWin = true;
-          tpTier = 'TP1';
-          reason = `Floating near TP1 (+${maxRoePct.toFixed(2)}%)`;
-        } else {
-          isLoss = (maxDrawdownPct < -2.0);
-          reason = isLoss ? `Drawdown (${maxDrawdownPct.toFixed(2)}%)` : `Floating (+${maxRoePct.toFixed(2)}%)`;
-        }
-      }
-
-      // Calculate Dollar PnL based on calibrated user trade framework ($100 capital mark)
-      let pnl = 0;
-      if (isWin) {
-        // Calibrated: 2.18% = $10.0616, 7.47% = $23.75 (slope = 2.5876)
         const effPct = Math.max(2.0, maxRoePct);
         pnl = 10.0616 + ((effPct - 2.18) * 2.5876);
         pnl = Math.round(pnl * 100) / 100;
+        reason = `Hit ${tpTier} (+${maxRoePct.toFixed(2)}%) • Exit $${exitPrice.toFixed(2)}`;
       } else {
-        // Stop loss: -5% on $100 = -$5.00
+        isWin = false;
+        isLoss = true;
+        tpTier = 'SL';
         pnl = -5.00;
+        if (!reason || reason === 'In Play') {
+          reason = `Did not reach +2% • Loss -$5.00`;
+        }
       }
 
       const outcome = isWin ? 'win' : 'loss';
@@ -819,7 +797,8 @@ window.TrendTraderEngine = {
         outcome,
         pnl,
         reason,
-        isWin
+        isWin,
+        tpEvents
       });
     }
 
