@@ -51,10 +51,10 @@ window.TrendTraderEngine = {
     // Midnight 00:00:00 UTC of today (12:00:00 AM)
     const midnightUtcMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0);
 
-    // Warm-up bars before midnight (30 bars) so EMA, MACD, and PSAR are accurate from 12:00 AM
-    let warmUpMs = 30 * 300 * 1000;
-    if (binanceInterval === '15m') warmUpMs = 30 * 900 * 1000;
-    else if (binanceInterval === '1h') warmUpMs = 30 * 3600 * 1000;
+    // Warm-up bars before midnight (100 bars) so EMA 50, MACD, and PSAR are fully stabilized and accurate from 12:00 AM
+    let warmUpMs = 100 * 300 * 1000;
+    if (binanceInterval === '15m') warmUpMs = 100 * 900 * 1000;
+    else if (binanceInterval === '1h') warmUpMs = 100 * 3600 * 1000;
 
     const startFetchMs = midnightUtcMs - warmUpMs;
 
@@ -113,7 +113,7 @@ window.TrendTraderEngine = {
     }
   },
 
-  generateFallbackCandles: function (symbol, interval, count = 288) {
+  generateFallbackCandles: function (symbol, interval, count = 350) {
     const candles = [];
     let intervalSec = 300;
     if (interval === '1h') intervalSec = 3600;
@@ -122,7 +122,7 @@ window.TrendTraderEngine = {
     const now = new Date();
     const midnightUtcMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0);
     const midnightSec = Math.floor(midnightUtcMs / 1000);
-    const startSec = midnightSec - (30 * intervalSec);
+    const startSec = midnightSec - (100 * intervalSec);
     let current = symbol.includes('BTC') ? 66500.0 : symbol.includes('ETH') ? 2600.0 : symbol.includes('AAVE') ? 125.36 : 100.0;
 
     for (let i = 0; i < count; i++) {
@@ -233,6 +233,33 @@ window.TrendTraderEngine = {
     return fractals;
   },
 
+  /**
+   * Smart Money Concepts (SMC) Market Structure:
+   * Dynamically tracks Swing Highs (Resistance / Liquidity) and Swing Lows (Support / Liquidity)
+   */
+  calculateMarketStructure: function (candles, fractals) {
+    const resistanceLevels = [];
+    const supportLevels = [];
+    let activeResistance = null;
+    let activeSupport = null;
+
+    for (let i = 0; i < candles.length; i++) {
+      // In 2-bar fractals, the peak at [i - 2] is officially confirmed once bar [i] closes
+      if (i >= 2 && fractals[i - 2]) {
+        if (fractals[i - 2].isHigh) {
+          activeResistance = candles[i - 2].high;
+        }
+        if (fractals[i - 2].isLow) {
+          activeSupport = candles[i - 2].low;
+        }
+      }
+      resistanceLevels.push(activeResistance);
+      supportLevels.push(activeSupport);
+    }
+
+    return { resistanceLevels, supportLevels };
+  },
+
   calcEMA: function (values, period) {
     if (!values || values.length === 0) return [];
     const k = 2 / (period + 1);
@@ -275,34 +302,111 @@ window.TrendTraderEngine = {
   },
 
   /**
-   * Run full technical analysis
+   * Run Institutional Smart Money Concepts (SMC) + S&R Break + MACD Momentum Engine:
+   * - Eliminates weak false whipsaws and counter-trend traps
+   * - Requires candle close confirmation (no wick triggers)
+   * - Checks Break of Structure (BOS) across Swing Resistance / Support
+   * - Validates MACD directional momentum and EMA 50 trend alignment
    */
   analyzeCandles: function (candles) {
     const psar = this.calculatePSAR(candles, 0.02, 0.02, 0.2);
     const fractals = this.calculateFractals(candles, 2);
     const macd = this.calculateMACD(candles, 12, 26, 9);
+    const closes = candles.map(c => c.close);
+    const ema20 = this.calcEMA(closes, 20);
+    const ema50 = this.calcEMA(closes, 50);
+
+    const marketStructure = this.calculateMarketStructure(candles, fractals);
 
     const tags = [];
+    // Establish initial macro trend from early warmup bars
     let currentTrend = psar.length > 0 ? psar[0].isUp : true;
+    if (candles.length > 10 && ema50.length > 10) {
+      currentTrend = candles[10].close >= ema50[10];
+    }
 
     for (let i = 0; i < candles.length; i++) {
+      const cur = candles[i];
       const p = psar[i];
       const f = fractals[i];
+      const res = marketStructure.resistanceLevels[i];
+      const sup = marketStructure.supportLevels[i];
+      const macdHist = (macd.histogram && macd.histogram[i] !== undefined) ? macd.histogram[i] : 0;
+      const macdLine = (macd.macdLine && macd.macdLine[i] !== undefined) ? macd.macdLine[i] : 0;
+      const sigLine = (macd.signalLine && macd.signalLine[i] !== undefined) ? macd.signalLine[i] : 0;
+      const prevMacdHist = (i > 0 && macd.histogram && macd.histogram[i - 1] !== undefined) ? macd.histogram[i - 1] : 0;
+
+      const isBullCandle = cur.close > cur.open;
+      const isBearCandle = cur.close < cur.open;
+      const range = Math.max(cur.high - cur.low, 0.00001);
+
       let tag = null;
 
-      if (p.flipped) {
-        tag = p.tag; // 'BUY' or 'SELL'
-        currentTrend = p.isUp;
-      } else if (currentTrend && f.isHigh) {
-        tag = 'TP';
-      } else if (!currentTrend && f.isLow) {
-        tag = 'TP';
+      if (!currentTrend) {
+        // ==========================================
+        // CURRENT STATE: BEARISH / SELL TREND
+        // ==========================================
+        // To trigger a valid BUY, price must demonstrate genuine bullish strength & structure:
+        // 1. Bullish triggers: Break of Structure (Close > Resistance) OR confirmed PSAR close flip
+        const sarBullish = p.isUp || cur.close > p.sar;
+        const bosBullish = (res !== null) && (cur.close > res);
+
+        // 2. Momentum Confirmation (MACD):
+        // MACD histogram positive OR crossing up OR accelerating strongly towards zero
+        const macdBullish = (macdHist >= 0) || (macdLine >= sigLine) || (macdHist > prevMacdHist && macdHist > -0.05);
+
+        // 3. Candle Body Quality:
+        // Must be a green candle closing in the top 50% of the bar (no upper wick rejection trap)
+        const candleSolid = isBullCandle && ((cur.close - cur.open) >= range * 0.25);
+
+        // 4. Trend Confluence:
+        // If price is trapped below 50 EMA during a heavy dump, require either confirmed BOS or strong MACD turn
+        const trendConfluence = (cur.close >= ema50[i]) || bosBullish || (macdBullish && candleSolid && macdLine >= sigLine);
+
+        // ONLY print BUY when momentum, structure, and candle body all agree
+        const canBuy = (sarBullish || bosBullish) && macdBullish && isBullCandle && trendConfluence;
+
+        if (canBuy) {
+          tag = 'BUY';
+          currentTrend = true;
+        } else if (f.isLow) {
+          tag = 'TP';
+        }
+      } else {
+        // ==========================================
+        // CURRENT STATE: BULLISH / BUY TREND
+        // ==========================================
+        // To trigger a valid SELL, price must demonstrate genuine bearish breakdown & structure:
+        // 1. Bearish triggers: Bearish Break of Structure (Close < Support) OR confirmed PSAR close flip
+        const sarBearish = !p.isUp || cur.close < p.sar;
+        const bosBearish = (sup !== null) && (cur.close < sup);
+
+        // 2. Momentum Confirmation (MACD):
+        // MACD histogram negative OR crossing down OR falling strongly downward
+        const macdBearish = (macdHist <= 0) || (macdLine <= sigLine) || (macdHist < prevMacdHist && macdHist < 0.05);
+
+        // 3. Candle Body Quality:
+        // Must be a red candle closing in the bottom 50% of the bar (no lower wick bounce trap)
+        const candleSolid = isBearCandle && ((cur.open - cur.close) >= range * 0.25);
+
+        // 4. Trend Confluence:
+        const trendConfluence = (cur.close <= ema50[i]) || bosBearish || (macdBearish && candleSolid && macdLine <= sigLine);
+
+        // ONLY print SELL when momentum, structure, and candle body all agree
+        const canSell = (sarBearish || bosBearish) && macdBearish && isBearCandle && trendConfluence;
+
+        if (canSell) {
+          tag = 'SELL';
+          currentTrend = false;
+        } else if (f.isHigh) {
+          tag = 'TP';
+        }
       }
 
       tags.push(tag);
     }
 
-    return { candles, psar, fractals, macd, tags };
+    return { candles, psar, fractals, macd, ema20, ema50, marketStructure, tags };
   },
 
   /**
@@ -686,13 +790,16 @@ window.TrendTraderEngine = {
 
         // Calculate % move on this candle (raw price delta * 1000 = user's ROE % scale: 0.218% raw = 2.18% ROE)
         let curHighRoe = 0;
+        let curCloseRoe = 0;
         let curLowDrawdown = 0;
 
         if (isBuy) {
           curHighRoe = ((nextC.high - entryPrice) / entryPrice) * 1000;
+          curCloseRoe = ((nextC.close - entryPrice) / entryPrice) * 1000;
           curLowDrawdown = ((nextC.low - entryPrice) / entryPrice) * 1000;
         } else {
           curHighRoe = ((entryPrice - nextC.low) / entryPrice) * 1000;
+          curCloseRoe = ((entryPrice - nextC.close) / entryPrice) * 1000;
           curLowDrawdown = ((entryPrice - nextC.high) / entryPrice) * 1000;
         }
 
@@ -708,8 +815,8 @@ window.TrendTraderEngine = {
         }
 
         // Progressive TP milestone triggers (Clean 3-tier system: TP1 +2%, TP2 +10%, TP3 +30%):
-        // 1. TP1 at +2% (+2% ROE -> +$10.06)
-        if (curHighRoe >= 2.0 && !hitTp1) {
+        // 1. TP1 at +2% (+2% ROE -> +$10.06): Must sustain profit on close (prevents fakeout wick traps)
+        if (curHighRoe >= 2.0 && !hitTp1 && (curCloseRoe > 0 || curCloseRoe >= 2.0)) {
           hitTp1 = true;
           tpEvents.push({ time: nextC.time, level: 'TP1', text: 'TP1 (+2%) • +$10.06', isBuy });
         }

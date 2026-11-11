@@ -793,10 +793,10 @@ window.ScannerModule = {
 
         if (latestTag === 'BUY') {
           if (statusBadge) statusBadge.className = 'px-2.5 py-1 rounded-lg bg-primary-container/20 border border-primary-container/50 text-primary-container font-bold text-[11px] flex items-center gap-1.5 shadow-[0_0_12px_rgba(0,255,136,0.3)]';
-          if (statusText) statusText.innerText = `🟢 Trend Trader: BUY Tag Confirmed ($${candles[latestTagIndex].close.toFixed(2)})`;
+          if (statusText) statusText.innerText = `🟢 Trend Trader: BUY Confirmed (SMC + MACD) ($${candles[latestTagIndex].close.toFixed(2)})`;
         } else if (latestTag === 'SELL') {
           if (statusBadge) statusBadge.className = 'px-2.5 py-1 rounded-lg bg-error/20 border border-error/50 text-error font-bold text-[11px] flex items-center gap-1.5 shadow-[0_0_12px_rgba(255,51,102,0.3)]';
-          if (statusText) statusText.innerText = `🔴 Trend Trader: SELL Tag Confirmed ($${candles[latestTagIndex].close.toFixed(2)})`;
+          if (statusText) statusText.innerText = `🔴 Trend Trader: SELL Confirmed (SMC + MACD) ($${candles[latestTagIndex].close.toFixed(2)})`;
         } else if (latestTag === 'TP') {
           if (statusBadge) statusBadge.className = 'px-2.5 py-1 rounded-lg bg-purple-500/20 border border-purple-500/50 text-purple-300 font-bold text-[11px] flex items-center gap-1.5';
           if (statusText) statusText.innerText = `🟣 Take Profit (TP) Level Hit ($${candles[latestTagIndex].close.toFixed(2)})`;
