@@ -1,4 +1,4 @@
-﻿/**
+/**
  * AlphaChart AI - Native TradingView Chart Engine with Trend Trader Remastered & MACD
  * Powered by TradingView's official Lightweight Charts library:
  * - Full interactive TradingView dark-theme candlestick chart with pan & zoom
@@ -788,19 +788,19 @@ window.TrendTraderEngine = {
         const nextC = candles[k];
         const nextTag = tags[k];
 
-        // Calculate % move on this candle (raw price delta * 1000 = user's ROE % scale: 0.218% raw = 2.18% ROE)
+        // Calculate real % price move on this candle: +2% is true +2.0% price increase/decrease from entry (* 100, not +0.2%)
         let curHighRoe = 0;
         let curCloseRoe = 0;
         let curLowDrawdown = 0;
 
         if (isBuy) {
-          curHighRoe = ((nextC.high - entryPrice) / entryPrice) * 1000;
-          curCloseRoe = ((nextC.close - entryPrice) / entryPrice) * 1000;
-          curLowDrawdown = ((nextC.low - entryPrice) / entryPrice) * 1000;
+          curHighRoe = ((nextC.high - entryPrice) / entryPrice) * 100;
+          curCloseRoe = ((nextC.close - entryPrice) / entryPrice) * 100;
+          curLowDrawdown = ((nextC.low - entryPrice) / entryPrice) * 100;
         } else {
-          curHighRoe = ((entryPrice - nextC.low) / entryPrice) * 1000;
-          curCloseRoe = ((entryPrice - nextC.close) / entryPrice) * 1000;
-          curLowDrawdown = ((entryPrice - nextC.high) / entryPrice) * 1000;
+          curHighRoe = ((entryPrice - nextC.low) / entryPrice) * 100;
+          curCloseRoe = ((entryPrice - nextC.close) / entryPrice) * 100;
+          curLowDrawdown = ((entryPrice - nextC.high) / entryPrice) * 100;
         }
 
         // Track peak favorable excursion
@@ -814,28 +814,28 @@ window.TrendTraderEngine = {
           maxDrawdownPct = curLowDrawdown;
         }
 
-        // Progressive TP milestone triggers (Clean 3-tier system: TP1 +2%, TP2 +10%, TP3 +30%):
-        // 1. TP1 at +2% (+2% ROE -> +$10.06): Must sustain profit on close (prevents fakeout wick traps)
+        // Progressive TP milestone triggers (True Price Move: TP1 +2%, TP2 +10%, TP3 +30%):
+        // 1. TP1 at true +2.0% price increase/decrease from entry
         if (curHighRoe >= 2.0 && !hitTp1 && (curCloseRoe > 0 || curCloseRoe >= 2.0)) {
           hitTp1 = true;
           tpEvents.push({ time: nextC.time, level: 'TP1', text: 'TP1 (+2%) • +$10.06', isBuy });
         }
-        // 2. TP2 at +10% (+10% ROE -> +$30.30)
+        // 2. TP2 at true +10.0% price increase/decrease from entry
         if (curHighRoe >= 10.0 && !hitTp2) {
           hitTp2 = true;
           tpEvents.push({ time: nextC.time, level: 'TP2', text: 'TP2 (+10%) • +$30.30', isBuy });
         }
-        // 3. TP3 at +30% and above (+30% ROE -> +$82.05+)
+        // 3. TP3 at true +30.0% price increase/decrease from entry
         if (curHighRoe >= 30.0 && !hitTp3) {
           hitTp3 = true;
           tpEvents.push({ time: nextC.time, level: 'TP3', text: 'TP3 (+30%) • +$82.05', isBuy });
         }
 
         // Stop Loss Check:
-        // Only if subsequent candle closes/drops to -5.0% before reaching TP1
+        // When price drops -5.0% from entry before reaching TP1
         if (curLowDrawdown <= -5.0 && !hitTp1 && !hitSL) {
           hitSL = true;
-          exitPrice = isBuy ? (entryPrice * 0.995) : (entryPrice * 1.005);
+          exitPrice = isBuy ? (entryPrice * 0.95) : (entryPrice * 1.05);
           tpEvents.push({ time: nextC.time, level: 'SL', text: 'SL (-5%) • -$5.00', isBuy });
           reason = `Hit -5.00% SL ($${exitPrice.toFixed(2)})`;
           break;
@@ -864,28 +864,28 @@ window.TrendTraderEngine = {
         isLoss = false;
         tpTier = 'TP3 (+30%)';
         const effPct = maxRoePct;
-        pnl = Math.round((10.0616 + ((effPct - 2.18) * 2.5876)) * 100) / 100;
-        reason = `Hit TP3 Super Runner (+${maxRoePct.toFixed(1)}%) • Exit $${exitPrice.toFixed(2)}`;
+        pnl = Math.round((10.0616 + ((effPct - 2.0) * 2.5876)) * 100) / 100;
+        reason = `Hit TP3 Super Runner (+${maxRoePct.toFixed(1)}% Price) • Exit $${exitPrice.toFixed(2)}`;
       } else if (maxRoePct >= 10.0) {
         isWin = true;
         isLoss = false;
         tpTier = 'TP2 (+10%)';
         const effPct = maxRoePct;
-        pnl = Math.round((10.0616 + ((effPct - 2.18) * 2.5876)) * 100) / 100;
-        reason = `Hit TP2 Runner (+${maxRoePct.toFixed(1)}%) • Exit $${exitPrice.toFixed(2)}`;
+        pnl = Math.round((10.0616 + ((effPct - 2.0) * 2.5876)) * 100) / 100;
+        reason = `Hit TP2 Runner (+${maxRoePct.toFixed(1)}% Price) • Exit $${exitPrice.toFixed(2)}`;
       } else if (maxRoePct >= 2.0) {
         isWin = true;
         isLoss = false;
         tpTier = 'TP1 (+2%)';
         pnl = 10.06;
-        reason = `Hit TP1 (+${maxRoePct.toFixed(1)}%) • Exit $${exitPrice.toFixed(2)}`;
+        reason = `Hit TP1 (+${maxRoePct.toFixed(1)}% Price) • Exit $${exitPrice.toFixed(2)}`;
       } else {
         isWin = false;
         isLoss = true;
         tpTier = 'SL';
         pnl = -5.00;
         if (!reason || reason === 'In Play') {
-          reason = `Did not reach +2% • Loss -$5.00`;
+          reason = `Did not reach +2% price increase • Loss -$5.00`;
         }
       }
 
