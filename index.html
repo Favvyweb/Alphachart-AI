@@ -76,8 +76,7 @@
       <div class="h-14 px-4 flex items-center justify-between">
         <div class="flex items-center gap-2">
           <span class="material-symbols-outlined text-primary-container text-[22px]">show_chart</span>
-          <span id="app-header-title"
-            class="font-bold text-base text-white tracking-tight">AlphaChart AI</span>
+          <span id="app-header-title" class="font-bold text-base text-white tracking-tight">AlphaChart AI</span>
         </div>
         <div class="flex items-center gap-2">
           <span
@@ -96,13 +95,13 @@
         <div class="mb-6 pt-1">
           <h1 class="text-[28px] font-bold text-white tracking-tight leading-tight mb-1">
             AlphaChart AI</h1>
-          <p class="text-[14px] text-on-surface-variant leading-snug">Real-time technical analysis & signals for crypto markets</p>
+          <p class="text-[14px] text-on-surface-variant leading-snug">Real-time technical analysis & signals for crypto
+            markets</p>
         </div>
 
         <!-- EMPTY STATE (Exact Fidelity to screen.png) -->
         <div id="home-empty-state" class="flex flex-col items-center justify-center text-center py-10 gap-5">
-          <div
-            class="w-20 h-20 bg-primary-container rounded-full flex items-center justify-center mb-1 shadow-md">
+          <div class="w-20 h-20 bg-primary-container rounded-full flex items-center justify-center mb-1 shadow-md">
             <span class="material-symbols-outlined text-black text-[38px]">show_chart</span>
           </div>
           <div class="space-y-1.5">
@@ -147,8 +146,8 @@
                   class="px-2.5 py-1 rounded-lg bg-primary-container/15 border border-primary-container/30 flex items-center gap-1.5">
                   <span id="res-signal-icon"
                     class="material-symbols-outlined text-primary-container text-[17px]">trending_up</span>
-                  <span id="res-signal-text"
-                    class="font-bold text-xs text-primary-container tracking-wide">LONG (BULLISH)</span>
+                  <span id="res-signal-text" class="font-bold text-xs text-primary-container tracking-wide">LONG
+                    (BULLISH)</span>
                 </div>
                 <!-- Interactive Direction Switcher Toggle -->
                 <div
@@ -164,7 +163,8 @@
                   class="text-[10px] font-mono text-[#38bdf8] bg-[#38bdf8]/10 border border-[#38bdf8]/20 px-2 py-0.5 rounded-md flex items-center gap-1"><span
                     class="w-1.5 h-1.5 rounded-full bg-[#38bdf8]"></span> Live 15m</span>
                 <span id="res-confidence-text"
-                  class="text-[11px] font-mono font-semibold text-primary-container bg-primary-container/10 border border-primary-container/20 px-2 py-0.5 rounded-md">85% Confluence</span>
+                  class="text-[11px] font-mono font-semibold text-primary-container bg-primary-container/10 border border-primary-container/20 px-2 py-0.5 rounded-md">85%
+                  Confluence</span>
                 <button id="rescan-chart-btn"
                   class="text-xs font-medium text-white flex items-center gap-1 bg-[#2c2c2e] hover:bg-[#3a3a3c] px-2.5 py-1 rounded-lg border border-white/[0.08] transition-all active:scale-95">
                   <span class="material-symbols-outlined text-[15px]">refresh</span> Re-Scan
@@ -175,21 +175,20 @@
             <!-- Coin Name & Entry Price Input Bar -->
             <div class="grid grid-cols-2 gap-2.5 border-t border-b border-white/[0.06] py-3">
               <div>
-                <label
-                  class="text-[11px] text-on-surface-variant font-medium block mb-1">Coin / Asset</label>
+                <label class="text-[11px] text-on-surface-variant font-medium block mb-1">Coin / Asset</label>
                 <input id="res-coin-input" type="text" value="" placeholder="Scanning chart ticker..."
                   class="w-full bg-[#000000] text-primary-container font-semibold text-sm border border-white/[0.1] rounded-xl px-3 py-1.5 focus:outline-none focus:border-primary-container">
               </div>
               <div>
-                <label
-                  class="text-[11px] text-on-surface-variant font-medium block mb-1">Chart Price ($)</label>
+                <label class="text-[11px] text-on-surface-variant font-medium block mb-1">Chart Price ($)</label>
                 <input id="res-price-input" type="number" step="any" value="" placeholder="0.00"
                   class="w-full bg-[#000000] text-[#38bdf8] font-mono font-semibold text-sm border border-white/[0.1] rounded-xl px-3 py-1.5 focus:outline-none focus:border-[#38bdf8]">
               </div>
             </div>
 
             <!-- Canvas Overlay Chart -->
-            <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden border border-white/[0.08] bg-[#000000]">
+            <div
+              class="relative w-full aspect-[4/3] rounded-xl overflow-hidden border border-white/[0.08] bg-[#000000]">
               <img id="result-chart-img" class="w-full h-full object-contain hidden" src="" alt="Analyzed Chart">
               <canvas id="result-chart-canvas" class="w-full h-full object-contain block"></canvas>
             </div>
@@ -198,10 +197,14 @@
             <button id="view-full-chart-btn" type="button"
               class="w-full py-2.5 px-3.5 rounded-xl bg-[#2c2c2e] hover:bg-[#3a3a3c] border border-white/[0.08] hover:border-primary-container/30 text-white text-xs font-semibold flex items-center justify-between gap-2 transition-all active:scale-[0.98]">
               <div class="flex items-center gap-2 min-w-0">
-                <span class="material-symbols-outlined text-primary-container text-[18px] shrink-0">candlestick_chart</span>
-                <span class="whitespace-nowrap font-semibold text-[11px] sm:text-xs">View Full Chart & Trend Signals</span>
+                <span
+                  class="material-symbols-outlined text-primary-container text-[18px] shrink-0">candlestick_chart</span>
+                <span class="whitespace-nowrap font-semibold text-[11px] sm:text-xs">View Full Chart & Trend
+                  Signals</span>
               </div>
-              <span class="ml-auto whitespace-nowrap shrink-0 text-[10px] font-mono text-primary-container bg-primary-container/10 px-2 py-0.5 rounded border border-primary-container/20">5m • 1h</span>
+              <span
+                class="ml-auto whitespace-nowrap shrink-0 text-[10px] font-mono text-primary-container bg-primary-container/10 px-2 py-0.5 rounded border border-primary-container/20">5m
+                • 1h</span>
             </button>
           </div>
 
@@ -210,13 +213,13 @@
             class="bg-[#1c1c1e] border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-2.5 shadow-sm">
             <div class="flex items-center justify-between">
               <div>
-                <span
-                  class="text-[11px] text-on-surface-variant font-medium block">Recommended Action</span>
+                <span class="text-[11px] text-on-surface-variant font-medium block">Recommended Action</span>
                 <h4 id="res-exec-title" class="font-bold text-base text-primary-container mt-0.5">
                   Enter Now</h4>
               </div>
               <span id="res-exec-badge"
-                class="px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wider bg-primary-container text-black shrink-0 whitespace-nowrap">ENTER NOW</span>
+                class="px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wider bg-primary-container text-black shrink-0 whitespace-nowrap">ENTER
+                NOW</span>
             </div>
             <div class="border-t border-white/[0.06] pt-2 flex items-start gap-2">
               <span
@@ -240,7 +243,8 @@
             <div class="col-span-2 bg-[#1c1c1e] border border-white/[0.08] rounded-2xl p-3.5 flex flex-col gap-2.5">
               <div class="flex justify-between items-center">
                 <span class="text-[11px] text-on-surface-variant font-medium">Profit Targets (TP)</span>
-                <span class="text-[11px] font-mono text-primary-container font-semibold">R:R Ratio <strong id="res-rr-val">1 : 3.00</strong></span>
+                <span class="text-[11px] font-mono text-primary-container font-semibold">R:R Ratio <strong
+                    id="res-rr-val">1 : 3.00</strong></span>
               </div>
               <div class="grid grid-cols-3 gap-2">
                 <div class="bg-[#2c2c2e] border border-white/[0.06] rounded-xl p-2.5 text-center">
@@ -261,7 +265,8 @@
 
           <!-- Technical Metrics -->
           <div class="bg-[#1c1c1e] border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-3">
-            <h4 class="font-semibold text-xs text-white border-b border-white/[0.06] pb-2">Technical Indicators & Pattern</h4>
+            <h4 class="font-semibold text-xs text-white border-b border-white/[0.06] pb-2">Technical Indicators &
+              Pattern</h4>
             <div class="space-y-2 text-xs">
               <div class="flex justify-between"><span class="text-on-surface-variant">Pattern Identified:</span><strong
                   id="res-pattern-val" class="text-white font-semibold">Falling Wedge Breakout</strong></div>
@@ -276,14 +281,14 @@
             </div>
             <div class="bg-[#2c2c2e] p-3 rounded-xl border border-white/[0.06] mt-1">
               <p id="res-summary-val" class="text-xs text-on-surface-variant leading-relaxed">
-                Analysis of ENA / USDT at $0.08036 confirms a LONG setup. Pattern: Falling Wedge Breakout. Targets: $0.08663 -> $0.10431.
+                Analysis of ENA / USDT at $0.08036 confirms a LONG setup. Pattern: Falling Wedge Breakout. Targets:
+                $0.08663 -> $0.10431.
               </p>
             </div>
           </div>
 
           <!-- Top 4 Elite Quantitative Indicators Confluence Card -->
-          <div
-            class="bg-[#1c1c1e] border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-3 shadow-sm">
+          <div class="bg-[#1c1c1e] border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-3 shadow-sm">
             <div class="flex items-center justify-between border-b border-white/[0.06] pb-2.5 gap-2">
               <div class="flex items-center gap-2 min-w-0">
                 <span class="material-symbols-outlined text-primary-container text-[18px] shrink-0">stars</span>
@@ -379,15 +384,18 @@
                 <div
                   class="px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md border border-primary-container/30 flex items-center gap-1.5 shadow-sm">
                   <span class="w-1.5 h-1.5 rounded-full bg-primary-container animate-ping"></span>
-                  <span class="text-primary-container font-bold text-[10px] uppercase tracking-wider">Major Market Catalyst</span>
+                  <span class="text-primary-container font-bold text-[10px] uppercase tracking-wider">Major Market
+                    Catalyst</span>
                 </div>
               </div>
             </div>
             <div class="p-4 relative -mt-8 bg-gradient-to-b from-transparent via-[#1c1c1e]/90 to-[#1c1c1e]">
               <div class="flex items-center gap-2 mb-2">
-                <span id="featured-news-time" class="text-primary-container font-mono font-semibold text-[11px]">5m ago</span>
+                <span id="featured-news-time" class="text-primary-container font-mono font-semibold text-[11px]">5m
+                  ago</span>
                 <span class="w-1 h-1 rounded-full bg-on-surface-variant/50"></span>
-                <span id="featured-news-source" class="text-white/90 font-medium text-[11px]">Bloomberg Market Alpha</span>
+                <span id="featured-news-source" class="text-white/90 font-medium text-[11px]">Bloomberg Market
+                  Alpha</span>
                 <span class="material-symbols-outlined text-[14px] text-primary-container ml-auto">open_in_new</span>
               </div>
               <h2 id="featured-news-title"
@@ -398,7 +406,8 @@
                 <div id="featured-news-sentiment-bg"
                   class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-primary-container/10 border border-primary-container/20">
                   <span class="material-symbols-outlined text-primary-container text-[15px]">trending_up</span>
-                  <span id="featured-news-sentiment" class="text-primary-container font-semibold text-[11px]">Major Market Driver</span>
+                  <span id="featured-news-sentiment" class="text-primary-container font-semibold text-[11px]">Major
+                    Market Driver</span>
                 </div>
                 <span class="text-[10px] text-on-surface-variant font-mono">Read article →</span>
               </div>
@@ -429,14 +438,15 @@
             <div class="bg-[#1c1c1e] border border-white/[0.08] rounded-2xl p-5 shadow-sm">
               <div class="flex justify-between items-start">
                 <div>
-                  <p class="text-[11px] font-medium text-on-surface-variant uppercase tracking-wider mb-1">Total Portfolio PnL</p>
+                  <p class="text-[11px] font-medium text-on-surface-variant uppercase tracking-wider mb-1">Total
+                    Portfolio PnL</p>
                   <h2 id="journal-total-pnl-val" class="font-mono text-3xl font-bold text-primary-container">
                     $0.00</h2>
                 </div>
                 <div class="h-11 w-24">
                   <svg class="w-full h-full" viewBox="0 0 100 40">
-                    <path
-                      d="M0 35 Q 20 35, 30 25 T 50 15 T 70 20 T 100 5" fill="none" stroke="#00e479" stroke-width="2">
+                    <path d="M0 35 Q 20 35, 30 25 T 50 15 T 70 20 T 100 5" fill="none" stroke="#00e479"
+                      stroke-width="2">
                     </path>
                     <path d="M0 35 Q 20 35, 30 25 T 50 15 T 70 20 T 100 5 L 100 40 L 0 40 Z" fill="url(#grad)"
                       opacity="0.12"></path>
@@ -472,7 +482,8 @@
 
           <!-- AI Discipline Coach Card -->
           <section>
-            <div class="relative bg-[#1c1c1e] border border-white/[0.08] rounded-2xl p-4 flex items-center gap-3 shadow-sm">
+            <div
+              class="relative bg-[#1c1c1e] border border-white/[0.08] rounded-2xl p-4 flex items-center gap-3 shadow-sm">
               <div
                 class="w-10 h-10 shrink-0 rounded-xl bg-primary-container/15 flex items-center justify-center border border-primary-container/20 text-primary-container">
                 <span class="material-symbols-outlined text-[22px]">smart_toy</span>
@@ -493,7 +504,8 @@
             <div class="flex justify-between items-center px-1">
               <h3 class="font-bold text-sm text-white">Recent Trades</h3>
               <button onclick="window.JournalModule.clearAllTrades()"
-                class="text-xs text-on-surface-variant hover:text-error transition-colors font-medium">Clear All</button>
+                class="text-xs text-on-surface-variant hover:text-error transition-colors font-medium">Clear
+                All</button>
             </div>
             <div id="journal-trades-list" class="flex flex-col gap-2.5"></div>
           </section>
@@ -544,12 +556,14 @@
             <!-- Account Section -->
             <div class="flex flex-col gap-1.5">
               <h2 class="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider px-3">ACCOUNT</h2>
-              <div class="rounded-2xl overflow-hidden bg-[#1c1c1e] border border-white/[0.08] divide-y divide-white/[0.06] shadow-sm">
+              <div
+                class="rounded-2xl overflow-hidden bg-[#1c1c1e] border border-white/[0.08] divide-y divide-white/[0.06] shadow-sm">
                 <!-- Subscription Plan -->
                 <button
                   class="w-full flex items-center justify-between p-3.5 hover:bg-[#2c2c2e] transition-colors group active:bg-[#2c2c2e]">
                   <div class="flex items-center gap-3">
-                    <div class="w-8 h-8 rounded-xl bg-primary-container/15 flex items-center justify-center text-primary-container">
+                    <div
+                      class="w-8 h-8 rounded-xl bg-primary-container/15 flex items-center justify-center text-primary-container">
                       <span class="material-symbols-outlined text-[18px]">workspace_premium</span>
                     </div>
                     <span class="text-xs font-semibold text-white">Subscription Plan</span>
@@ -570,13 +584,16 @@
                     </div>
                     <div class="text-left min-w-0">
                       <span
-                        class="text-xs font-semibold text-white block truncate group-hover:text-primary-container transition-colors">Top Earners & Rewards</span>
-                      <span class="text-[10px] text-primary-container font-medium block truncate">Win up to $500 monthly</span>
+                        class="text-xs font-semibold text-white block truncate group-hover:text-primary-container transition-colors">Top
+                        Earners & Rewards</span>
+                      <span class="text-[10px] text-primary-container font-medium block truncate">Win up to $500
+                        monthly</span>
                     </div>
                   </div>
                   <div class="flex items-center gap-1.5 shrink-0">
                     <span
-                      class="px-2 py-0.5 rounded-full bg-primary-container/15 text-primary-container text-[9px] font-mono font-bold uppercase border border-primary-container/30 tracking-wider whitespace-nowrap">$500 PRIZE</span>
+                      class="px-2 py-0.5 rounded-full bg-primary-container/15 text-primary-container text-[9px] font-mono font-bold uppercase border border-primary-container/30 tracking-wider whitespace-nowrap">$500
+                      PRIZE</span>
                     <span
                       class="material-symbols-outlined text-on-surface-variant text-[18px] group-hover:translate-x-0.5 transition-transform">chevron_right</span>
                   </div>
@@ -586,7 +603,8 @@
                 <button
                   class="w-full flex items-center justify-between p-3.5 hover:bg-[#2c2c2e] transition-colors group active:bg-[#2c2c2e]">
                   <div class="flex items-center gap-3">
-                    <div class="w-8 h-8 rounded-xl bg-white/[0.06] flex items-center justify-center text-on-surface-variant">
+                    <div
+                      class="w-8 h-8 rounded-xl bg-white/[0.06] flex items-center justify-center text-on-surface-variant">
                       <span class="material-symbols-outlined text-[18px]">security</span>
                     </div>
                     <span class="text-xs font-semibold text-white">Security</span>
@@ -603,7 +621,8 @@
                 <button
                   class="w-full flex items-center justify-between p-3.5 hover:bg-[#2c2c2e] transition-colors group active:bg-[#2c2c2e]">
                   <div class="flex items-center gap-3">
-                    <div class="w-8 h-8 rounded-xl bg-white/[0.06] flex items-center justify-center text-on-surface-variant">
+                    <div
+                      class="w-8 h-8 rounded-xl bg-white/[0.06] flex items-center justify-center text-on-surface-variant">
                       <span class="material-symbols-outlined text-[18px]">contact_support</span>
                     </div>
                     <span class="text-xs font-semibold text-white">Contact Support</span>
@@ -616,11 +635,13 @@
             <!-- Legal Section -->
             <div class="flex flex-col gap-1.5">
               <h2 class="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider px-3">LEGAL</h2>
-              <div class="rounded-2xl overflow-hidden bg-[#1c1c1e] border border-white/[0.08] divide-y divide-white/[0.06] shadow-sm">
+              <div
+                class="rounded-2xl overflow-hidden bg-[#1c1c1e] border border-white/[0.08] divide-y divide-white/[0.06] shadow-sm">
                 <button
                   class="w-full flex items-center justify-between p-3.5 hover:bg-[#2c2c2e] transition-colors group active:bg-[#2c2c2e]">
                   <div class="flex items-center gap-3">
-                    <div class="w-8 h-8 rounded-xl bg-white/[0.06] flex items-center justify-center text-on-surface-variant">
+                    <div
+                      class="w-8 h-8 rounded-xl bg-white/[0.06] flex items-center justify-center text-on-surface-variant">
                       <span class="material-symbols-outlined text-[18px]">description</span>
                     </div>
                     <span class="text-xs font-semibold text-white">Terms of Service</span>
@@ -630,7 +651,8 @@
                 <button
                   class="w-full flex items-center justify-between p-3.5 hover:bg-[#2c2c2e] transition-colors group active:bg-[#2c2c2e]">
                   <div class="flex items-center gap-3">
-                    <div class="w-8 h-8 rounded-xl bg-white/[0.06] flex items-center justify-center text-on-surface-variant">
+                    <div
+                      class="w-8 h-8 rounded-xl bg-white/[0.06] flex items-center justify-center text-on-surface-variant">
                       <span class="material-symbols-outlined text-[18px]">policy</span>
                     </div>
                     <span class="text-xs font-semibold text-white">Privacy Policy</span>
@@ -649,7 +671,8 @@
               <span class="material-symbols-outlined text-error text-[18px]">logout</span>
               <span class="font-bold text-error text-xs sm:text-sm">Sign Out</span>
             </button>
-            <p class="text-center text-[10px] font-mono text-on-surface-variant/50 mt-4">AlphaChart AI • Version 2.4.1</p>
+            <p class="text-center text-[10px] font-mono text-on-surface-variant/50 mt-4">AlphaChart AI • Version 2.4.1
+            </p>
           </div>
 
         </div>
@@ -684,11 +707,13 @@
         </div>
 
         <!-- Monthly Prize Pool Banner -->
-        <div
-          class="bg-[#2c2c2e] border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-3 shadow-sm">
+        <div class="bg-[#2c2c2e] border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-3 shadow-sm">
           <div class="flex items-center justify-between">
-            <span class="text-[11px] font-bold uppercase tracking-wider text-primary-container">Monthly Cash Prize Pool</span>
-            <span class="px-2 py-0.5 rounded bg-primary-container text-black font-extrabold text-[9px] uppercase font-mono">EVERY MONTH</span>
+            <span class="text-[11px] font-bold uppercase tracking-wider text-primary-container">Monthly Cash Prize
+              Pool</span>
+            <span
+              class="px-2 py-0.5 rounded bg-primary-container text-black font-extrabold text-[9px] uppercase font-mono">EVERY
+              MONTH</span>
           </div>
           <div class="grid grid-cols-3 gap-2 text-center">
             <div class="bg-[#1c1c1e] border border-white/[0.08] rounded-xl p-2.5 flex flex-col items-center">
@@ -718,8 +743,7 @@
 
           <div class="flex flex-col gap-2">
             <!-- Rank 1 -->
-            <div
-              class="p-2.5 bg-[#2c2c2e] border border-white/[0.06] rounded-xl flex items-center justify-between">
+            <div class="p-2.5 bg-[#2c2c2e] border border-white/[0.06] rounded-xl flex items-center justify-between">
               <div class="flex items-center gap-2.5">
                 <span
                   class="w-6 h-6 rounded-full bg-primary-container text-black font-extrabold text-[11px] flex items-center justify-center shrink-0">1</span>
@@ -809,18 +833,21 @@
             <li class="flex items-start gap-2">
               <span
                 class="w-4 h-4 rounded-full bg-primary-container/20 text-primary-container font-mono font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">1</span>
-              <p><strong class="text-white">Post Results:</strong> Share analysis screenshots & trades on Twitter/X, Instagram, or TikTok and tag <strong
-                  class="text-primary-container">@AlphaChartAI</strong>.</p>
+              <p><strong class="text-white">Post Results:</strong> Share analysis screenshots & trades on Twitter/X,
+                Instagram, or TikTok and tag <strong class="text-primary-container">@AlphaChartAI</strong>.</p>
             </li>
             <li class="flex items-start gap-2">
               <span
                 class="w-4 h-4 rounded-full bg-primary-container/20 text-primary-container font-mono font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">2</span>
-              <p><strong class="text-white">Share Monthly Earnings:</strong> Send your monthly Trading Journal PnL statement to our team for review.</p>
+              <p><strong class="text-white">Share Monthly Earnings:</strong> Send your monthly Trading Journal PnL
+                statement to our team for review.</p>
             </li>
             <li class="flex items-start gap-2">
               <span
                 class="w-4 h-4 rounded-full bg-primary-container/20 text-primary-container font-mono font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">3</span>
-              <p><strong class="text-white">Win Cash:</strong> Every month top traders win: <strong class="text-primary-container">1st = $500</strong> | <strong class="text-white">2nd = $200</strong> | <strong class="text-[#38bdf8]">3rd = $100</strong>.</p>
+              <p><strong class="text-white">Win Cash:</strong> Every month top traders win: <strong
+                  class="text-primary-container">1st = $500</strong> | <strong class="text-white">2nd = $200</strong> |
+                <strong class="text-[#38bdf8]">3rd = $100</strong>.</p>
             </li>
           </ol>
         </div>
@@ -847,9 +874,11 @@
         </div>
         <div class="flex border-b border-white/[0.06] text-xs">
           <button id="tab-upload-btn"
-            class="flex-1 py-2 font-semibold text-primary-container border-b-2 border-primary-container transition-all">Upload File</button>
+            class="flex-1 py-2 font-semibold text-primary-container border-b-2 border-primary-container transition-all">Upload
+            File</button>
           <button id="tab-camera-btn"
-            class="flex-1 py-2 font-medium text-on-surface-variant hover:text-white transition-all">Take Snapshot</button>
+            class="flex-1 py-2 font-medium text-on-surface-variant hover:text-white transition-all">Take
+            Snapshot</button>
         </div>
         <div id="modal-view-upload" class="flex flex-col gap-3">
           <div id="chart-dropzone"
@@ -857,7 +886,8 @@
             <span class="material-symbols-outlined text-primary-container text-[36px]">cloud_upload</span>
             <div>
               <p class="font-semibold text-white text-xs">Click to upload or drag & drop</p>
-              <p class="text-[10px] text-on-surface-variant mt-0.5">Upload chart screenshot (e.g. ENA, BTC, ETH, EUR)</p>
+              <p class="text-[10px] text-on-surface-variant mt-0.5">Upload chart screenshot (e.g. ENA, BTC, ETH, EUR)
+              </p>
             </div>
             <input id="chart-file-input" type="file" accept="image/*" class="hidden">
           </div>
@@ -867,7 +897,8 @@
             class="relative aspect-[4/3] w-full rounded-2xl overflow-hidden bg-black border border-white/[0.08] flex items-center justify-center">
             <video id="camera-video" class="w-full h-full object-cover" autoplay playsinline muted></video>
           </div>
-          <p id="camera-status-msg" class="text-[11px] text-center text-on-surface-variant">Point camera at chart screen</p>
+          <p id="camera-status-msg" class="text-[11px] text-center text-on-surface-variant">Point camera at chart screen
+          </p>
           <button id="camera-snap-btn"
             class="w-full py-3 bg-primary-container text-black font-bold rounded-xl text-xs flex items-center justify-center gap-2 active:scale-95 transition-transform">
             <span class="material-symbols-outlined text-[18px]">photo_camera</span> Capture & Analyze
@@ -912,19 +943,21 @@
 
           <div class="grid grid-cols-2 gap-2.5">
             <div>
-              <label class="text-[10px] text-primary-container uppercase font-semibold block mb-1">PnL Outcome</label>
+              <label class="text-[10px] text-primary-container uppercase font-semibold block mb-1">Win or Loss</label>
               <input id="log-pnl-input" type="text" placeholder="+$650.00 or -$150.00" required
                 class="w-full bg-[#000000] border border-white/[0.1] rounded-xl px-3 py-2 text-xs font-mono font-semibold text-white focus:outline-none focus:border-primary-container">
             </div>
             <div>
-              <label class="text-[10px] text-on-surface-variant uppercase font-semibold block mb-1">Execution Time</label>
+              <label class="text-[10px] text-on-surface-variant uppercase font-semibold block mb-1">Execution
+                Time</label>
               <input id="log-time-input" type="datetime-local" required style="color-scheme: dark;"
                 class="w-full bg-[#000000] border border-white/[0.1] rounded-xl px-2.5 py-2 text-xs font-mono text-white focus:outline-none focus:border-primary-container">
             </div>
           </div>
 
           <div>
-            <label class="text-[10px] text-on-surface-variant uppercase font-semibold block mb-1">Your Observation</label>
+            <label class="text-[10px] text-on-surface-variant uppercase font-semibold block mb-1">Your
+              Observation</label>
             <textarea id="log-notes-input" rows="3"
               placeholder="What worked? What was your discipline rating? Any mistakes or execution insights?"
               class="w-full bg-[#000000] border border-white/[0.1] rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-primary-container resize-none"></textarea>
@@ -959,9 +992,11 @@
               <div class="flex items-center gap-1.5">
                 <h3 id="full-chart-coin-title" class="font-bold text-sm text-white truncate">BTC / USDT</h3>
                 <span class="w-1.5 h-1.5 rounded-full bg-primary-container animate-ping shrink-0"></span>
-                <span class="text-[9px] font-mono font-bold text-primary-container uppercase hidden sm:inline">Live Engine</span>
+                <span class="text-[9px] font-mono font-bold text-primary-container uppercase hidden sm:inline">Live
+                  Engine</span>
               </div>
-              <p id="full-chart-price-display" class="text-[11px] font-mono text-[#38bdf8] font-semibold truncate">Real-time Candles & Signals</p>
+              <p id="full-chart-price-display" class="text-[11px] font-mono text-[#38bdf8] font-semibold truncate">
+                Real-time Candles & Signals</p>
             </div>
           </div>
 
@@ -1062,16 +1097,19 @@
           class="px-3 py-1.5 bg-[#121214] border-t border-white/[0.08] flex items-center justify-between text-[10px] text-on-surface-variant shrink-0">
           <div class="flex items-center gap-1.5 truncate">
             <span class="material-symbols-outlined text-[14px] text-primary-container shrink-0">insights</span>
-            <span class="truncate">Full TradingView Tools: Left drawing toolbar • Top timeframe & indicator search • Live WebSockets</span>
+            <span class="truncate">Full TradingView Tools: Left drawing toolbar • Top timeframe & indicator search •
+              Live WebSockets</span>
           </div>
-          <span class="font-mono text-primary-container font-semibold hidden sm:inline shrink-0">AlphaChart Realtime</span>
+          <span class="font-mono text-primary-container font-semibold hidden sm:inline shrink-0">AlphaChart
+            Realtime</span>
         </div>
 
       </div>
     </div>
 
     <!-- Persistent Bottom Navigation (iOS Tab Bar) -->
-    <nav class="fixed bottom-0 max-w-[430px] w-full z-40 pb-safe glass-nav left-1/2 -translate-x-1/2 bg-[#121214]/85 backdrop-blur-xl border-t border-white/[0.08]">
+    <nav
+      class="fixed bottom-0 max-w-[430px] w-full z-40 pb-safe glass-nav left-1/2 -translate-x-1/2 bg-[#121214]/85 backdrop-blur-xl border-t border-white/[0.08]">
       <div class="flex justify-around items-center h-14 px-2">
         <a data-path="signal-scanner" href="#" aria-current="page"
           class="flex flex-col items-center gap-0.5 min-w-[64px] transition-colors duration-150 text-primary-container font-semibold">

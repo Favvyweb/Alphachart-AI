@@ -361,11 +361,11 @@ window.JournalModule = {
               </span>
             </div>
 
-            <!-- Row 1: How much did you make/loss? & Execution Time -->
+            <!-- Row 1: Win or Loss & Execution Time -->
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               <div>
                 <label class="text-[10px] text-on-surface-variant uppercase font-semibold block mb-1">
-                  How much did you make / loss?
+                  Win or Loss
                 </label>
                 <input 
                   type="text" 
