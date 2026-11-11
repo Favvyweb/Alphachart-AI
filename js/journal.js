@@ -9,12 +9,34 @@ window.JournalModule = {
   STORAGE_KEY: 'alphachart_journal_manual_trades_v1',
   trades: [],
   pendingAnalysisData: null,
+  expandedTradeIds: new Set(),
 
   init: function () {
     this.loadFromStorage();
     this.bindEvents();
     this.renderTrades();
     this.updateStats();
+  },
+
+  toggleTradeFeedback: function (tradeId) {
+    const body = document.getElementById(`feedback-body-${tradeId}`);
+    const chevron = document.getElementById(`feedback-chevron-${tradeId}`);
+    if (!body) return;
+
+    const isHidden = body.classList.contains('hidden');
+    if (isHidden) {
+      body.classList.remove('hidden');
+      if (chevron) {
+        chevron.style.transform = 'rotate(180deg)';
+      }
+      this.expandedTradeIds.add(tradeId);
+    } else {
+      body.classList.add('hidden');
+      if (chevron) {
+        chevron.style.transform = 'rotate(0deg)';
+      }
+      this.expandedTradeIds.delete(tradeId);
+    }
   },
 
   loadFromStorage: function () {
@@ -254,6 +276,7 @@ window.JournalModule = {
     }
 
     trade.feedbackSaved = true;
+    this.expandedTradeIds.add(tradeId);
     this.saveToStorage();
     this.renderTrades();
     this.updateStats();
@@ -305,8 +328,9 @@ window.JournalModule = {
     }
 
     container.innerHTML = this.trades.map(t => {
-      const pnlDisplayClass = t.isProfit ? 'text-primary-fixed-dim' : 'text-error';
+      const pnlDisplayClass = t.isProfit ? 'text-primary-container' : 'text-error';
       const displayTime = this.formatTradeTime(t.timestamp || t.id || t.time);
+      const isExpanded = this.expandedTradeIds && this.expandedTradeIds.has(t.id);
 
       return `
         <div class="bg-[#1c1c1e] border border-white/[0.08] rounded-2xl p-4 sm:p-5 flex flex-col gap-3.5 transition-all shadow-sm">
@@ -349,71 +373,87 @@ window.JournalModule = {
             </p>
           </div>
 
-          <!-- Dedicated Feedback Box: How much did you make/loss? & Your observation -->
-          <div class="bg-[#2c2c2e] border border-white/[0.08] rounded-xl p-3.5 flex flex-col gap-3">
+          <!-- Expandable Dropdown Box: Outcome & Observation -->
+          <div class="bg-[#2c2c2e] border border-white/[0.08] rounded-xl overflow-hidden transition-all">
             
-            <div class="flex items-center justify-between">
-              <span class="text-[11px] font-bold uppercase tracking-wider text-primary-container flex items-center gap-1.5">
-                <span class="material-symbols-outlined text-[16px]">edit_note</span> Outcome & Observation
-              </span>
-              <span class="text-[10px] px-2 py-0.5 rounded-full font-bold bg-primary-container/15 text-primary-container border border-primary-container/30">
-                ✓ Manually Logged
-              </span>
-            </div>
+            <!-- Clickable Dropdown Header -->
+            <button type="button" 
+                    onclick="window.JournalModule.toggleTradeFeedback(${t.id})"
+                    class="w-full p-3 flex items-center justify-between hover:bg-[#3a3a3c] transition-colors cursor-pointer group text-left">
+              <div class="flex items-center gap-2 min-w-0">
+                <span class="material-symbols-outlined text-primary-container text-[18px] shrink-0">edit_note</span>
+                <span class="text-xs font-semibold text-white group-hover:text-primary-container transition-colors truncate">Outcome & Observation</span>
+              </div>
+              <div class="flex items-center gap-2 shrink-0">
+                <span class="text-[10px] px-2 py-0.5 rounded-full font-bold bg-primary-container/15 text-primary-container border border-primary-container/30">
+                  ✓ Manually Logged
+                </span>
+                <span id="feedback-chevron-${t.id}" 
+                      class="material-symbols-outlined text-on-surface-variant text-[18px] transition-transform duration-200"
+                      style="transform: ${isExpanded ? 'rotate(180deg)' : 'rotate(0deg)'}">
+                  expand_more
+                </span>
+              </div>
+            </button>
 
-            <!-- Row 1: Win or Loss & Execution Time -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              <div>
-                <label class="text-[10px] text-on-surface-variant uppercase font-semibold block mb-1">
-                  Win or Loss
-                </label>
-                <input 
-                  type="text" 
-                  id="feedback-pnl-${t.id}" 
-                  value="${t.userOutcomePnl || t.pnl || ''}" 
-                  placeholder="e.g. +$450.00 or -$120.00" 
-                  class="w-full bg-[#000000] border border-white/[0.1] rounded-lg px-3 py-2 text-xs font-mono text-white placeholder:text-on-surface-variant/40 focus:outline-none focus:border-primary-container transition-all"
-                />
+            <!-- Collapsible Body Content -->
+            <div id="feedback-body-${t.id}" class="${isExpanded ? '' : 'hidden'} p-3.5 pt-1 border-t border-white/[0.06] flex flex-col gap-3">
+              
+              <!-- Row 1: Win or Loss & Execution Time -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div>
+                  <label class="text-[10px] text-on-surface-variant uppercase font-semibold block mb-1">
+                    Win or Loss
+                  </label>
+                  <input 
+                    type="text" 
+                    id="feedback-pnl-${t.id}" 
+                    value="${t.userOutcomePnl || t.pnl || ''}" 
+                    placeholder="e.g. +$450.00 or -$120.00" 
+                    class="w-full bg-[#000000] border border-white/[0.1] rounded-lg px-3 py-2 text-xs font-mono text-white placeholder:text-on-surface-variant/40 focus:outline-none focus:border-primary-container transition-all"
+                  />
+                </div>
+
+                <div>
+                  <label class="text-[10px] text-on-surface-variant uppercase font-semibold block mb-1">
+                    Execution Time
+                  </label>
+                  <input 
+                    type="datetime-local" 
+                    id="feedback-time-${t.id}" 
+                    value="${this.getLocalISOString(new Date(t.timestamp || t.id || Date.now()))}" 
+                    style="color-scheme: dark;"
+                    class="w-full bg-[#000000] border border-white/[0.1] rounded-lg px-2.5 py-2 text-xs font-mono text-white focus:outline-none focus:border-primary-container transition-all"
+                  />
+                </div>
               </div>
 
+              <!-- Row 2: Your observation -->
               <div>
                 <label class="text-[10px] text-on-surface-variant uppercase font-semibold block mb-1">
-                  Execution Time
+                  Your observation
                 </label>
-                <input 
-                  type="datetime-local" 
-                  id="feedback-time-${t.id}" 
-                  value="${this.getLocalISOString(new Date(t.timestamp || t.id || Date.now()))}" 
-                  style="color-scheme: dark;"
-                  class="w-full bg-[#000000] border border-white/[0.1] rounded-lg px-2.5 py-2 text-xs font-mono text-white focus:outline-none focus:border-primary-container transition-all"
-                />
+                <textarea 
+                  id="feedback-obs-${t.id}" 
+                  rows="2" 
+                  placeholder="Review what worked, execution discipline, or lessons learned..." 
+                  class="w-full bg-[#000000] border border-white/[0.1] rounded-lg p-2.5 text-xs text-white placeholder:text-on-surface-variant/40 focus:outline-none focus:border-primary-container resize-none transition-all leading-relaxed"
+                >${t.userObservation || t.notes || ''}</textarea>
               </div>
-            </div>
 
-            <!-- Row 2: Your observation -->
-            <div>
-              <label class="text-[10px] text-on-surface-variant uppercase font-semibold block mb-1">
-                Your observation
-              </label>
-              <textarea 
-                id="feedback-obs-${t.id}" 
-                rows="2" 
-                placeholder="Review what worked, execution discipline, or lessons learned..." 
-                class="w-full bg-[#000000] border border-white/[0.1] rounded-lg p-2.5 text-xs text-white placeholder:text-on-surface-variant/40 focus:outline-none focus:border-primary-container resize-none transition-all leading-relaxed"
-              >${t.userObservation || t.notes || ''}</textarea>
-            </div>
+              <!-- Save Feedback Action -->
+              <div class="flex items-center justify-between pt-1">
+                <span class="text-[10px] text-on-surface-variant/70">
+                  Update outcome or observation
+                </span>
+                <button 
+                  onclick="window.JournalModule.saveFeedback(${t.id})" 
+                  class="px-3.5 py-1.5 rounded-xl bg-primary-container text-black font-bold text-xs flex items-center gap-1.5 active:scale-95 hover:brightness-105 transition-all shadow-sm">
+                  <span class="material-symbols-outlined text-[15px]">save</span>
+                  <span>Update Feedback</span>
+                </button>
+              </div>
 
-            <!-- Save Feedback Action -->
-            <div class="flex items-center justify-between pt-1">
-              <span class="text-[10px] text-on-surface-variant/60">
-                Update outcome, observation or time
-              </span>
-              <button 
-                onclick="window.JournalModule.saveFeedback(${t.id})" 
-                class="px-3.5 py-1.5 rounded-xl bg-primary-container text-black font-bold text-xs flex items-center gap-1.5 active:scale-95 hover:brightness-105 transition-all shadow-sm">
-                <span class="material-symbols-outlined text-[15px]">save</span>
-                <span>Update Feedback</span>
-              </button>
             </div>
 
           </div>
