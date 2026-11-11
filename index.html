@@ -1121,7 +1121,8 @@
                 </div>
 
                 <!-- View Mode Tabs (Summary vs All Signals Log) -->
-                <div class="px-2.5 py-1 border-b border-white/[0.06] bg-black/20 flex items-center justify-between text-[10px]">
+                <div
+                  class="px-2.5 py-1 border-b border-white/[0.06] bg-black/20 flex items-center justify-between text-[10px]">
                   <div class="flex items-center gap-1">
                     <button id="ttr-tab-summary-btn" type="button"
                       class="px-2 py-0.5 rounded text-[9px] font-bold bg-primary-container text-black transition-all">
@@ -1132,7 +1133,7 @@
                       Signals Log (<span id="ttr-signals-count-badge">0</span>)
                     </button>
                   </div>
-                  <span class="text-[9px] text-primary-container/90 font-mono">+2% to +10% TP • -5% SL</span>
+                  <span class="text-[9px] text-primary-container/90 font-mono">TP1: +2% • TP2: +10%+ • SL: -5%</span>
                 </div>
 
                 <!-- VIEW A: Compact Table (Summary) -->
@@ -1153,7 +1154,8 @@
                 </div>
 
                 <!-- VIEW B: Individual Signals Log (Detailed Chronological Trades) -->
-                <div id="ttr-view-signals-log" class="hidden max-h-[190px] overflow-y-auto overflow-x-hidden divide-y divide-white/[0.04] text-[10px] font-mono">
+                <div id="ttr-view-signals-log"
+                  class="hidden max-h-[190px] overflow-y-auto overflow-x-hidden divide-y divide-white/[0.04] text-[10px] font-mono">
                   <!-- Dynamic signal rows will be rendered here -->
                 </div>
 

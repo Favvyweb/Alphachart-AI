@@ -473,12 +473,15 @@ window.TrendTraderEngine = {
       }
     }
 
-    // 2. Progressive TP (TP1, TP2, TP3, TP4, TP5) and SL Markers on the EXACT candles where reached
+    // 2. Clean Progressive TP1 (+2%) & TP2 (+10%+) Markers on subsequent candles
     if (prePerf && prePerf.evaluatedSignals) {
       for (const s of prePerf.evaluatedSignals) {
         if (s.tpEvents && s.tpEvents.length > 0) {
           for (const ev of s.tpEvents) {
             if (ev.time < midnightSec) continue;
+            // Never put an outcome circle on the initial signal candle itself
+            if (ev.time === s.time) continue;
+
             const isTp = ev.level.startsWith('TP');
             markers.push({
               time: ev.time,
@@ -486,7 +489,7 @@ window.TrendTraderEngine = {
               color: isTp ? '#00e479' : '#ff453a',
               shape: 'circle',
               text: ev.text,
-              size: 1.4
+              size: 1.2
             });
           }
         }
@@ -625,15 +628,12 @@ window.TrendTraderEngine = {
   },
 
   /**
-   * Evaluates real-time BUY & SELL signals on a $100 investment mark using user's % framework:
+   * Clean Real-time Signal Evaluation on $100 investment mark:
    * - Capital: $100 entered per trade
-   * - Stop Loss: Price moves against entry by -5% (0.50% raw price) -> LOSS -$5.00
-   * - Take Profit Ladder:
-   *    TP1: +2.0% -> WIN (~+$10.06, matching real AAVE short trade at 123.63->123.36)
-   *    TP2: +4.0% -> WIN (~+$14.78)
-   *    TP3: +6.0% -> WIN (~+$19.95)
-   *    TP4: +7.5% -> WIN (~+$23.75, matching real AAVE short trade profit at 7.47%)
-   *    TP5: +10.0%+ -> WIN (~+$30.30+)
+   * - Signal candle closes to confirm entry price
+   * - TP1: +2.0% gain -> Base Win (+$10.06)
+   * - TP2: +10.0%+ gain -> Runner Win (+$30.30+)
+   * - SL: -5.0% loss -> Loss (-$5.00) if drops before TP1 or reverses before TP1
    * Strictly tracks ONLY the current day (12:00 AM to 11:59 PM)
    */
   calculateDailySignalPerformance: function (candles, tags, psar) {
@@ -706,34 +706,24 @@ window.TrendTraderEngine = {
           maxDrawdownPct = curLowDrawdown;
         }
 
-        // Progressive TP milestone triggers as subsequent candles accumulate profit:
+        // Progressive TP milestone triggers (Clean 2-tier system requested by user):
+        // 1. TP1 at +2% (+2% ROE -> +$10.06)
         if (curHighRoe >= 2.0 && !hitTp1) {
           hitTp1 = true;
-          tpEvents.push({ time: nextC.time, level: 'TP1', text: 'TP1 • +$10.06 (+2%)', isBuy });
+          tpEvents.push({ time: nextC.time, level: 'TP1', text: 'TP1 (+2%) • +$10.06', isBuy });
         }
-        if (curHighRoe >= 4.0 && !hitTp2) {
+        // 2. TP2 at +10% and above (+10% ROE -> +$30.30+)
+        if (curHighRoe >= 10.0 && !hitTp2) {
           hitTp2 = true;
-          tpEvents.push({ time: nextC.time, level: 'TP2', text: 'TP2 • +$14.78 (+4%)', isBuy });
-        }
-        if (curHighRoe >= 6.0 && !hitTp3) {
-          hitTp3 = true;
-          tpEvents.push({ time: nextC.time, level: 'TP3', text: 'TP3 • +$19.95 (+6%)', isBuy });
-        }
-        if (curHighRoe >= 7.5 && !hitTp4) {
-          hitTp4 = true;
-          tpEvents.push({ time: nextC.time, level: 'TP4', text: 'TP4 • +$23.75 (+7.5%)', isBuy });
-        }
-        if (curHighRoe >= 10.0 && !hitTp5) {
-          hitTp5 = true;
-          tpEvents.push({ time: nextC.time, level: 'TP5', text: 'TP5 • +$30.30 (+10%)', isBuy });
+          tpEvents.push({ time: nextC.time, level: 'TP2', text: 'TP2 (+10%) • +$30.30', isBuy });
         }
 
         // Stop Loss Check:
-        // If drops to -5.0% or worse before reaching +2.0% TP1
-        if (maxDrawdownPct <= -5.0 && !hitTp1 && !hitSL) {
+        // Only if subsequent candle closes/drops to -5.0% before reaching TP1
+        if (curLowDrawdown <= -5.0 && !hitTp1 && !hitSL) {
           hitSL = true;
           exitPrice = isBuy ? (entryPrice * 0.995) : (entryPrice * 1.005);
-          tpEvents.push({ time: nextC.time, level: 'SL', text: 'SL • -$5.00 (-5%)', isBuy });
+          tpEvents.push({ time: nextC.time, level: 'SL', text: 'SL (-5%) • -$5.00', isBuy });
           reason = `Hit -5.00% SL ($${exitPrice.toFixed(2)})`;
           break;
         }
@@ -742,30 +732,31 @@ window.TrendTraderEngine = {
         if ((isBuy && nextTag === 'SELL') || (!isBuy && nextTag === 'BUY')) {
           exitPrice = nextC.close;
           if (hitTp1) {
-            reason = `Reversal closed after TP (+${maxRoePct.toFixed(2)}%)`;
+            reason = `Reversal closed after TP1 (+${maxRoePct.toFixed(1)}%)`;
           } else {
-            reason = `Reversal before TP1 (${maxDrawdownPct.toFixed(2)}%) • Loss -$5.00`;
+            reason = `Reversed before TP1 (${maxDrawdownPct.toFixed(1)}%) • Loss -$5.00`;
           }
           break;
         }
       }
 
-      // STRICT WIN/LOSS RULE:
+      // STRICT WIN/LOSS RULE (2 TP TIERS):
       // ONLY when it reaches +2.0% is it counted as a WIN!
-      // If it immediately reverses, gets to -5%, or prints reverse signal before +2%: it is a LOSS (-$5.00)
-      if (maxRoePct >= 2.0) {
+      // If it reaches +10.0%+: TP2 Runner (+$30.30+)
+      // If it reaches +2.0%: TP1 (+$10.06)
+      // If it reverses or drops before reaching +2%: LOSS (-$5.00)
+      if (maxRoePct >= 10.0) {
         isWin = true;
         isLoss = false;
-        if (maxRoePct >= 10.0) tpTier = 'TP5';
-        else if (maxRoePct >= 7.5) tpTier = 'TP4';
-        else if (maxRoePct >= 6.0) tpTier = 'TP3';
-        else if (maxRoePct >= 4.0) tpTier = 'TP2';
-        else tpTier = 'TP1';
-
-        const effPct = Math.max(2.0, maxRoePct);
-        pnl = 10.0616 + ((effPct - 2.18) * 2.5876);
-        pnl = Math.round(pnl * 100) / 100;
-        reason = `Hit ${tpTier} (+${maxRoePct.toFixed(2)}%) • Exit $${exitPrice.toFixed(2)}`;
+        tpTier = 'TP2 (+10%)';
+        pnl = 30.30;
+        reason = `Hit TP2 Runner (+${maxRoePct.toFixed(1)}%) • Exit $${exitPrice.toFixed(2)}`;
+      } else if (maxRoePct >= 2.0) {
+        isWin = true;
+        isLoss = false;
+        tpTier = 'TP1 (+2%)';
+        pnl = 10.06;
+        reason = `Hit TP1 (+${maxRoePct.toFixed(1)}%) • Exit $${exitPrice.toFixed(2)}`;
       } else {
         isWin = false;
         isLoss = true;
