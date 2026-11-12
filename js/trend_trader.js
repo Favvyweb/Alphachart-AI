@@ -312,16 +312,87 @@ window.TrendTraderEngine = {
   },
 
   /**
-   * Run Institutional Smart Money Concepts (SMC) + S&R Break + MACD Momentum Engine:
+   * Average True Range (ATR) calculation
+   */
+  calculateATR: function (candles, period = 14) {
+    if (!candles || candles.length === 0) return [];
+    const trs = [];
+    for (let i = 0; i < candles.length; i++) {
+      if (i === 0) {
+        trs.push(candles[i].high - candles[i].low);
+      } else {
+        const hl = candles[i].high - candles[i].low;
+        const hc = Math.abs(candles[i].high - candles[i - 1].close);
+        const lc = Math.abs(candles[i].low - candles[i - 1].close);
+        trs.push(Math.max(hl, hc, lc));
+      }
+    }
+    const atr = [];
+    let sum = 0;
+    const initialLen = Math.min(period, trs.length);
+    for (let i = 0; i < initialLen; i++) {
+      sum += trs[i];
+      atr.push(sum / (i + 1));
+    }
+    for (let i = period; i < trs.length; i++) {
+      const val = ((atr[i - 1] * (period - 1)) + trs[i]) / period;
+      atr.push(val);
+    }
+    return atr;
+  },
+
+  /**
+   * Trend Trader Remastered (by aybarsm)
+   * High-accuracy adaptive ATR trailing stop trend-following filter
+   */
+  calculateTrendTraderRemastered: function (candles, period = 21, mult = 2.5) {
+    if (!candles || candles.length < 2) return { trend: [], stop: [], atr: [] };
+    const atr = this.calculateATR(candles, period);
+    const trend = [];
+    const stop = [];
+    let currTrend = -1; // -1 = Bearish, 1 = Bullish
+    let currStop = candles[0].close + (mult * (atr[0] || (candles[0].high - candles[0].low)));
+
+    for (let i = 0; i < candles.length; i++) {
+      const c = candles[i];
+      const a = atr[i] || (c.high - c.low);
+      const up = c.low - (mult * a);
+      const dn = c.high + (mult * a);
+
+      if (currTrend === 1) {
+        if (c.close < currStop) {
+          currTrend = -1;
+          currStop = dn;
+        } else {
+          currStop = Math.max(currStop, up);
+        }
+      } else {
+        if (c.close > currStop) {
+          currTrend = 1;
+          currStop = up;
+        } else {
+          currStop = Math.min(currStop, dn);
+        }
+      }
+      trend.push(currTrend);
+      stop.push(currStop);
+    }
+    return { trend, stop, atr };
+  },
+
+  /**
+   * Run Institutional Smart Money Concepts (SMC) + Trend Trader Remastered + MACD Momentum Engine:
+   * - High-accuracy adaptive ATR trailing stop trend filter (aybarsm)
    * - Eliminates weak false whipsaws and counter-trend traps
    * - Requires candle close confirmation (no wick triggers)
-   * - Checks Break of Structure (BOS) across Swing Resistance / Support
-   * - Validates MACD directional momentum and EMA 50 trend alignment
+   * - Validates genuine MACD directional momentum (multi-bar green/red expansion)
+   * - Respects Macro SMC Premium, Equilibrium, and Discount Zones
    */
   analyzeCandles: function (candles) {
     const psar = this.calculatePSAR(candles, 0.02, 0.02, 0.2);
     const fractals = this.calculateFractals(candles, 2);
     const macd = this.calculateMACD(candles, 12, 26, 9);
+    const trendTrader = this.calculateTrendTraderRemastered(candles, 21, 2.5);
     const closes = candles.map(c => c.close);
     const ema7 = this.calcEMA(closes, 7);
     const ema14 = this.calcEMA(closes, 14);
@@ -351,14 +422,18 @@ window.TrendTraderEngine = {
       const sigLine = (macd.signalLine && macd.signalLine[i] !== undefined) ? macd.signalLine[i] : 0;
       const prevMacdHist = (i > 0 && macd.histogram && macd.histogram[i - 1] !== undefined) ? macd.histogram[i - 1] : 0;
 
+      const ttTrend = trendTrader.trend[i] !== undefined ? trendTrader.trend[i] : -1;
+      const prevTtTrend = (i > 0 && trendTrader.trend[i - 1] !== undefined) ? trendTrader.trend[i - 1] : ttTrend;
+      const ttStop = trendTrader.stop[i] !== undefined ? trendTrader.stop[i] : cur.close;
+
       const isBullCandle = cur.close > cur.open;
       const isBearCandle = cur.close < cur.open;
       const range = Math.max(cur.high - cur.low, 0.00001);
       const lowerWick = Math.min(cur.open, cur.close) - cur.low;
       const upperWick = cur.high - Math.max(cur.open, cur.close);
 
-      // Lookback 60 bars for swing range prior to current bar
-      const lookback = Math.max(0, i - 60);
+      // Macro session swing range across 120 bars (10 hours) for institutional SMC zones
+      const lookback = Math.max(0, i - 120);
       let sH = -Infinity;
       let sL = Infinity;
       for (let k = lookback; k < i; k++) {
@@ -373,38 +448,38 @@ window.TrendTraderEngine = {
       // ==========================================
       // 1. ADVANCED AI INSTITUTIONAL BUY CONFLUENCE:
       // ==========================================
-      // Setup 1: True Liquidity Sweep Reversal at Support Floor / Discount Zone (Exact bottom bounce)
-      // Sweeps session low (cur.low <= sL * 1.002) OR touches bottom of Discount Zone with rejection hammer & MACD contraction
+      // Setup 1: Liquidity sweep reversal at Support Floor / Discount Zone (Exact bottom bounce at support wick)
       const isLowSweep = (cur.low <= (sL * 1.002)) || (cur.low <= discHigh && cur.low <= (sL + (sRange * 0.08)));
       const hammerRejection = ((cur.close - cur.open) >= (range * 0.20) || lowerWick >= (range * 0.35)) && (cur.close >= cur.open);
       const macdContracting = (macdHist > prevMacdHist) && (macdHist > (prevMacdHist + 0.015));
-      const isLiquidityReversalBuy = isLowSweep && hammerRejection && macdContracting;
+      const isSweepBuy = isLowSweep && hammerRejection && macdContracting;
 
-      // Setup 2: Confirmed Bullish Break of Structure (BOS / CHoCH)
-      // Must break above confirmed fractal resistance AND above EMA 50 with positive MACD momentum
-      const isBOSBull = (res !== null && cur.close > res && cur.close > (ema50[i] || 0));
-      const macdBullReg = (macdLine >= sigLine) && (macdHist > 0);
-      const isTrendBuy = isBOSBull && macdBullReg && isBullCandle;
+      // Setup 2: Trend Trader Remastered (aybarsm) Bullish Flip with Positive/Rising MACD
+      const isTTBull = (ttTrend === 1 && prevTtTrend === -1) && (macdHist >= -0.05 || macdLine >= sigLine);
 
-      const canBuy = (activeTrade !== 'BUY') && (isLiquidityReversalBuy || isTrendBuy);
+      // Setup 3: Bullish Breakout Continuation above Equilibrium with green MACD
+      const isBOSBull = (cur.close > sMid) && (ttTrend === 1) && (macdHist > 0) && (res !== null && cur.close > res);
+
+      const canBuy = (activeTrade !== 'BUY') && (isSweepBuy || isTTBull || isBOSBull);
 
       // ==========================================
       // 2. ADVANCED AI INSTITUTIONAL SELL CONFLUENCE:
       // ==========================================
-      // Setup 1: Liquidity Sweep Rejection at Resistance Ceiling / Premium Zone (Exact ceiling rejection)
-      const isHighSweep = (cur.high >= (sH * 0.998)) || (cur.high >= premLow) || (res !== null && cur.high >= (res * 0.996));
+      // Setup 1: Reversal at macro Premium ceiling / Resistance with shooting star rejection + negative expanding MACD
+      const isHighSweep = (cur.high >= (sH * 0.998)) || (cur.high >= premLow);
       const starRejection = ((cur.open - cur.close) >= (range * 0.20) || upperWick >= (range * 0.35)) && (cur.close <= cur.open);
-      const macdExpandingDown = (macdHist < prevMacdHist) && (macdHist < (prevMacdHist - 0.015));
-      const isLiquidityReversalSell = isHighSweep && starRejection && macdExpandingDown;
+      const macdExpandingDown = (macdHist < prevMacdHist) && (macdHist < 0);
+      const isSweepSell = isHighSweep && starRejection && macdExpandingDown;
 
-      // Setup 2: Confirmed Bearish Break of Structure / Breakdown
-      // Breakdown below confirmed fractal support OR rejection from Premium/Equilibrium with bearish MACD & EMA
-      const isBOSBear = (sup !== null && cur.close < sup && cur.close < (ema50[i] || Infinity)) || (isHighSweep && cur.close < (ema14[i] || Infinity));
-      const macdBearReg = (macdLine <= sigLine) && (macdHist < 0);
-      const emaBearReg = (cur.close <= ((ema7[i] || cur.close) * 1.001)) && (((ema7[i] || 0) <= ((ema14[i] || 0) * 1.002)) || (cur.close <= (ema14[i] || Infinity)));
-      const isTrendSell = (isBOSBear || isHighSweep) && macdBearReg && emaBearReg && isBearCandle;
+      // Setup 2: Trend Trader Remastered (aybarsm) Bearish Flip with confirmed negative MACD (Must have red MACD bars!)
+      const isTTBear = (ttTrend === -1 && prevTtTrend === 1) && (macdHist <= 0 && macdLine <= sigLine);
 
-      const canSell = (activeTrade !== 'SELL') && (isLiquidityReversalSell || isTrendSell);
+      // Setup 3: Strong Session Breakdown at session open (e.g. 00:05 dump from 120.70 with breakdown > 1%)
+      const isBreakdown = (cur.close < (prev.close * 0.99)) && (cur.close < sMid) && (macdHist < 0 || cur.volume > 3000);
+
+      // CRUCIAL MOMENTUM PROTECTION:
+      // When in an active BUY, NEVER trigger SELL if MACD histogram is still green/positive (> 0), or Trend Trader is still BULL, or price has not reached Premium Resistance!
+      const canSell = (activeTrade !== 'SELL') && (isSweepSell || isTTBear || isBreakdown) && (activeTrade !== 'BUY' || macdHist <= 0 || isHighSweep);
 
       let tag = null;
       if (canBuy) {
@@ -420,7 +495,7 @@ window.TrendTraderEngine = {
       tags.push(tag);
     }
 
-    return { candles, psar, fractals, macd, ema7, ema14, ema20, ema50, marketStructure, tags };
+    return { candles, psar, fractals, macd, trendTrader, ema7, ema14, ema20, ema50, marketStructure, tags };
   },
 
   /**
@@ -544,22 +619,31 @@ window.TrendTraderEngine = {
     }));
     this.volumeSeries.setData(volumeData);
 
-    // Add Parabolic SAR Series (trailing dots)
+    // Add Trend Trader Remastered (aybarsm) Adaptive Trailing Line
     const dottedStyle = (window.LightweightCharts && window.LightweightCharts.LineStyle) ? window.LightweightCharts.LineStyle.Dotted : 1;
     this.psarSeries = addLineSeries(this.mainChart, {
       color: '#38bdf8',
-      lineWidth: 1,
+      lineWidth: 1.5,
       lineStyle: dottedStyle,
       lastValueVisible: false,
       priceLineVisible: false,
+      title: 'Trend Trader Stop',
     });
-    const psarData = [];
-    for (let i = 0; i < candles.length; i++) {
-      if (psar[i] && psar[i].sar) {
-        psarData.push({ time: candles[i].time, value: psar[i].sar });
+    const ttLineData = [];
+    if (analysis.trendTrader && analysis.trendTrader.stop) {
+      for (let i = 0; i < candles.length; i++) {
+        if (analysis.trendTrader.stop[i]) {
+          ttLineData.push({ time: candles[i].time, value: analysis.trendTrader.stop[i] });
+        }
+      }
+    } else {
+      for (let i = 0; i < candles.length; i++) {
+        if (psar[i] && psar[i].sar) {
+          ttLineData.push({ time: candles[i].time, value: psar[i].sar });
+        }
       }
     }
-    this.psarSeries.setData(psarData);
+    this.psarSeries.setData(ttLineData);
 
     // Calculate Institutional Smart Money Concepts (SMC) Zones (Premium, Equilibrium, Discount)
     const evalBars = candles.slice(-100);
