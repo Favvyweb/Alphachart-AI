@@ -1126,8 +1126,18 @@ window.TrendTraderEngine = {
   /**
    * Evaluates newly closed candle immediately and fires instant notification if signal prints!
    */
-  onCandleClosed: function (symbol, interval, candle) {
+  onCandleClosed: async function (symbol, interval, candle) {
     if (!candle) return;
+
+    // Ensure we have sufficient historical candles for indicator calculations
+    if (!this.lastCandles || this.lastCandles.length < 30) {
+      try {
+        const hist = await this.fetchCandles(this.currentPair || symbol, interval);
+        if (hist && hist.length >= 15) {
+          this.lastCandles = hist;
+        }
+      } catch (e) { }
+    }
 
     // Append or replace closed candle in lastCandles
     if (this.lastCandles && this.lastCandles.length > 0) {
@@ -1143,6 +1153,7 @@ window.TrendTraderEngine = {
 
     // Re-run full institutional analysis on the closed candle
     const analysis = this.analyzeCandles(this.lastCandles);
+    if (!analysis) return;
     this.lastAnalysis = analysis;
 
     // Update trailing stop line & MACD
@@ -2073,11 +2084,14 @@ window.TrendTraderEngine = {
 window.TrendTraderAlerts = {
   STORAGE_KEY: 'alphachart_alerts_active',
   HISTORY_KEY: 'alphachart_signal_history_v1',
+  TG_TOKEN_KEY: 'alphachart_tg_bot_token',
+  TG_CHAT_ID_KEY: 'alphachart_tg_chat_id',
   audioCtx: null,
   _bgWs: null,
   _bgPair: 'AAVE / USDT',
   _bgInterval: '5m',
   _bgMonitorActive: false,
+  _lastTestType: 'SELL',
 
   isAlertsEnabled: function () {
     const val = localStorage.getItem(this.STORAGE_KEY);
@@ -2097,6 +2111,17 @@ window.TrendTraderAlerts = {
 
   init: function () {
     this.initAudioUnlock();
+    // Register Service Worker for mobile lockscreen notifications
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').then(reg => {
+        console.log('[AlphaChart AI] Mobile push service worker registered');
+      }).catch(err => {
+        console.warn('Service worker registration note:', err);
+      });
+    }
+
+    this.initTelegramModal();
+
     if (this.isAlertsEnabled()) {
       const defaultPair = (window.TrendTraderEngine && window.TrendTraderEngine.currentPair) || 'AAVE / USDT';
       this.startBackgroundMonitor(defaultPair, '5m');
@@ -2226,29 +2251,99 @@ window.TrendTraderAlerts = {
     const isBuy = signal.type === 'BUY';
     const entryPrice = typeof signal.price === 'number' ? signal.price : parseFloat(signal.price) || 0;
     const tp1Text = signal.tp1 ? `$${signal.tp1.toFixed(2)} (+2%)` : `$${(entryPrice * (isBuy ? 1.002 : 0.998)).toFixed(2)} (+2%)`;
+    const tp2Text = signal.tp2 ? `$${signal.tp2.toFixed(2)} (+10%)` : `$${(entryPrice * (isBuy ? 1.010 : 0.990)).toFixed(2)} (+10%)`;
+    const tp3Text = signal.tp3 ? `$${signal.tp3.toFixed(2)} (+30%)` : `$${(entryPrice * (isBuy ? 1.030 : 0.970)).toFixed(2)} (+30%)`;
     const slText = signal.sl ? `$${signal.sl.toFixed(2)} (-5%)` : `$${(entryPrice * (isBuy ? 0.995 : 1.005)).toFixed(2)} (-5%)`;
 
-    if ('Notification' in window && Notification.permission === 'granted') {
-      const title = `${isBuy ? '🟢 BUY SIGNAL' : '🔴 SELL SIGNAL'}: ${signal.pair}`;
-      const body = `Trend Trader Remastered confirmed ${signal.type} at $${entryPrice.toFixed(2)} (${signal.timeframe}).\nFirst candle closed! TP1: ${tp1Text} | SL: ${slText}.`;
+    const title = `${isBuy ? '🟢 BUY SIGNAL CONFIRMED' : '🔴 SELL SIGNAL CONFIRMED'}: ${signal.pair}`;
+    const body = `Trend Trader Stop flipped ${isBuy ? 'BULLISH' : 'BEARISH'}! Entry: $${entryPrice.toFixed(2)} (${signal.timeframe}).\n🎯 TP1: ${tp1Text} | TP2: ${tp2Text} | TP3: ${tp3Text}\n🛑 SL: ${slText}\nCandle closed & verified!`;
 
+    const notificationOptions = {
+      body: body,
+      icon: 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=128&auto=format&fit=crop',
+      badge: 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=128&auto=format&fit=crop',
+      tag: `signal-${signal.pair}-${Date.now()}`,
+      vibrate: [300, 100, 300, 100, 400],
+      requireInteraction: true,
+      data: {
+        url: window.location.href,
+        signal: signal
+      }
+    };
+
+    // Mobile Phone Notification via Service Worker (Android & iOS PWA lockscreens)
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.ready.then(reg => {
+        reg.showNotification(title, notificationOptions);
+      }).catch(() => {
+        try { new Notification(title, notificationOptions); } catch (e) { }
+      });
+    } else if ('Notification' in window && Notification.permission === 'granted') {
       try {
-        new Notification(title, {
-          body: body,
-          icon: 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=128&auto=format&fit=crop',
-          badge: 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=128&auto=format&fit=crop',
-          tag: `signal-${signal.pair}-${Date.now()}`,
-          requireInteraction: true
-        });
-      } catch (e) { }
+        new Notification(title, notificationOptions);
+      } catch (e) {
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.ready.then(reg => {
+            reg.showNotification(title, notificationOptions);
+          }).catch(() => { });
+        }
+      }
     }
 
+    // Direct Telegram Phone Alert
+    this.sendTelegramAlert(signal);
+
     if (window.App && typeof window.App.showToast === 'function') {
-      window.App.showToast(`🚨 ${signal.type} SIGNAL on ${signal.pair} at $${entryPrice.toFixed(2)}! First candle closed.`);
+      window.App.showToast(`🚨 ${signal.type} SIGNAL on ${signal.pair} at $${entryPrice.toFixed(2)}! Confirmed on candle close.`);
     }
 
     if (window.TrendTraderEngine && typeof window.TrendTraderEngine.showInstantSignalBanner === 'function') {
       window.TrendTraderEngine.showInstantSignalBanner(signal);
+    }
+  },
+
+  sendTelegramAlert: async function (signal) {
+    const token = localStorage.getItem(this.TG_TOKEN_KEY);
+    const chatId = localStorage.getItem(this.TG_CHAT_ID_KEY);
+    if (!token || !chatId) return;
+
+    const isBuy = signal.type === 'BUY';
+    const entryPrice = typeof signal.price === 'number' ? signal.price : parseFloat(signal.price) || 0;
+    const emoji = isBuy ? '🟢' : '🔴';
+    const action = isBuy ? 'BUY / LONG' : 'SELL / SHORT';
+    const tp1P = signal.tp1 ? signal.tp1.toFixed(2) : (entryPrice * (isBuy ? 1.002 : 0.998)).toFixed(2);
+    const tp2P = signal.tp2 ? signal.tp2.toFixed(2) : (entryPrice * (isBuy ? 1.010 : 0.990)).toFixed(2);
+    const tp3P = signal.tp3 ? signal.tp3.toFixed(2) : (entryPrice * (isBuy ? 1.030 : 0.970)).toFixed(2);
+    const slP = signal.sl ? signal.sl.toFixed(2) : (entryPrice * (isBuy ? 0.995 : 1.005)).toFixed(2);
+
+    const message = `
+${emoji} *ALPHACHART AI: ${action} CONFIRMED*
+━━━━━━━━━━━━━━━━━━
+📊 *Asset:* \`${signal.pair}\`
+⏱ *Timeframe:* \`${signal.timeframe}\`
+💵 *Entry Price:* \`$${entryPrice.toFixed(2)}\` *(Candle Closed)*
+━━━━━━━━━━━━━━━━━━
+🎯 *TP1 (+2%):* \`$${tp1P}\`
+🎯 *TP2 (+10%):* \`$${tp2P}\`
+🎯 *TP3 (+30%):* \`$${tp3P}\`
+🛑 *SL (-5%):* \`$${slP}\`
+━━━━━━━━━━━━━━━━━━
+⚡ *Trend Trader Stop Line Confirmed*
+📱 *Sent instantly to your phone*
+    `.trim();
+
+    try {
+      await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: message,
+          parse_mode: 'Markdown'
+        })
+      });
+    } catch (e) {
+      console.warn('Telegram phone alert note:', e);
     }
   },
 
@@ -2287,6 +2382,13 @@ window.TrendTraderAlerts = {
     this._bgPair = pairName;
     this._bgInterval = interval;
     this._bgMonitorActive = true;
+
+    // Pre-load candles so background signal evaluations have immediate historical context
+    if (window.TrendTraderEngine && (!window.TrendTraderEngine.lastCandles || window.TrendTraderEngine.lastCandles.length < 30)) {
+      window.TrendTraderEngine.fetchCandles(cleanSymbol, binanceInterval).then(candles => {
+        if (candles && candles.length) window.TrendTraderEngine.lastCandles = candles;
+      }).catch(() => {});
+    }
 
     // Connect to WebSocket stream for candle close events
     const wsUrl = `wss://data-stream.binance.vision/ws/${cleanSymbol}@kline_${binanceInterval}`;
@@ -2336,21 +2438,137 @@ window.TrendTraderAlerts = {
     }
   },
 
-  testAlert: function () {
+  /**
+   * Test BUY and SELL alerts interchangeably with sound, vibration, banner & push notification!
+   */
+  testAlert: function (forcedType) {
+    const type = forcedType || (this._lastTestType === 'BUY' ? 'SELL' : 'BUY');
+    this._lastTestType = type;
+
     const pair = (window.TrendTraderEngine && window.TrendTraderEngine.currentPair) || (window.ScannerModule && window.ScannerModule.fullChartPair) || 'AAVE / USDT';
     const tf = (window.TrendTraderEngine && window.TrendTraderEngine.currentTimeframe) || (window.ScannerModule && window.ScannerModule.fullChartInterval ? `${window.ScannerModule.fullChartInterval}m` : '5m');
 
+    const entry = type === 'BUY' ? 119.10 : 118.66;
+    const isBuy = type === 'BUY';
+    const tp1 = isBuy ? entry * 1.002 : entry * 0.998;
+    const tp2 = isBuy ? entry * 1.010 : entry * 0.990;
+    const tp3 = isBuy ? entry * 1.030 : entry * 0.970;
+    const sl = isBuy ? entry * 0.995 : entry * 1.005;
+
+    // Update button text to inform user which signal was just tested
+    const btnText = document.getElementById('test-alert-btn-text');
+    if (btnText) {
+      btnText.innerText = `Test: ${type} ✓`;
+      setTimeout(() => {
+        if (btnText) btnText.innerText = 'Test (BUY/SELL)';
+      }, 3000);
+    }
+
     this.sendNotification({
-      type: 'BUY',
+      type: type,
       pair: pair,
-      price: 119.10,
+      price: entry,
       timeframe: tf,
-      tp1: 119.34,
-      tp2: 120.29,
-      tp3: 122.67,
-      sl: 118.50,
-      notes: 'Test Instant Signal Alert: First candle closed!'
+      tp1: tp1,
+      tp2: tp2,
+      tp3: tp3,
+      sl: sl,
+      notes: `Test Instant Signal Alert: Confirmed on ${type} candle close!`
     });
+  },
+
+  initTelegramModal: function () {
+    const openBtn = document.getElementById('btn-open-telegram-modal');
+    const closeBtn = document.getElementById('btn-close-telegram-modal');
+    const backdrop = document.getElementById('telegram-modal-backdrop');
+    const modal = document.getElementById('telegram-alerts-modal');
+    const tokenInput = document.getElementById('input-tg-bot-token');
+    const chatIdInput = document.getElementById('input-tg-chat-id');
+    const saveBtn = document.getElementById('btn-save-tg-alert');
+    const testBtn = document.getElementById('btn-test-tg-alert');
+    const label = document.getElementById('telegram-alerts-btn-label');
+
+    const hasConfig = !!(localStorage.getItem(this.TG_TOKEN_KEY) && localStorage.getItem(this.TG_CHAT_ID_KEY));
+    if (label && hasConfig) {
+      label.innerText = 'Telegram: ON 📱';
+    }
+
+    if (openBtn && modal) {
+      openBtn.onclick = () => {
+        if (tokenInput) tokenInput.value = localStorage.getItem(this.TG_TOKEN_KEY) || '';
+        if (chatIdInput) chatIdInput.value = localStorage.getItem(this.TG_CHAT_ID_KEY) || '';
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+      };
+    }
+
+    const closeModal = () => {
+      if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }
+    };
+    if (closeBtn) closeBtn.onclick = closeModal;
+    if (backdrop) backdrop.onclick = closeModal;
+
+    if (saveBtn) {
+      saveBtn.onclick = () => {
+        const token = tokenInput ? tokenInput.value.trim() : '';
+        const chatId = chatIdInput ? chatIdInput.value.trim() : '';
+        if (token && chatId) {
+          localStorage.setItem(this.TG_TOKEN_KEY, token);
+          localStorage.setItem(this.TG_CHAT_ID_KEY, chatId);
+          if (label) label.innerText = 'Telegram: ON 📱';
+          if (window.App) window.App.showToast('✅ Telegram Phone Alerts activated successfully!');
+          closeModal();
+        } else {
+          localStorage.removeItem(this.TG_TOKEN_KEY);
+          localStorage.removeItem(this.TG_CHAT_ID_KEY);
+          if (label) label.innerText = 'Telegram Phone 📱';
+          if (window.App) window.App.showToast('Telegram alerts removed');
+          closeModal();
+        }
+      };
+    }
+
+    if (testBtn) {
+      testBtn.onclick = async () => {
+        const token = tokenInput ? tokenInput.value.trim() : '';
+        const chatId = chatIdInput ? chatIdInput.value.trim() : '';
+        if (!token || !chatId) {
+          alert('Please enter your Telegram Bot Token and Chat ID first!');
+          return;
+        }
+        testBtn.disabled = true;
+        testBtn.innerText = 'Sending...';
+
+        const pair = (window.TrendTraderEngine && window.TrendTraderEngine.currentPair) || 'AAVE / USDT';
+        const tf = (window.TrendTraderEngine && window.TrendTraderEngine.currentTimeframe) || '5m';
+
+        try {
+          const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chat_id: chatId,
+              text: `🟢 *ALPHACHART AI TEST ALERT*\n━━━━━━━━━━━━━━━━━━\n✅ Instant Signal Notifications are ACTIVE on your phone!\n*Asset:* \`${pair}\` (${tf})\n*Entry:* \`$119.10\`\n*TP1:* \`$119.34\` | *SL:* \`$118.50\``,
+              parse_mode: 'Markdown'
+            })
+          });
+          const json = await res.json();
+          if (json.ok) {
+            alert('🎉 Test alert sent to your Telegram phone successfully!');
+          } else {
+            alert(`Telegram API error: ${json.description || 'Check token and chat ID'}`);
+          }
+        } catch (err) {
+          alert(`Network error connecting to Telegram: ${err.message}`);
+        } finally {
+          testBtn.disabled = false;
+          testBtn.innerHTML = '<span class="material-symbols-outlined text-[15px] text-[#38bdf8]">notifications_active</span><span>Send Test to Phone</span>';
+        }
+      };
+    }
   }
 };
 

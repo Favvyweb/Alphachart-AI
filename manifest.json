@@ -1,0 +1,20 @@
+{
+  "name": "AlphaChart AI - Scalp Trading Engine",
+  "short_name": "AlphaChart",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#080a0f",
+  "theme_color": "#00ff88",
+  "icons": [
+    {
+      "src": "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=192&auto=format&fit=crop",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=512&auto=format&fit=crop",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
