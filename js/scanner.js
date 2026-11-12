@@ -775,11 +775,11 @@ window.ScannerModule = {
           window.TrendTraderEngine.renderLightweightChart(mainContainer, macdContainer, analysis);
         }
 
-        // Determine latest signal from analysis
+        // Determine latest signal from analysis (strictly genuine BUY / SELL entries)
         let latestTag = null;
         let latestTagIndex = -1;
         for (let i = analysis.tags.length - 1; i >= 0; i--) {
-          if (analysis.tags[i]) {
+          if (analysis.tags[i] === 'BUY' || analysis.tags[i] === 'SELL') {
             latestTag = analysis.tags[i];
             latestTagIndex = i;
             break;
@@ -794,18 +794,34 @@ window.ScannerModule = {
         const lastS = analysis.macd.signalLine[analysis.macd.signalLine.length - 1] || 0;
         const isBullishMacd = lastM >= lastS;
 
+        const perf = window.TrendTraderEngine.lastPerformance;
+        const latestEvalTrade = (perf && perf.evaluatedSignals && perf.evaluatedSignals.length > 0)
+          ? perf.evaluatedSignals[perf.evaluatedSignals.length - 1]
+          : null;
+
         if (latestTag === 'BUY') {
           if (statusBadge) statusBadge.className = 'px-2.5 py-1 rounded-lg bg-primary-container/20 border border-primary-container/50 text-primary-container font-bold text-[11px] flex items-center gap-1.5 shadow-[0_0_12px_rgba(0,255,136,0.3)]';
-          if (statusText) statusText.innerText = `🟢 Trend Trader: BUY Confirmed (SMC + MACD) ($${candles[latestTagIndex].close.toFixed(2)})`;
+          if (latestEvalTrade && latestEvalTrade.isWin && latestEvalTrade.tpTier && latestEvalTrade.tpTier.startsWith('TP')) {
+            if (statusText) statusText.innerText = `🟣 Trend Trader: BUY TP Hit! (${latestEvalTrade.tpTier}) • Profit: +$${latestEvalTrade.pnl.toFixed(2)}`;
+          } else {
+            const entryP = candles[latestTagIndex].close;
+            const tp1P = entryP * 1.002;
+            const slP = entryP * 0.995;
+            if (statusText) statusText.innerText = `🟢 Trend Trader: BUY Active ($${entryP.toFixed(2)}) • TP1: $${tp1P.toFixed(2)} (+2%) | SL: $${slP.toFixed(2)} (-5%)`;
+          }
         } else if (latestTag === 'SELL') {
           if (statusBadge) statusBadge.className = 'px-2.5 py-1 rounded-lg bg-error/20 border border-error/50 text-error font-bold text-[11px] flex items-center gap-1.5 shadow-[0_0_12px_rgba(255,51,102,0.3)]';
-          if (statusText) statusText.innerText = `🔴 Trend Trader: SELL Confirmed (SMC + MACD) ($${candles[latestTagIndex].close.toFixed(2)})`;
-        } else if (latestTag === 'TP') {
-          if (statusBadge) statusBadge.className = 'px-2.5 py-1 rounded-lg bg-purple-500/20 border border-purple-500/50 text-purple-300 font-bold text-[11px] flex items-center gap-1.5';
-          if (statusText) statusText.innerText = `🟣 Take Profit (TP) Level Hit ($${candles[latestTagIndex].close.toFixed(2)})`;
+          if (latestEvalTrade && latestEvalTrade.isWin && latestEvalTrade.tpTier && latestEvalTrade.tpTier.startsWith('TP')) {
+            if (statusText) statusText.innerText = `🟣 Trend Trader: SELL TP Hit! (${latestEvalTrade.tpTier}) • Profit: +$${latestEvalTrade.pnl.toFixed(2)}`;
+          } else {
+            const entryP = candles[latestTagIndex].close;
+            const tp1P = entryP * 0.998;
+            const slP = entryP * 1.005;
+            if (statusText) statusText.innerText = `🔴 Trend Trader: SELL Active ($${entryP.toFixed(2)}) • TP1: $${tp1P.toFixed(2)} (+2%) | SL: $${slP.toFixed(2)} (-5%)`;
+          }
         } else {
           if (statusBadge) statusBadge.className = 'px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-on-surface-variant font-bold text-[11px] flex items-center gap-1.5';
-          if (statusText) statusText.innerText = `⚪ Trend Trader: Scanning Active Candles...`;
+          if (statusText) statusText.innerText = `⚪ Trend Trader: Scanning Active 5m Scalp Candles...`;
         }
 
         if (macdStatus) {
