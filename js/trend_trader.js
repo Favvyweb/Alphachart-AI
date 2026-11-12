@@ -349,27 +349,34 @@ window.TrendTraderEngine = {
 
       if (!currentTrend) {
         // ==========================================
-        // CURRENT STATE: BEARISH / SELL TREND
+        // CURRENT STATE: BEARISH / SELL TREND -> LOOKING FOR BUY REVERSAL
         // ==========================================
-        // To trigger a valid BUY, price must demonstrate genuine bullish strength & structure:
-        // 1. Bullish triggers: Break of Structure (Close > Resistance) OR confirmed PSAR close flip
-        const sarBullish = p.isUp || cur.close > p.sar;
+        // 1. Structural / Price Triggers:
+        // Confirmed PSAR flip to underside of price OR Break of Structure (Close > Resistance)
+        const sarBullish = p.isUp && cur.close > p.sar;
         const bosBullish = (res !== null) && (cur.close > res);
 
-        // 2. Momentum Confirmation (MACD):
-        // MACD histogram positive OR crossing up OR accelerating strongly towards zero
-        const macdBullish = (macdHist >= 0) || (macdLine >= sigLine) || (macdHist > prevMacdHist && macdHist > -0.05);
+        // 2. Strict MACD Momentum Confirmation:
+        // - MACD Line MUST be above Signal Line (cyan >= amber) - NO EXCEPTIONS!
+        const macdCrossedUp = macdLine >= sigLine;
+        // - MACD Histogram MUST be genuinely positive (green blocks: macdHist > 0) - NEVER RED!
+        const macdHistGreen = macdHist > 0;
+        // - Momentum Expansion: Histogram expanding upward OR has confirmed 2+ consecutive green blocks
+        const macdExpandingUp = (macdHist >= prevMacdHist) || (prevMacdHist > 0 && macdHist > 0);
+        const macdMomentumConfirm = macdCrossedUp && macdHistGreen && macdExpandingUp;
 
         // 3. Candle Body Quality:
-        // Must be a green candle closing in the top 50% of the bar (no upper wick rejection trap)
-        const candleSolid = isBullCandle && ((cur.close - cur.open) >= range * 0.25);
+        // Solid green candle closing near the top with strong body (no upper wick rejection trap)
+        const bullBody = cur.close - cur.open;
+        const upperWick = cur.high - cur.close;
+        const candleSolid = isBullCandle && (bullBody >= range * 0.30) && (upperWick <= range * 0.45);
 
         // 4. Trend Confluence:
-        // If price is trapped below 50 EMA during a heavy dump, require either confirmed BOS or strong MACD turn
-        const trendConfluence = (cur.close >= ema50[i]) || bosBullish || (macdBullish && candleSolid && macdLine >= sigLine);
+        // Price must trade above 50 EMA OR break structure with confirmed MACD expansion
+        const trendConfluence = (cur.close >= ema50[i]) || (bosBullish && macdMomentumConfirm);
 
-        // ONLY print BUY when momentum, structure, and candle body all agree
-        const canBuy = (sarBullish || bosBullish) && macdBullish && isBullCandle && trendConfluence;
+        // STRICT ENTRY: Momentum, structure, and candle quality MUST all confirm simultaneously (NO RUSHING!)
+        const canBuy = (sarBullish || bosBullish) && macdMomentumConfirm && candleSolid && trendConfluence;
 
         if (canBuy) {
           tag = 'BUY';
@@ -379,26 +386,34 @@ window.TrendTraderEngine = {
         }
       } else {
         // ==========================================
-        // CURRENT STATE: BULLISH / BUY TREND
+        // CURRENT STATE: BULLISH / BUY TREND -> LOOKING FOR SELL REVERSAL
         // ==========================================
-        // To trigger a valid SELL, price must demonstrate genuine bearish breakdown & structure:
-        // 1. Bearish triggers: Bearish Break of Structure (Close < Support) OR confirmed PSAR close flip
-        const sarBearish = !p.isUp || cur.close < p.sar;
+        // 1. Structural / Price Triggers:
+        // Confirmed PSAR flip to top of price OR Break of Structure (Close < Support)
+        const sarBearish = !p.isUp && cur.close < p.sar;
         const bosBearish = (sup !== null) && (cur.close < sup);
 
-        // 2. Momentum Confirmation (MACD):
-        // MACD histogram negative OR crossing down OR falling strongly downward
-        const macdBearish = (macdHist <= 0) || (macdLine <= sigLine) || (macdHist < prevMacdHist && macdHist < 0.05);
+        // 2. Strict MACD Momentum Confirmation:
+        // - MACD Line MUST be below Signal Line (cyan <= amber) - NO EXCEPTIONS!
+        const macdCrossedDown = macdLine <= sigLine;
+        // - MACD Histogram MUST be genuinely negative (red blocks: macdHist < 0) - NEVER GREEN!
+        const macdHistRed = macdHist < 0;
+        // - Momentum Expansion: Histogram expanding downward OR has confirmed 2+ consecutive red blocks
+        const macdExpandingDown = (macdHist <= prevMacdHist) || (prevMacdHist < 0 && macdHist < 0);
+        const macdMomentumConfirm = macdCrossedDown && macdHistRed && macdExpandingDown;
 
         // 3. Candle Body Quality:
-        // Must be a red candle closing in the bottom 50% of the bar (no lower wick bounce trap)
-        const candleSolid = isBearCandle && ((cur.open - cur.close) >= range * 0.25);
+        // Solid red candle closing near the low with strong body (no lower wick bounce trap)
+        const bearBody = cur.open - cur.close;
+        const lowerWick = cur.close - cur.low;
+        const candleSolid = isBearCandle && (bearBody >= range * 0.30) && (lowerWick <= range * 0.45);
 
         // 4. Trend Confluence:
-        const trendConfluence = (cur.close <= ema50[i]) || bosBearish || (macdBearish && candleSolid && macdLine <= sigLine);
+        // Price must trade below 50 EMA OR breakdown structure with confirmed MACD momentum
+        const trendConfluence = (cur.close <= ema50[i]) || (bosBearish && macdMomentumConfirm);
 
-        // ONLY print SELL when momentum, structure, and candle body all agree
-        const canSell = (sarBearish || bosBearish) && macdBearish && isBearCandle && trendConfluence;
+        // STRICT ENTRY: Momentum, structure, and candle quality MUST all confirm simultaneously (NO RUSHING!)
+        const canSell = (sarBearish || bosBearish) && macdMomentumConfirm && candleSolid && trendConfluence;
 
         if (canSell) {
           tag = 'SELL';
