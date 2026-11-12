@@ -788,19 +788,23 @@ window.TrendTraderEngine = {
         const nextC = candles[k];
         const nextTag = tags[k];
 
-        // Calculate real % price move on this candle: +2% is true +2.0% price increase/decrease from entry (* 100, not +0.2%)
+        // Calculate % move on this candle (10x Leverage Framework on $100 Margin):
+        // 0.20% price move * 10 = +2.0% ROE (TP1 Hit!)
+        // 1.00% price move * 10 = +10.0% ROE (TP2 Hit!)
+        // 3.00% price move * 10 = +30.0% ROE (TP3 Hit!)
+        // -0.50% price move * 10 = -5.0% ROE (-$5.00 SL Hit!)
         let curHighRoe = 0;
         let curCloseRoe = 0;
         let curLowDrawdown = 0;
 
         if (isBuy) {
-          curHighRoe = ((nextC.high - entryPrice) / entryPrice) * 100;
-          curCloseRoe = ((nextC.close - entryPrice) / entryPrice) * 100;
-          curLowDrawdown = ((nextC.low - entryPrice) / entryPrice) * 100;
+          curHighRoe = ((nextC.high - entryPrice) / entryPrice) * 1000;
+          curCloseRoe = ((nextC.close - entryPrice) / entryPrice) * 1000;
+          curLowDrawdown = ((nextC.low - entryPrice) / entryPrice) * 1000;
         } else {
-          curHighRoe = ((entryPrice - nextC.low) / entryPrice) * 100;
-          curCloseRoe = ((entryPrice - nextC.close) / entryPrice) * 100;
-          curLowDrawdown = ((entryPrice - nextC.high) / entryPrice) * 100;
+          curHighRoe = ((entryPrice - nextC.low) / entryPrice) * 1000;
+          curCloseRoe = ((entryPrice - nextC.close) / entryPrice) * 1000;
+          curLowDrawdown = ((entryPrice - nextC.high) / entryPrice) * 1000;
         }
 
         // Track peak favorable excursion
@@ -814,29 +818,29 @@ window.TrendTraderEngine = {
           maxDrawdownPct = curLowDrawdown;
         }
 
-        // Progressive TP milestone triggers (True Price Move: TP1 +2%, TP2 +10%, TP3 +30%):
-        // 1. TP1 at true +2.0% price increase/decrease from entry
-        if (curHighRoe >= 2.0 && !hitTp1 && (curCloseRoe > 0 || curCloseRoe >= 2.0)) {
+        // Progressive TP milestone triggers (10x Leverage: TP1 +2%, TP2 +10%, TP3 +30%):
+        // 1. TP1 at +2.0% ROE (0.20% price move at 10x leverage)
+        if (curHighRoe >= 2.0 && !hitTp1) {
           hitTp1 = true;
           tpEvents.push({ time: nextC.time, level: 'TP1', text: 'TP1 (+2%) • +$10.06', isBuy });
         }
-        // 2. TP2 at true +10.0% price increase/decrease from entry
+        // 2. TP2 at +10.0% ROE (1.00% price move at 10x leverage)
         if (curHighRoe >= 10.0 && !hitTp2) {
           hitTp2 = true;
           tpEvents.push({ time: nextC.time, level: 'TP2', text: 'TP2 (+10%) • +$30.30', isBuy });
         }
-        // 3. TP3 at true +30.0% price increase/decrease from entry
+        // 3. TP3 at +30.0% ROE (3.00% price move at 10x leverage)
         if (curHighRoe >= 30.0 && !hitTp3) {
           hitTp3 = true;
           tpEvents.push({ time: nextC.time, level: 'TP3', text: 'TP3 (+30%) • +$82.05', isBuy });
         }
 
         // Stop Loss Check:
-        // When price drops -5.0% from entry before reaching TP1
+        // When adverse move reaches -5.0% ROE (-$5.00 loss on $100 margin at 10x)
         if (curLowDrawdown <= -5.0 && !hitTp1 && !hitSL) {
           hitSL = true;
           tradeClosed = true;
-          exitPrice = isBuy ? (entryPrice * 0.95) : (entryPrice * 1.05);
+          exitPrice = isBuy ? (entryPrice * 0.995) : (entryPrice * 1.005);
           tpEvents.push({ time: nextC.time, level: 'SL', text: 'SL (-5%) • -$5.00', isBuy });
           reason = `Hit -5.00% SL ($${exitPrice.toFixed(2)})`;
           break;
@@ -846,13 +850,18 @@ window.TrendTraderEngine = {
         if ((isBuy && nextTag === 'SELL') || (!isBuy && nextTag === 'BUY')) {
           tradeClosed = true;
           exitPrice = nextC.close;
-          const closedReturnPct = isBuy ? ((exitPrice - entryPrice) / entryPrice) * 100 : ((entryPrice - exitPrice) / entryPrice) * 100;
+          const closedReturnRoe = isBuy
+            ? ((exitPrice - entryPrice) / entryPrice) * 1000
+            : ((entryPrice - exitPrice) / entryPrice) * 1000;
+
           if (hitTp1) {
             reason = `Reversal closed after TP1 (+${maxRoePct.toFixed(1)}%) • Exit $${exitPrice.toFixed(2)}`;
-          } else if (closedReturnPct >= 0) {
-            reason = `Reversed in profit (+${closedReturnPct.toFixed(2)}%) • Exit $${exitPrice.toFixed(2)}`;
+          } else if (closedReturnRoe >= 0) {
+            reason = `Reversed in profit (+${closedReturnRoe.toFixed(1)}%) • Exit $${exitPrice.toFixed(2)}`;
           } else {
-            reason = `Reversed before TP1 (${closedReturnPct.toFixed(2)}%) • Exit $${exitPrice.toFixed(2)}`;
+            // Plot SL marker on reversal candle if closed at a loss before TP1
+            tpEvents.push({ time: nextC.time, level: 'SL', text: `SL (${closedReturnRoe.toFixed(1)}%) • -$${Math.min(5.00, Math.abs(closedReturnRoe)).toFixed(2)}`, isBuy });
+            reason = `Reversed before TP1 (${closedReturnRoe.toFixed(1)}%) • Exit $${exitPrice.toFixed(2)}`;
           }
           break;
         }
@@ -864,57 +873,58 @@ window.TrendTraderEngine = {
         exitPrice = lastCandle.close;
       }
 
-      // Calculate real percentage return from Entry to Exit Price
-      const finalReturnPct = isBuy
-        ? ((exitPrice - entryPrice) / entryPrice) * 100
-        : ((entryPrice - exitPrice) / entryPrice) * 100;
+      // Calculate real ROE % return from Entry to Exit Price (with 10x leverage on $100)
+      const finalReturnRoe = isBuy
+        ? ((exitPrice - entryPrice) / entryPrice) * 1000
+        : ((entryPrice - exitPrice) / entryPrice) * 1000;
 
       // DYNAMIC ACCURATE WIN/LOSS & PnL EVALUATION:
-      // - TP3 (+30%+): Super Runner
-      // - TP2 (+10%+): Major Win
-      // - TP1 (+2%+): Base Win
-      // - If positive return (> 0%): WIN! Calculates actual dollar profit based on $100 entry
+      // - TP3 (+30%+ ROE): Super Runner
+      // - TP2 (+10%+ ROE): Major Win
+      // - TP1 (+2%+ ROE): Base Win (+$10.06 to +$23.75)
+      // - If positive return (> 0%): WIN!
       // - If negative return (< 0%): LOSS!
-      if (maxRoePct >= 30.0 || finalReturnPct >= 30.0) {
+      if (maxRoePct >= 30.0 || finalReturnRoe >= 30.0) {
         isWin = true;
         isLoss = false;
         tpTier = 'TP3 (+30%)';
-        const effPct = Math.max(maxRoePct, finalReturnPct);
+        const effPct = Math.max(maxRoePct, finalReturnRoe);
         pnl = Math.round((10.0616 + ((effPct - 2.0) * 2.5876)) * 100) / 100;
-        reason = `Hit TP3 Super Runner (+${effPct.toFixed(1)}% Price) • Exit $${exitPrice.toFixed(2)}`;
-      } else if (maxRoePct >= 10.0 || finalReturnPct >= 10.0) {
+        reason = `Hit TP3 Super Runner (+${effPct.toFixed(1)}%) • Exit $${exitPrice.toFixed(2)}`;
+      } else if (maxRoePct >= 10.0 || finalReturnRoe >= 10.0) {
         isWin = true;
         isLoss = false;
         tpTier = 'TP2 (+10%)';
-        const effPct = Math.max(maxRoePct, finalReturnPct);
+        const effPct = Math.max(maxRoePct, finalReturnRoe);
         pnl = Math.round((10.0616 + ((effPct - 2.0) * 2.5876)) * 100) / 100;
-        reason = `Hit TP2 Runner (+${effPct.toFixed(1)}% Price) • Exit $${exitPrice.toFixed(2)}`;
+        reason = `Hit TP2 Runner (+${effPct.toFixed(1)}%) • Exit $${exitPrice.toFixed(2)}`;
       } else if (hitTp1 || maxRoePct >= 2.0) {
         isWin = true;
         isLoss = false;
         tpTier = 'TP1 (+2%)';
-        pnl = 10.06;
-        reason = `Hit TP1 (+${maxRoePct.toFixed(1)}% Price) • Exit $${exitPrice.toFixed(2)}`;
-      } else if (finalReturnPct > 0) {
-        // Trade in PROFIT! (e.g. from 123.44 down to 122.53 = +0.74% profit!)
+        const effPct = Math.max(maxRoePct, finalReturnRoe);
+        if (effPct > 2.5) {
+          pnl = Math.round((10.0616 + ((effPct - 2.18) * 2.5876)) * 100) / 100;
+        } else {
+          pnl = 10.06;
+        }
+        reason = `Hit TP1 (+${effPct.toFixed(1)}%) • Exit $${exitPrice.toFixed(2)}`;
+      } else if (finalReturnRoe > 0) {
         isWin = true;
         isLoss = false;
-        tpTier = `+${finalReturnPct.toFixed(1)}%`;
-        // With 10x leverage (standard crypto futures), +0.74% move makes +$7.37 on $100 entry
-        pnl = Math.max(0.10, Math.round(finalReturnPct * 10 * 100) / 100);
+        tpTier = `+${finalReturnRoe.toFixed(1)}%`;
+        pnl = Math.max(0.50, Math.round(finalReturnRoe * 100) / 100);
         reason = !tradeClosed
-          ? `Active In Profit (+${finalReturnPct.toFixed(2)}%) • Current $${exitPrice.toFixed(2)}`
-          : `Closed in Profit (+${finalReturnPct.toFixed(2)}%) • Exit $${exitPrice.toFixed(2)}`;
+          ? `Active In Profit (+${finalReturnRoe.toFixed(1)}%) • Current $${exitPrice.toFixed(2)}`
+          : `Closed in Profit (+${finalReturnRoe.toFixed(1)}%) • Exit $${exitPrice.toFixed(2)}`;
       } else {
-        // Trade in Loss or hit Stop Loss
         isWin = false;
         isLoss = true;
         tpTier = 'SL';
-        // Max loss capped at -5% (-$5.00)
-        pnl = Math.max(-5.00, Math.round(finalReturnPct * 10 * 100) / 100);
+        pnl = Math.max(-5.00, Math.round(finalReturnRoe * 100) / 100);
         reason = hitSL
           ? `Hit -5.00% SL ($${exitPrice.toFixed(2)})`
-          : `Loss (${finalReturnPct.toFixed(2)}%) • Exit $${exitPrice.toFixed(2)}`;
+          : `Loss (${finalReturnRoe.toFixed(1)}%) • Exit $${exitPrice.toFixed(2)}`;
       }
 
       const outcome = isWin ? 'win' : 'loss';
