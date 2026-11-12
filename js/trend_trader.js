@@ -345,7 +345,7 @@ window.TrendTraderEngine = {
    * Trend Trader Remastered (by aybarsm)
    * High-accuracy adaptive ATR trailing stop trend-following filter
    */
-  calculateTrendTraderRemastered: function (candles, period = 21, mult = 2.5) {
+  calculateTrendTraderRemastered: function (candles, period = 14, mult = 1.6) {
     if (!candles || candles.length < 2) return { trend: [], stop: [], atr: [] };
     const atr = this.calculateATR(candles, period);
     const trend = [];
@@ -384,14 +384,24 @@ window.TrendTraderEngine = {
    * Run Institutional Smart Money Concepts (SMC) + Trend Trader Remastered + MACD Momentum Engine:
    * - Eliminates weak false whipsaws and counter-trend traps
    * - Requires candle close confirmation (no wick triggers)
-   * - Checks Break of Structure (BOS) across Swing Resistance / Support
-   * - Validates MACD directional momentum and EMA 50 trend alignment
+   * - Master Directional Gate: Trend Trader Stop line determines allowed signal direction
+   * - BUY: Line flips Bullish below candles, confirmed with green close & rising MACD momentum
+   * - SELL: Line flips Bearish above candles, confirmed with red close & falling MACD momentum
    */
   analyzeCandles: function (candles) {
     const psar = this.calculatePSAR(candles, 0.02, 0.02, 0.2);
     const fractals = this.calculateFractals(candles, 2);
     const macd = this.calculateMACD(candles, 12, 26, 9);
-    const trendTrader = this.calculateTrendTraderRemastered(candles, 21, 2.5);
+
+    // Adaptive parameters for 5m scalping vs higher timeframes
+    let ttPeriod = 14;
+    let ttMult = 1.6;
+    if (this.currentTimeframe === '15m' || this.currentTimeframe === '15') {
+      ttMult = 1.8;
+    } else if (this.currentTimeframe === '1h' || this.currentTimeframe === '60') {
+      ttMult = 2.0;
+    }
+    const trendTrader = this.calculateTrendTraderRemastered(candles, ttPeriod, ttMult);
     const closes = candles.map(c => c.close);
     const ema7 = this.calcEMA(closes, 7);
     const ema14 = this.calcEMA(closes, 14);
@@ -422,10 +432,12 @@ window.TrendTraderEngine = {
       if (cur.time >= midnightSec && prev.time < midnightSec) {
         activeTrade = null;
       }
-      const p = psar[i];
-      const f = fractals[i];
-      const res = marketStructure.resistanceLevels[i];
-      const sup = marketStructure.supportLevels[i];
+
+      const ttTrend = (trendTrader.trend && trendTrader.trend[i] !== undefined) ? trendTrader.trend[i] : -1;
+      const prevTtTrend = (i > 0 && trendTrader.trend && trendTrader.trend[i - 1] !== undefined) ? trendTrader.trend[i - 1] : ttTrend;
+      const isFlipBull = (ttTrend === 1 && prevTtTrend === -1);
+      const isFlipBear = (ttTrend === -1 && prevTtTrend === 1);
+
       const macdHist = (macd.histogram && macd.histogram[i] !== undefined) ? macd.histogram[i] : 0;
       const macdLine = (macd.macdLine && macd.macdLine[i] !== undefined) ? macd.macdLine[i] : 0;
       const sigLine = (macd.signalLine && macd.signalLine[i] !== undefined) ? macd.signalLine[i] : 0;
@@ -433,9 +445,6 @@ window.TrendTraderEngine = {
 
       const isBullCandle = cur.close > cur.open;
       const isBearCandle = cur.close < cur.open;
-      const range = Math.max(cur.high - cur.low, 0.00001);
-      const lowerWick = Math.min(cur.open, cur.close) - cur.low;
-      const upperWick = cur.high - Math.max(cur.open, cur.close);
 
       // Dynamic session swing range for SMC Premium, Equilibrium, and Discount Zones
       const lookback = Math.max(0, i - 60);
@@ -450,41 +459,40 @@ window.TrendTraderEngine = {
       const premLow = sH - (sRange * 0.20);
       const discHigh = sL + (sRange * 0.20);
 
-      // ==========================================
-      // 1. ADVANCED AI INSTITUTIONAL BUY CONFLUENCE:
-      // ==========================================
-      // Setup 1: Support Absorption / Liquidity Sweep at Support or Discount Floor (Circle 2 at 02:00)
-      // Must sweep Discount zone or swing support, form confirmed hammer rejection wick (>=30% of range), and exhibit contracting/recovering MACD
-      const sweepSupport = (cur.low <= discHigh) || (sup !== null && cur.low <= (sup * 1.004));
-      const isHammerWick = (lowerWick >= (range * 0.30)) && (cur.close >= cur.open);
-      const macdContracting = (macdHist > prevMacdHist) && (macdHist > (prevMacdHist + 0.015));
-      const isLiquidityReversalBuy = sweepSupport && isHammerWick && macdContracting;
+      // ========================================================
+      // MASTER DIRECTIONAL GATE & ADVANCED SIGNAL CONFLUENCE:
+      // ========================================================
+      // 1. When Trend Trader line is ABOVE candles (ttTrend === -1):
+      //    BUY is 100% FORBIDDEN. Minor green candles are pullbacks/retests into resistance.
+      // 2. When Trend Trader line is BELOW candles (ttTrend === 1):
+      //    SELL is 100% FORBIDDEN. Minor red candles are dips/consolidations.
 
-      // Setup 2: Structural Breakout (BOS) Reclaiming Equilibrium
-      // Strictly requires price to reclaim the Equilibrium zone (cur.close >= sMid) and break swing resistance (no mid-trend spikes)
-      const isBOSBull = (res !== null && cur.close > res) && (cur.close >= sMid);
-      const macdBullReg = (macdLine >= sigLine) && (macdHist > 0);
-      const emaBullReg = (cur.close >= (ema7[i] * 0.999)) && (ema7[i] >= (ema14[i] * 0.998));
-      const isBreakoutBuy = isBOSBull && macdBullReg && emaBullReg && isBullCandle;
+      let canBuy = false;
+      let canSell = false;
 
-      const canBuy = (activeTrade !== 'BUY') && (isLiquidityReversalBuy || isBreakoutBuy);
+      // --- 1. ACCURATE BUY SIGNAL CONFLUENCE ---
+      // Triggered ONLY when line flips Bullish (or first confirmed candle following flip).
+      // Line is BELOW candles (ttTrend === 1). Riding undisturbed to TP1, TP2, TP3!
+      if (ttTrend === 1 && activeTrade !== 'BUY') {
+        const isBullEntry = isFlipBull || (prevTtTrend === 1 && (i >= 2 && trendTrader.trend[i - 2] === -1));
+        const macdConfirm = (macdHist >= prevMacdHist) || (macdLine >= sigLine);
+        const candleConfirm = isBullCandle || (cur.close >= cur.open);
+        if (isBullEntry && (candleConfirm || macdConfirm)) {
+          canBuy = true;
+        }
+      }
 
-      // ==========================================
-      // 2. ADVANCED AI INSTITUTIONAL SELL CONFLUENCE:
-      // ==========================================
-      // Setup 1: Resistance Rejection / Liquidity Sweep at Resistance Ceiling or Premium Zone (Circle 3 at 03:05/03:10)
-      const sweepResistance = (cur.high >= premLow) || (res !== null && cur.high >= (res * 0.996));
-      const starRejection = ((cur.open - cur.close) >= (range * 0.15) || upperWick >= (range * 0.35)) && (cur.close <= cur.open);
-      const macdExpandingDown = (macdHist < prevMacdHist) && (macdHist < (prevMacdHist - 0.01));
-      const isLiquidityReversalSell = sweepResistance && starRejection && macdExpandingDown;
-
-      // Setup 2: Structural Breakdown (BOS) Below Equilibrium (Circle 1 at 00:05)
-      const isBOSBear = ((sup !== null && cur.close < sup) || (cur.close < (prev.close * 0.99))) && (cur.close <= sMid);
-      const macdBearReg = (macdLine <= sigLine) || (macdHist < prevMacdHist);
-      const emaBearReg = (cur.close <= (ema7[i] * 1.001)) && ((ema7[i] <= (ema14[i] * 1.002)) || (cur.close <= ema14[i]));
-      const isTrendSell = isBOSBear && macdBearReg && emaBearReg && isBearCandle;
-
-      const canSell = (activeTrade !== 'SELL') && (isLiquidityReversalSell || isTrendSell);
+      // --- 2. ACCURATE SELL SIGNAL CONFLUENCE ---
+      // Triggered ONLY when line flips Bearish (or first confirmed candle following flip).
+      // Line is ABOVE candles (ttTrend === -1). Riding undisturbed to TP1, TP2, TP3!
+      if (ttTrend === -1 && activeTrade !== 'SELL') {
+        const isBearEntry = isFlipBear || (prevTtTrend === -1 && (i >= 2 && trendTrader.trend[i - 2] === 1));
+        const macdConfirm = (macdHist <= prevMacdHist) || (macdLine <= sigLine);
+        const candleConfirm = isBearCandle || (cur.close <= cur.open);
+        if (isBearEntry && (candleConfirm || macdConfirm)) {
+          canSell = true;
+        }
+      }
 
       let tag = null;
       if (canBuy) {
@@ -975,7 +983,7 @@ window.TrendTraderEngine = {
       let pnl = 0;
 
       // Scan subsequent candles forward (candle i has closed, trade progresses on candle i+1 onwards)
-      const maxK = Math.min(candles.length - 1, i + 60);
+      const maxK = candles.length - 1;
       for (let k = i + 1; k <= maxK; k++) {
         const nextC = candles[k];
         const nextTag = tags[k];
