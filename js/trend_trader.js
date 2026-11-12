@@ -382,11 +382,10 @@ window.TrendTraderEngine = {
 
   /**
    * Run Institutional Smart Money Concepts (SMC) + Trend Trader Remastered + MACD Momentum Engine:
-   * - High-accuracy adaptive ATR trailing stop trend filter (aybarsm)
    * - Eliminates weak false whipsaws and counter-trend traps
    * - Requires candle close confirmation (no wick triggers)
-   * - Validates genuine MACD directional momentum (multi-bar green/red expansion)
-   * - Respects Macro SMC Premium, Equilibrium, and Discount Zones
+   * - Checks Break of Structure (BOS) across Swing Resistance / Support
+   * - Validates MACD directional momentum and EMA 50 trend alignment
    */
   analyzeCandles: function (candles) {
     const psar = this.calculatePSAR(candles, 0.02, 0.02, 0.2);
@@ -401,6 +400,11 @@ window.TrendTraderEngine = {
 
     const marketStructure = this.calculateMarketStructure(candles, fractals);
 
+    // Calculate start of day (12:00:00 AM UTC) to anchor the session
+    const nowDayObj = new Date();
+    const midnightUtcMs = Date.UTC(nowDayObj.getUTCFullYear(), nowDayObj.getUTCMonth(), nowDayObj.getUTCDate(), 0, 0, 0, 0);
+    const midnightSec = Math.floor(midnightUtcMs / 1000);
+
     const tags = [];
     let activeTrade = null; // null, 'BUY', or 'SELL'
     let entryPrice = 0;
@@ -413,6 +417,11 @@ window.TrendTraderEngine = {
       const cur = candles[i];
       const prev = candles[i - 1];
       const prev2 = i >= 2 ? candles[i - 2] : prev;
+
+      // Session reset at midnight UTC: anchor fresh for today's trading session
+      if (cur.time >= midnightSec && prev.time < midnightSec) {
+        activeTrade = null;
+      }
       const p = psar[i];
       const f = fractals[i];
       const res = marketStructure.resistanceLevels[i];
@@ -422,64 +431,60 @@ window.TrendTraderEngine = {
       const sigLine = (macd.signalLine && macd.signalLine[i] !== undefined) ? macd.signalLine[i] : 0;
       const prevMacdHist = (i > 0 && macd.histogram && macd.histogram[i - 1] !== undefined) ? macd.histogram[i - 1] : 0;
 
-      const ttTrend = trendTrader.trend[i] !== undefined ? trendTrader.trend[i] : -1;
-      const prevTtTrend = (i > 0 && trendTrader.trend[i - 1] !== undefined) ? trendTrader.trend[i - 1] : ttTrend;
-      const ttStop = trendTrader.stop[i] !== undefined ? trendTrader.stop[i] : cur.close;
-
       const isBullCandle = cur.close > cur.open;
       const isBearCandle = cur.close < cur.open;
       const range = Math.max(cur.high - cur.low, 0.00001);
       const lowerWick = Math.min(cur.open, cur.close) - cur.low;
       const upperWick = cur.high - Math.max(cur.open, cur.close);
 
-      // Macro session swing range across 120 bars (10 hours) for institutional SMC zones
-      const lookback = Math.max(0, i - 120);
+      // Dynamic session swing range for SMC Premium, Equilibrium, and Discount Zones
+      const lookback = Math.max(0, i - 60);
       let sH = -Infinity;
       let sL = Infinity;
-      for (let k = lookback; k < i; k++) {
+      for (let k = lookback; k <= i; k++) {
         if (candles[k].high > sH) sH = candles[k].high;
         if (candles[k].low < sL) sL = candles[k].low;
       }
       const sRange = Math.max(sH - sL, 0.0001);
+      const sMid = sL + (sRange * 0.5);
       const premLow = sH - (sRange * 0.20);
       const discHigh = sL + (sRange * 0.20);
-      const sMid = sL + (sRange * 0.50);
 
       // ==========================================
       // 1. ADVANCED AI INSTITUTIONAL BUY CONFLUENCE:
       // ==========================================
-      // Setup 1: Liquidity sweep reversal at Support Floor / Discount Zone (Exact bottom bounce at support wick)
-      const isLowSweep = (cur.low <= (sL * 1.002)) || (cur.low <= discHigh && cur.low <= (sL + (sRange * 0.08)));
-      const hammerRejection = ((cur.close - cur.open) >= (range * 0.20) || lowerWick >= (range * 0.35)) && (cur.close >= cur.open);
+      // Setup 1: Support Absorption / Liquidity Sweep at Support or Discount Floor (Circle 2 at 02:00)
+      // Must sweep Discount zone or swing support, form confirmed hammer rejection wick (>=30% of range), and exhibit contracting/recovering MACD
+      const sweepSupport = (cur.low <= discHigh) || (sup !== null && cur.low <= (sup * 1.004));
+      const isHammerWick = (lowerWick >= (range * 0.30)) && (cur.close >= cur.open);
       const macdContracting = (macdHist > prevMacdHist) && (macdHist > (prevMacdHist + 0.015));
-      const isSweepBuy = isLowSweep && hammerRejection && macdContracting;
+      const isLiquidityReversalBuy = sweepSupport && isHammerWick && macdContracting;
 
-      // Setup 2: Trend Trader Remastered (aybarsm) Bullish Flip with Positive/Rising MACD
-      const isTTBull = (ttTrend === 1 && prevTtTrend === -1) && (macdHist >= -0.05 || macdLine >= sigLine);
+      // Setup 2: Structural Breakout (BOS) Reclaiming Equilibrium
+      // Strictly requires price to reclaim the Equilibrium zone (cur.close >= sMid) and break swing resistance (no mid-trend spikes)
+      const isBOSBull = (res !== null && cur.close > res) && (cur.close >= sMid);
+      const macdBullReg = (macdLine >= sigLine) && (macdHist > 0);
+      const emaBullReg = (cur.close >= (ema7[i] * 0.999)) && (ema7[i] >= (ema14[i] * 0.998));
+      const isBreakoutBuy = isBOSBull && macdBullReg && emaBullReg && isBullCandle;
 
-      // Setup 3: Bullish Breakout Continuation above Equilibrium with green MACD
-      const isBOSBull = (cur.close > sMid) && (ttTrend === 1) && (macdHist > 0) && (res !== null && cur.close > res);
-
-      const canBuy = (activeTrade !== 'BUY') && (isSweepBuy || isTTBull || isBOSBull);
+      const canBuy = (activeTrade !== 'BUY') && (isLiquidityReversalBuy || isBreakoutBuy);
 
       // ==========================================
       // 2. ADVANCED AI INSTITUTIONAL SELL CONFLUENCE:
       // ==========================================
-      // Setup 1: Reversal at macro Premium ceiling / Resistance with shooting star rejection + negative expanding MACD
-      const isHighSweep = (cur.high >= (sH * 0.998)) || (cur.high >= premLow);
-      const starRejection = ((cur.open - cur.close) >= (range * 0.20) || upperWick >= (range * 0.35)) && (cur.close <= cur.open);
-      const macdExpandingDown = (macdHist < prevMacdHist) && (macdHist < 0);
-      const isSweepSell = isHighSweep && starRejection && macdExpandingDown;
+      // Setup 1: Resistance Rejection / Liquidity Sweep at Resistance Ceiling or Premium Zone (Circle 3 at 03:05/03:10)
+      const sweepResistance = (cur.high >= premLow) || (res !== null && cur.high >= (res * 0.996));
+      const starRejection = ((cur.open - cur.close) >= (range * 0.15) || upperWick >= (range * 0.35)) && (cur.close <= cur.open);
+      const macdExpandingDown = (macdHist < prevMacdHist) && (macdHist < (prevMacdHist - 0.01));
+      const isLiquidityReversalSell = sweepResistance && starRejection && macdExpandingDown;
 
-      // Setup 2: Trend Trader Remastered (aybarsm) Bearish Flip with confirmed negative MACD (Must have red MACD bars!)
-      const isTTBear = (ttTrend === -1 && prevTtTrend === 1) && (macdHist <= 0 && macdLine <= sigLine);
+      // Setup 2: Structural Breakdown (BOS) Below Equilibrium (Circle 1 at 00:05)
+      const isBOSBear = ((sup !== null && cur.close < sup) || (cur.close < (prev.close * 0.99))) && (cur.close <= sMid);
+      const macdBearReg = (macdLine <= sigLine) || (macdHist < prevMacdHist);
+      const emaBearReg = (cur.close <= (ema7[i] * 1.001)) && ((ema7[i] <= (ema14[i] * 1.002)) || (cur.close <= ema14[i]));
+      const isTrendSell = isBOSBear && macdBearReg && emaBearReg && isBearCandle;
 
-      // Setup 3: Strong Session Breakdown at session open (e.g. 00:05 dump from 120.70 with breakdown > 1%)
-      const isBreakdown = (cur.close < (prev.close * 0.99)) && (cur.close < sMid) && (macdHist < 0 || cur.volume > 3000);
-
-      // CRUCIAL MOMENTUM PROTECTION:
-      // When in an active BUY, NEVER trigger SELL if MACD histogram is still green/positive (> 0), or Trend Trader is still BULL, or price has not reached Premium Resistance!
-      const canSell = (activeTrade !== 'SELL') && (isSweepSell || isTTBear || isBreakdown) && (activeTrade !== 'BUY' || macdHist <= 0 || isHighSweep);
+      const canSell = (activeTrade !== 'SELL') && (isLiquidityReversalSell || isTrendSell);
 
       let tag = null;
       if (canBuy) {
