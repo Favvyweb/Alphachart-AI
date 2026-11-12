@@ -444,6 +444,15 @@ window.TrendTraderEngine = {
       const isFlipBull = (ttTrend === 1 && prevTtTrend === -1);
       const isFlipBear = (ttTrend === -1 && prevTtTrend === 1);
 
+      // Invalidate / reset trade lifecycle if trailing stop breached or severe adverse move:
+      // This prevents activeTrade from being stuck across multi-hour cascades!
+      if (activeTrade === 'BUY' && (ttTrend === -1 || (entryPrice > 0 && cur.close < entryPrice * 0.994))) {
+        activeTrade = null;
+      }
+      if (activeTrade === 'SELL' && (ttTrend === 1 || (entryPrice > 0 && cur.close > entryPrice * 1.006))) {
+        activeTrade = null;
+      }
+
       const macdHist = (macd.histogram && macd.histogram[i] !== undefined) ? macd.histogram[i] : 0;
       const macdLine = (macd.macdLine && macd.macdLine[i] !== undefined) ? macd.macdLine[i] : 0;
       const sigLine = (macd.signalLine && macd.signalLine[i] !== undefined) ? macd.signalLine[i] : 0;
@@ -502,9 +511,9 @@ window.TrendTraderEngine = {
         const premiumSellTrigger = isAtPremium && (hasUpperRejection || isBearEngulf || isBearExhaustion) && macdDecelerating && (cur.close > discHigh);
 
         // --- SETUP B: EQUILIBRIUM BREAKDOWN / REJECTION ---
-        // Price tested Equilibrium from below and rejected, or broke down through Equilibrium
+        // Price tested Equilibrium from below and rejected under bearish Trend Trader line
         const testedEqFromBelow = (cur.high >= sMid - eqTolerance && cur.close <= sMid + (eqTolerance * 0.35));
-        const eqRejectSell = testedEqFromBelow && (upperWickRatio >= 0.22 || isBearCandle) && isHistFalling && (ttTrend === -1 || cur.close < ema20[i]) && (cur.close > discHigh + (sRange * 0.05));
+        const eqRejectSell = testedEqFromBelow && (upperWickRatio >= 0.22 || isBearCandle) && isHistFalling && (ttTrend === -1) && (cur.close > discHigh + (sRange * 0.05));
 
         // --- SETUP C: TREND TRADER BEARISH FLIP (With Anti-Trap Guard - Eliminates Mark 1) ---
         // If price is in a strong bounce from Discount/Equilibrium with rising green MACD, BLOCK SELL!
@@ -520,25 +529,27 @@ window.TrendTraderEngine = {
       // 2. ADVANCED HIGH-WINRATE BUY SETUPS (Target 80-90% Win Rate)
       // ========================================================
       if (activeTrade !== 'BUY' && canSignalAgain) {
-        // --- SETUP A: DISCOUNT ZONE ABSORPTION & REJECTION (Circle 3 Bottom) ---
+        // --- SETUP A: DISCOUNT ZONE ABSORPTION & REJECTION (Circle at Bottom / 110.76) ---
         // Price dropped into or swept below Discount Zone (Weak Support)
         const isAtDiscount = (cur.low <= discHigh || prev.low <= discHigh);
-        const hasLowerRejection = (lowerWickRatio >= 0.26) || (prevLowerWickRatio >= 0.26 && isBullCandle);
+        const hasLowerRejection = (lowerWickRatio >= 0.24) || (prevLowerWickRatio >= 0.24 && isBullCandle);
         const isBullEngulf = (prev.close < prev.open && isBullCandle && cur.close > prev.open);
         const isBullExhaustion = isBullCandle && (cur.close > prev.close);
         const macdAccelerating = isHistRising || macdHist >= 0 || isMacdBullish;
 
+        // Discount reversal: price absorbs selling in Discount Zone and pushes green with accelerating MACD
         const discountBuyTrigger = isAtDiscount && (hasLowerRejection || isBullEngulf || isBullExhaustion) && macdAccelerating && (cur.close < premLow);
 
-        // --- SETUP B: EQUILIBRIUM RETEST BOUNCE (Mark 3 Bounce) ---
-        // Price pulled back to Equilibrium from above and holds support
+        // --- SETUP B: EQUILIBRIUM RETEST BOUNCE ---
+        // Price pulled back to Equilibrium from above and holds support UNDER BULLISH TREND (ttTrend === 1 REQUIRED!)
+        // This strictly kills fake buys during macro downtrends (e.g. 05:00 dump)
         const testedEqFromAbove = (cur.low <= sMid + eqTolerance && cur.close >= sMid - (eqTolerance * 0.35));
-        const eqBounceBuy = testedEqFromAbove && (lowerWickRatio >= 0.22 || isBullCandle) && isHistRising && (ttTrend === 1 || cur.close > ema20[i]) && (cur.close < premLow - (sRange * 0.05));
+        const eqBounceBuy = testedEqFromAbove && (lowerWickRatio >= 0.22 || isBullCandle) && isHistRising && (ttTrend === 1) && (cur.close < premLow - (sRange * 0.08));
 
-        // --- SETUP C: TREND TRADER BULLISH FLIP (With Anti-Trap Guard) ---
-        // Block buy if already colliding into the Premium ceiling
-        const notAtCeiling = (cur.close < premLow);
-        const trendTraderBuy = (isFlipBull || (prevTtTrend === 1 && i >= 2 && trendTrader.trend[i - 2] === -1)) && notAtCeiling && (isBullCandle || isHistRising) && (cur.close < premLow);
+        // --- SETUP C: TREND TRADER BULLISH FLIP (Trailing Line to Upside - User's Marked Entry!) ---
+        // Trailing line steps up below candles (isFlipBull) at or near bottom, with room to run to Premium
+        const notAtCeiling = (cur.close < premLow - (sRange * 0.08));
+        const trendTraderBuy = (isFlipBull || (ttTrend === 1 && prevTtTrend === 1 && i >= 2 && trendTrader.trend[i - 2] === -1)) && notAtCeiling && (isBullCandle || isHistRising);
 
         if (discountBuyTrigger || eqBounceBuy || trendTraderBuy) {
           canBuy = true;
