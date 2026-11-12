@@ -497,80 +497,43 @@ window.TrendTraderEngine = {
       let canSell = false;
 
       // ========================================================
-      // 1. ADVANCED HIGH-WINRATE SELL SETUPS (Target 80-90% Win Rate)
+      // 1. PRIMARY ENGINE: TREND TRADER TRAILING LINE FLIPS
       // ========================================================
-      if (activeTrade !== 'SELL' && canSignalAgain) {
-        // --- SETUP A: PREMIUM ZONE REJECTION & LIQUIDITY SWEEP (Circle 2 Peak) ---
-        // Price pushed into or swept above Premium Zone (Strong Resistance)
-        const isAtPremium = (cur.high >= premLow || prev.high >= premLow);
-        const hasUpperRejection = (upperWickRatio >= 0.26) || (prevUpperWickRatio >= 0.26 && isBearCandle);
-        const isBearEngulf = (prev.close > prev.open && isBearCandle && cur.close < prev.open);
-        const isBearExhaustion = isBearCandle && (cur.close < prev.close);
-        const macdDecelerating = isHistFalling || macdHist <= 0 || isMacdBearish;
-
-        const premiumSellTrigger = isAtPremium && (hasUpperRejection || isBearEngulf || isBearExhaustion) && macdDecelerating && (cur.close > discHigh);
-
-        // --- SETUP B: EQUILIBRIUM BREAKDOWN / REJECTION ---
-        // Price tested Equilibrium from below and rejected under bearish Trend Trader line
-        const testedEqFromBelow = (cur.high >= sMid - eqTolerance && cur.close <= sMid + (eqTolerance * 0.35));
-        const eqRejectSell = testedEqFromBelow && (upperWickRatio >= 0.22 || isBearCandle) && isHistFalling && (ttTrend === -1) && (cur.close > discHigh + (sRange * 0.05));
-
-        // --- SETUP C: TREND TRADER BEARISH FLIP (With Anti-Trap Guard - Eliminates Mark 1) ---
-        // If price is in a strong bounce from Discount/Equilibrium with rising green MACD, BLOCK SELL!
-        const notInBounce = (cur.close <= sMid + eqTolerance) && !(isHistRising && macdHist > 0 && cur.close > prev.close * 1.002);
-        const trendTraderSell = (isFlipBear || (prevTtTrend === -1 && i >= 2 && trendTrader.trend[i - 2] === 1)) && notInBounce && (isBearCandle || isHistFalling) && (cur.close > discHigh);
-
-        if (premiumSellTrigger || eqRejectSell || trendTraderSell) {
-          canSell = true;
-        }
+      // Whenever the trailing line steps in that direction, signal is guaranteed to print!
+      // - Line steps to UPSIDE below candles (isFlipBull) -> 🟢 BUY SIGNAL
+      // - Line steps to DOWNSIDE above candles (isFlipBear) -> 🔴 SELL SIGNAL
+      if (isFlipBull) {
+        canBuy = true;
+      } else if (isFlipBear) {
+        canSell = true;
       }
 
       // ========================================================
-      // 2. ADVANCED HIGH-WINRATE BUY SETUPS (Target 80-90% Win Rate)
+      // 2. SECONDARY SMC SNIPER REVERSALS (At Extremes)
       // ========================================================
-      if (activeTrade !== 'BUY' && canSignalAgain) {
-        // --- SETUP A: DISCOUNT ZONE ABSORPTION & REJECTION (Circle at Bottom / 110.76) ---
-        // Price dropped into or swept below Discount Zone (Weak Support)
+      if (!canBuy && !canSell && canSignalAgain) {
+        // At Premium Zone with clear rejection pinbar while line is bearish
+        const isAtPremium = (cur.high >= premLow || prev.high >= premLow);
+        const hasUpperRejection = (upperWickRatio >= 0.28) || (prevUpperWickRatio >= 0.28 && isBearCandle);
+        if (isAtPremium && hasUpperRejection && isBearCandle && activeTrade !== 'SELL' && ttTrend === -1) {
+          canSell = true;
+        }
+
+        // At Discount Zone with clear absorption pinbar while line is bullish
         const isAtDiscount = (cur.low <= discHigh || prev.low <= discHigh);
-        const hasLowerRejection = (lowerWickRatio >= 0.24) || (prevLowerWickRatio >= 0.24 && isBullCandle);
-        const isBullEngulf = (prev.close < prev.open && isBullCandle && cur.close > prev.open);
-        const isBullExhaustion = isBullCandle && (cur.close > prev.close);
-        const macdAccelerating = isHistRising || macdHist >= 0 || isMacdBullish;
-
-        // Discount reversal: price absorbs selling in Discount Zone and pushes green with accelerating MACD
-        const discountBuyTrigger = isAtDiscount && (hasLowerRejection || isBullEngulf || isBullExhaustion) && macdAccelerating && (cur.close < premLow);
-
-        // --- SETUP B: EQUILIBRIUM RETEST BOUNCE ---
-        // Price pulled back to Equilibrium from above and holds support UNDER BULLISH TREND (ttTrend === 1 REQUIRED!)
-        // This strictly kills fake buys during macro downtrends (e.g. 05:00 dump)
-        const testedEqFromAbove = (cur.low <= sMid + eqTolerance && cur.close >= sMid - (eqTolerance * 0.35));
-        const eqBounceBuy = testedEqFromAbove && (lowerWickRatio >= 0.22 || isBullCandle) && isHistRising && (ttTrend === 1) && (cur.close < premLow - (sRange * 0.08));
-
-        // --- SETUP C: TREND TRADER BULLISH FLIP (Trailing Line to Upside - User's Marked Entry!) ---
-        // Trailing line steps up below candles (isFlipBull) at or near bottom, with room to run to Premium
-        const notAtCeiling = (cur.close < premLow - (sRange * 0.08));
-        const trendTraderBuy = (isFlipBull || (ttTrend === 1 && prevTtTrend === 1 && i >= 2 && trendTrader.trend[i - 2] === -1)) && notAtCeiling && (isBullCandle || isHistRising);
-
-        if (discountBuyTrigger || eqBounceBuy || trendTraderBuy) {
+        const hasLowerRejection = (lowerWickRatio >= 0.28) || (prevLowerWickRatio >= 0.28 && isBullCandle);
+        if (isAtDiscount && hasLowerRejection && isBullCandle && activeTrade !== 'BUY' && ttTrend === 1) {
           canBuy = true;
         }
       }
 
-      if (canBuy && canSell) {
-        if (cur.close >= sMid) {
-          canBuy = false;
-        } else {
-          canSell = false;
-        }
-      }
-
       let tag = null;
-      if (canBuy) {
+      if (canBuy && activeTrade !== 'BUY') {
         tag = 'BUY';
         activeTrade = 'BUY';
         entryPrice = cur.close;
         lastSignalIndex = i;
-      } else if (canSell) {
+      } else if (canSell && activeTrade !== 'SELL') {
         tag = 'SELL';
         activeTrade = 'SELL';
         entryPrice = cur.close;
