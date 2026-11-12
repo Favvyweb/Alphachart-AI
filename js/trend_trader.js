@@ -357,49 +357,52 @@ window.TrendTraderEngine = {
       const lowerWick = Math.min(cur.open, cur.close) - cur.low;
       const upperWick = cur.high - Math.max(cur.open, cur.close);
 
-      // Dynamic session swing range for SMC Premium & Discount Zones
+      // Lookback 60 bars for swing range prior to current bar
       const lookback = Math.max(0, i - 60);
       let sH = -Infinity;
       let sL = Infinity;
-      for (let k = lookback; k <= i; k++) {
+      for (let k = lookback; k < i; k++) {
         if (candles[k].high > sH) sH = candles[k].high;
         if (candles[k].low < sL) sL = candles[k].low;
       }
       const sRange = Math.max(sH - sL, 0.0001);
       const premLow = sH - (sRange * 0.20);
       const discHigh = sL + (sRange * 0.20);
+      const sMid = sL + (sRange * 0.50);
 
       // ==========================================
-      // 1. ADVANCED AI BUY MOMENTUM CONFLUENCE:
+      // 1. ADVANCED AI INSTITUTIONAL BUY CONFLUENCE:
       // ==========================================
-      // Setup 1: Liquidity Sweep Reversal at Support / Discount Zone (Exact bottom bounce at support wick)
-      const sweepSupport = (cur.low <= discHigh) || (sup !== null && cur.low <= (sup * 1.004));
-      const hammerRejection = ((cur.close - cur.open) >= (range * 0.15) || lowerWick >= (range * 0.35)) && (cur.close >= cur.open);
+      // Setup 1: True Liquidity Sweep Reversal at Support Floor / Discount Zone (Exact bottom bounce)
+      // Sweeps session low (cur.low <= sL * 1.002) OR touches bottom of Discount Zone with rejection hammer & MACD contraction
+      const isLowSweep = (cur.low <= (sL * 1.002)) || (cur.low <= discHigh && cur.low <= (sL + (sRange * 0.08)));
+      const hammerRejection = ((cur.close - cur.open) >= (range * 0.20) || lowerWick >= (range * 0.35)) && (cur.close >= cur.open);
       const macdContracting = (macdHist > prevMacdHist) && (macdHist > (prevMacdHist + 0.015));
-      const isLiquidityReversalBuy = sweepSupport && hammerRejection && macdContracting;
+      const isLiquidityReversalBuy = isLowSweep && hammerRejection && macdContracting;
 
-      // Setup 2: Trend Continuation / Momentum Breakout
-      const isBOSBull = (res !== null && cur.close > res) || (cur.close > prev.high && prev.close > prev2.high);
+      // Setup 2: Confirmed Bullish Break of Structure (BOS / CHoCH)
+      // Must break above confirmed fractal resistance AND above EMA 50 with positive MACD momentum
+      const isBOSBull = (res !== null && cur.close > res && cur.close > (ema50[i] || 0));
       const macdBullReg = (macdLine >= sigLine) && (macdHist > 0);
-      const emaBullReg = (cur.close >= (ema7[i] * 0.999)) && ((ema7[i] >= (ema14[i] * 0.998)) || (cur.close >= ema14[i]));
-      const isTrendBuy = (isBOSBull || sweepSupport) && macdBullReg && emaBullReg && isBullCandle;
+      const isTrendBuy = isBOSBull && macdBullReg && isBullCandle;
 
       const canBuy = (activeTrade !== 'BUY') && (isLiquidityReversalBuy || isTrendBuy);
 
       // ==========================================
-      // 2. ADVANCED AI SELL MOMENTUM CONFLUENCE:
+      // 2. ADVANCED AI INSTITUTIONAL SELL CONFLUENCE:
       // ==========================================
-      // Setup 1: Liquidity Sweep Rejection at Resistance / Premium Zone (Exact ceiling rejection at resistance wick)
-      const sweepResistance = (cur.high >= premLow) || (res !== null && cur.high >= (res * 0.996));
-      const starRejection = ((cur.open - cur.close) >= (range * 0.15) || upperWick >= (range * 0.35)) && (cur.close <= cur.open);
+      // Setup 1: Liquidity Sweep Rejection at Resistance Ceiling / Premium Zone (Exact ceiling rejection)
+      const isHighSweep = (cur.high >= (sH * 0.998)) || (cur.high >= premLow) || (res !== null && cur.high >= (res * 0.996));
+      const starRejection = ((cur.open - cur.close) >= (range * 0.20) || upperWick >= (range * 0.35)) && (cur.close <= cur.open);
       const macdExpandingDown = (macdHist < prevMacdHist) && (macdHist < (prevMacdHist - 0.015));
-      const isLiquidityReversalSell = sweepResistance && starRejection && macdExpandingDown;
+      const isLiquidityReversalSell = isHighSweep && starRejection && macdExpandingDown;
 
-      // Setup 2: Trend Continuation / Momentum Breakdown
-      const isBOSBear = (sup !== null && cur.close < sup) || (cur.close < prev.low && prev.close < prev2.low);
+      // Setup 2: Confirmed Bearish Break of Structure / Breakdown
+      // Breakdown below confirmed fractal support OR rejection from Premium/Equilibrium with bearish MACD & EMA
+      const isBOSBear = (sup !== null && cur.close < sup && cur.close < (ema50[i] || Infinity)) || (isHighSweep && cur.close < (ema14[i] || Infinity));
       const macdBearReg = (macdLine <= sigLine) && (macdHist < 0);
-      const emaBearReg = (cur.close <= (ema7[i] * 1.001)) && ((ema7[i] <= (ema14[i] * 1.002)) || (cur.close <= ema14[i]));
-      const isTrendSell = (isBOSBear || sweepResistance) && macdBearReg && emaBearReg && isBearCandle;
+      const emaBearReg = (cur.close <= ((ema7[i] || cur.close) * 1.001)) && (((ema7[i] || 0) <= ((ema14[i] || 0) * 1.002)) || (cur.close <= (ema14[i] || Infinity)));
+      const isTrendSell = (isBOSBear || isHighSweep) && macdBearReg && emaBearReg && isBearCandle;
 
       const canSell = (activeTrade !== 'SELL') && (isLiquidityReversalSell || isTrendSell);
 
