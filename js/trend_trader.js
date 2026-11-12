@@ -318,6 +318,8 @@ window.TrendTraderEngine = {
     const fractals = this.calculateFractals(candles, 2);
     const macd = this.calculateMACD(candles, 12, 26, 9);
     const closes = candles.map(c => c.close);
+    const ema7 = this.calcEMA(closes, 7);
+    const ema14 = this.calcEMA(closes, 14);
     const ema20 = this.calcEMA(closes, 20);
     const ema50 = this.calcEMA(closes, 50);
 
@@ -371,9 +373,10 @@ window.TrendTraderEngine = {
         const upperWick = cur.high - cur.close;
         const candleSolid = isBullCandle && (bullBody >= range * 0.30) && (upperWick <= range * 0.45);
 
-        // 4. Trend Confluence:
-        // Price must trade above 50 EMA OR break structure with confirmed MACD expansion
-        const trendConfluence = (cur.close >= ema50[i]) || (bosBullish && macdMomentumConfirm);
+        // 4. Short-term Trend & EMA Confluence (EMA 7 / EMA 14 dynamic filter):
+        // Fast EMA 7 must be above EMA 14, and price must close above EMA 7 (confirming active upward push)
+        const emaBullish = (ema7[i] >= ema14[i]) && (cur.close >= ema7[i]);
+        const trendConfluence = ((cur.close >= ema50[i]) || (bosBullish && macdMomentumConfirm)) && emaBullish;
 
         // STRICT ENTRY: Momentum, structure, and candle quality MUST all confirm simultaneously (NO RUSHING!)
         const canBuy = (sarBullish || bosBullish) && macdMomentumConfirm && candleSolid && trendConfluence;
@@ -408,9 +411,10 @@ window.TrendTraderEngine = {
         const lowerWick = cur.close - cur.low;
         const candleSolid = isBearCandle && (bearBody >= range * 0.30) && (lowerWick <= range * 0.45);
 
-        // 4. Trend Confluence:
-        // Price must trade below 50 EMA OR breakdown structure with confirmed MACD momentum
-        const trendConfluence = (cur.close <= ema50[i]) || (bosBearish && macdMomentumConfirm);
+        // 4. Short-term Trend & EMA Confluence (EMA 7 / EMA 14 dynamic filter):
+        // Fast EMA 7 must be below EMA 14, and price must close below EMA 7 (confirming active downward drop)
+        const emaBearish = (ema7[i] <= ema14[i]) && (cur.close <= ema7[i]);
+        const trendConfluence = ((cur.close <= ema50[i]) || (bosBearish && macdMomentumConfirm)) && emaBearish;
 
         // STRICT ENTRY: Momentum, structure, and candle quality MUST all confirm simultaneously (NO RUSHING!)
         const canSell = (sarBearish || bosBearish) && macdMomentumConfirm && candleSolid && trendConfluence;
@@ -426,7 +430,7 @@ window.TrendTraderEngine = {
       tags.push(tag);
     }
 
-    return { candles, psar, fractals, macd, ema20, ema50, marketStructure, tags };
+    return { candles, psar, fractals, macd, ema7, ema14, ema20, ema50, marketStructure, tags };
   },
 
   /**
