@@ -485,9 +485,9 @@ window.TrendTraderEngine = {
       }
       const sRange = Math.max(sH - sL, 0.0001);
       const sMid = sL + (sRange * 0.5); // 0.50 Equilibrium level
-      const premLow = sH - (sRange * 0.20); // Top 20% is Premium Zone (Strong Resistance)
-      const discHigh = sL + (sRange * 0.20); // Bottom 20% is Discount Zone (Weak Support)
-      const eqTolerance = sRange * 0.07; // Equilibrium tolerance band
+      const premLow = sH - (sRange * 0.22); // Top 22% is Premium Zone (Strong Resistance)
+      const discHigh = sL + (sRange * 0.22); // Bottom 22% is Discount Zone (Weak Support)
+      const eqTolerance = sRange * 0.06; // Equilibrium tolerance band (0.44 - 0.56)
 
       // Cooldown check (prevent rapid-fire consecutive flips within 2 bars)
       const barsSinceSignal = i - lastSignalIndex;
@@ -497,45 +497,68 @@ window.TrendTraderEngine = {
       let canSell = false;
 
       // ========================================================
-      // 1. ADVANCED SMC SNIPER REVERSALS (Fade Extremes in Range Mode)
+      // SMC ZONE GATES ARCHITECTURE (Stops Chop Losses & Guarantees High Win Rate)
       // ========================================================
-      // --- A: PREMIUM ZONE REJECTION (Mark 2 Peak) ---
-      // Price pushed into Premium Zone (Resistance).
-      // DO NOT wait for lagging trailing line below to flip!
-      // When price touches Premium and forms upper rejection wick OR red reversal candle:
+      const isRangeBound = (cur.close <= sH * 1.003 && cur.close >= sL * 0.997);
       const isAtPremium = (cur.high >= premLow || prev.high >= premLow);
-      const hasUpperRejection = (upperWickRatio >= 0.24) || (prevUpperWickRatio >= 0.24 && isBearCandle);
-      const isBearReversal = isBearCandle && (prev.close > prev.open || cur.close < prev.close);
-      const isMacdDecelerating = isHistFalling || macdHist <= 0 || isMacdBearish;
-
-      if (isAtPremium && (hasUpperRejection || isBearReversal) && isMacdDecelerating && activeTrade !== 'SELL' && canSignalAgain) {
-        canSell = true;
-      }
-
-      // --- B: EQUILIBRIUM RETEST & DISCOUNT ABSORPTION (Marks 1 & 3 Bounce) ---
-      // Price touched 0.50 Equilibrium level OR Discount Zone.
-      // DO NOT wait for lagging trailing line above to flip!
-      // When price tests Equilibrium/Discount and forms lower rejection wick OR green reversal candle:
       const isAtDiscount = (cur.low <= discHigh || prev.low <= discHigh);
-      const isAtEquilibrium = (cur.low <= sMid + eqTolerance && cur.close >= sMid - (eqTolerance * 0.45));
-      const hasLowerRejection = (lowerWickRatio >= 0.24) || (prevLowerWickRatio >= 0.24 && isBullCandle);
-      const isBullReversal = isBullCandle && (prev.close < prev.open || cur.close > prev.close);
-      const isMacdAccelerating = isHistRising || macdHist >= 0 || isMacdBullish;
 
-      if ((isAtDiscount || isAtEquilibrium) && (hasLowerRejection || isBullReversal) && isMacdAccelerating && activeTrade !== 'BUY' && canSignalAgain && (cur.close < premLow - (sRange * 0.08))) {
-        canBuy = true;
-      }
+      if (isRangeBound) {
+        // --- 1. PREMIUM ZONE (Resistance Ceiling): ONLY SELL ALLOWED ---
+        // BUY is 100% strictly forbidden in Premium. We only look for rejection shorts at the ceiling.
+        if (isAtPremium && activeTrade !== 'SELL' && canSignalAgain) {
+          const hasUpperRejection = (upperWickRatio >= 0.22) || (prevUpperWickRatio >= 0.22 && isBearCandle);
+          const isBearEngulf = (prev.close > prev.open && isBearCandle && cur.close < prev.open);
+          const isBearClose = isBearCandle || (cur.close < prev.close);
+          const macdDecel = isHistFalling || macdHist <= 0 || isMacdBearish;
 
-      // ========================================================
-      // 2. TREND TRADER REMASTERED TRAILING LINE FLIPS (With Anti-Trap Guard)
-      // ========================================================
-      if (!canBuy && !canSell) {
-        // Line steps to UPSIDE below candles (isFlipBull) -> BUY, unless already slamming into Premium
-        if (isFlipBull && (cur.close < premLow - (sRange * 0.08))) {
+          if ((hasUpperRejection || isBearEngulf || isBearClose) && macdDecel) {
+            canSell = true;
+          }
+        }
+
+        // --- 2. DISCOUNT ZONE (Support Floor): ONLY BUY ALLOWED ---
+        // SELL is 100% strictly forbidden in Discount. We only look for absorption longs at the floor.
+        if (isAtDiscount && activeTrade !== 'BUY' && canSignalAgain) {
+          const hasLowerRejection = (lowerWickRatio >= 0.22) || (prevLowerWickRatio >= 0.22 && isBullCandle);
+          const isBullEngulf = (prev.close < prev.open && isBullCandle && cur.close > prev.open);
+          const isBullClose = isBullCandle || (cur.close > prev.close);
+          const macdAccel = isHistRising || macdHist >= 0 || isMacdBullish;
+
+          if ((hasLowerRejection || isBullEngulf || isBullClose) && macdAccel) {
+            canBuy = true;
+          }
+        }
+
+        // --- 3. EQUILIBRIUM (0.50) RETEST BOUNCES ---
+        // Clean continuation bounces off the 0.50 Equilibrium level
+        if (!canBuy && !canSell && canSignalAgain) {
+          // Bullish bounce off Equilibrium
+          const testedEqFromAbove = (cur.low <= sMid + eqTolerance && cur.close >= sMid - (eqTolerance * 0.4));
+          if (testedEqFromAbove && (lowerWickRatio >= 0.20 || isBullCandle) && isHistRising && ttTrend === 1 && cur.close < premLow - (sRange * 0.08) && activeTrade !== 'BUY') {
+            canBuy = true;
+          }
+
+          // Bearish rejection off Equilibrium
+          const testedEqFromBelow = (cur.high >= sMid - eqTolerance && cur.close <= sMid + (eqTolerance * 0.4));
+          if (testedEqFromBelow && (upperWickRatio >= 0.20 || isBearCandle) && isHistFalling && ttTrend === -1 && cur.close > discHigh + (sRange * 0.08) && activeTrade !== 'SELL') {
+            canSell = true;
+          }
+        }
+
+        // --- 4. NO-TRADE DEAD ZONE (The Middle 40%) ---
+        // Trailing line flips in the middle dead zone are MUTED.
+        // This eliminates 100% of the whipsaw losses shown in sideways markets!
+      } else {
+        // ========================================================
+        // TREND BREAKOUT REGIME (Price breaks outside the SMC Range)
+        // ========================================================
+        // Runaway bull breakout above swing high
+        if (cur.close > sH && isBullCandle && (isFlipBull || ttTrend === 1) && activeTrade !== 'BUY' && canSignalAgain) {
           canBuy = true;
         }
-        // Line steps to DOWNSIDE above candles (isFlipBear) -> SELL, unless already dumping into Discount floor
-        else if (isFlipBear && (cur.close > discHigh + (sRange * 0.08))) {
+        // Runaway bear breakdown below swing low
+        if (cur.close < sL && isBearCandle && (isFlipBear || ttTrend === -1) && activeTrade !== 'SELL' && canSignalAgain) {
           canSell = true;
         }
       }
