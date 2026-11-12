@@ -17,8 +17,13 @@ window.TrendTraderEngine = {
   histSeries: null,
   macdLineSeries: null,
   signalLineSeries: null,
-  smcResistanceSeries: null,
-  smcSupportSeries: null,
+  smcZonesOverlay: null,
+  smcPriceLines: [],
+  currentSwingHigh: 0,
+  currentPremiumLow: 0,
+  currentMidpoint: 0,
+  currentDiscountHigh: 0,
+  currentSwingLow: 0,
   showSMCLevels: true,
   lastPerformance: null,
 
@@ -446,12 +451,16 @@ window.TrendTraderEngine = {
     if (this.seriesMarkers) {
       this.seriesMarkers = null;
     }
-    if (this.smcResistanceSeries) {
-      this.smcResistanceSeries = null;
+    if (this.smcPriceLines && this.candleSeries) {
+      for (const line of this.smcPriceLines) {
+        try { this.candleSeries.removePriceLine(line); } catch (e) { }
+      }
     }
-    if (this.smcSupportSeries) {
-      this.smcSupportSeries = null;
+    this.smcPriceLines = [];
+    if (this.smcZonesOverlay && this.smcZonesOverlay.parentNode) {
+      try { this.smcZonesOverlay.parentNode.removeChild(this.smcZonesOverlay); } catch (e) { }
     }
+    this.smcZonesOverlay = null;
     if (this.mainChart) {
       try { this.mainChart.remove(); } catch (e) { }
       this.mainChart = null;
@@ -561,48 +570,79 @@ window.TrendTraderEngine = {
     }
     this.psarSeries.setData(psarData);
 
-    // Add Smart Money Concepts (SMC) Support & Resistance Structure Lines
-    const dashedStyle = (window.LightweightCharts && window.LightweightCharts.LineStyle) ? window.LightweightCharts.LineStyle.Dashed : 2;
-
-    this.smcResistanceSeries = addLineSeries(this.mainChart, {
-      color: 'rgba(255, 69, 58, 0.75)',
-      lineWidth: 1.5,
-      lineStyle: dashedStyle,
-      title: 'SMC Resistance',
-      lastValueVisible: false,
-      priceLineVisible: false,
-    });
-
-    this.smcSupportSeries = addLineSeries(this.mainChart, {
-      color: 'rgba(0, 228, 121, 0.75)',
-      lineWidth: 1.5,
-      lineStyle: dashedStyle,
-      title: 'SMC Support',
-      lastValueVisible: false,
-      priceLineVisible: false,
-    });
-
-    const resData = [];
-    const supData = [];
-    if (analysis && analysis.marketStructure) {
-      const { resistanceLevels, supportLevels } = analysis.marketStructure;
-      for (let i = 0; i < candles.length; i++) {
-        if (resistanceLevels && resistanceLevels[i] !== null && resistanceLevels[i] !== undefined) {
-          resData.push({ time: candles[i].time, value: resistanceLevels[i] });
-        }
-        if (supportLevels && supportLevels[i] !== null && supportLevels[i] !== undefined) {
-          supData.push({ time: candles[i].time, value: supportLevels[i] });
-        }
-      }
+    // Calculate Institutional Smart Money Concepts (SMC) Zones (Premium, Equilibrium, Discount)
+    const recentBars = candles.filter(c => c.time >= midnightSec);
+    const evalBars = (recentBars && recentBars.length >= 10) ? recentBars : candles.slice(-80);
+    let sHigh = -Infinity;
+    let sLow = Infinity;
+    for (const c of evalBars) {
+      if (c.high > sHigh) sHigh = c.high;
+      if (c.low < sLow) sLow = c.low;
     }
-    this.smcResistanceSeries.setData(resData);
-    this.smcSupportSeries.setData(supData);
+    if (sHigh === -Infinity || sLow === Infinity || sHigh <= sLow) {
+      sHigh = candles[candles.length - 1].close * 1.02;
+      sLow = candles[candles.length - 1].close * 0.98;
+    }
+    const sRange = sHigh - sLow;
+    const sMid = sLow + (sRange * 0.5);
+    const premLow = sHigh - (sRange * 0.15); // Top 15% is Premium zone
+    const discHigh = sLow + (sRange * 0.15); // Bottom 15% is Discount zone
+
+    this.currentSwingHigh = sHigh;
+    this.currentPremiumLow = premLow;
+    this.currentMidpoint = sMid;
+    this.currentDiscountHigh = discHigh;
+    this.currentSwingLow = sLow;
+
+    // Create Price Lines on right price scale
+    const lineStyleSolid = (window.LightweightCharts && window.LightweightCharts.LineStyle) ? window.LightweightCharts.LineStyle.Solid : 0;
+    const lineStyleDashed = (window.LightweightCharts && window.LightweightCharts.LineStyle) ? window.LightweightCharts.LineStyle.Dashed : 2;
+
+    this.smcPriceLines = [];
+    try {
+      this.smcPriceLines.push(this.candleSeries.createPriceLine({
+        price: sHigh,
+        color: '#ef4444',
+        lineWidth: 1,
+        lineStyle: lineStyleSolid,
+        axisLabelVisible: true,
+        title: 'Premium (Strong)',
+      }));
+      this.smcPriceLines.push(this.candleSeries.createPriceLine({
+        price: sMid,
+        color: '#94a3b8',
+        lineWidth: 1,
+        lineStyle: lineStyleDashed,
+        axisLabelVisible: true,
+        title: 'Equilibrium (0.50)',
+      }));
+      this.smcPriceLines.push(this.candleSeries.createPriceLine({
+        price: sLow,
+        color: '#10b981',
+        lineWidth: 1,
+        lineStyle: lineStyleSolid,
+        axisLabelVisible: true,
+        title: 'Discount (Weak)',
+      }));
+    } catch (e) {
+      console.warn('Error creating SMC price lines:', e);
+    }
+
+    // Create Shaded HTML/CSS Overlay inside mainContainer
+    mainContainer.style.position = 'relative';
+    this.smcZonesOverlay = document.createElement('div');
+    this.smcZonesOverlay.className = 'absolute inset-0 pointer-events-none overflow-hidden select-none z-10';
+    mainContainer.appendChild(this.smcZonesOverlay);
 
     // Apply saved SMC visibility preference (default: ON)
     const savedSmcPref = localStorage.getItem('alphachart_show_smc_levels');
     this.showSMCLevels = (savedSmcPref !== 'false');
     this.updateSMCSeriesVisibility();
     this.setupSMCToggle();
+
+    setTimeout(() => {
+      this.updateSMCZonesOverlay();
+    }, 60);
 
     // Calculate start of day (12:00:00 AM UTC) to strictly isolate today's signals
     const nowDayObj = new Date();
@@ -622,10 +662,10 @@ window.TrendTraderEngine = {
     // Add Real-time Signals (BUY/SELL on signal close) and Progressive TP & SL Markers
     const markers = [];
 
-    // 1. Initial Signal Markers (Clean BUY / SELL arrows on signal candle)
+    // 1. Initial Signal Markers & Swing TP Markers (Matching Institutional SMC Style)
     for (let i = 0; i < candles.length; i++) {
       const tag = tags[i];
-      if (tag !== 'BUY' && tag !== 'SELL') continue;
+      if (tag !== 'BUY' && tag !== 'SELL' && tag !== 'TP') continue;
       const c = candles[i];
       if (c.time < midnightSec) continue; // Strictly display today's signals from 12:00 AM onwards
 
@@ -647,10 +687,19 @@ window.TrendTraderEngine = {
           text: 'SELL',
           size: 2
         });
+      } else if (tag === 'TP') {
+        markers.push({
+          time: c.time,
+          position: 'belowBar',
+          color: '#a855f7', // Clean institutional purple TP square
+          shape: 'square',
+          text: 'TP',
+          size: 1.2
+        });
       }
     }
 
-    // 2. Clean Progressive TP1 (+2%) & TP2 (+10%+) Markers on subsequent candles
+    // 2. Clean Progressive TP Milestones & SL Markers (Sleek Purple TP Squares & Red SL Badges)
     if (prePerf && prePerf.evaluatedSignals) {
       for (const s of prePerf.evaluatedSignals) {
         if (s.tpEvents && s.tpEvents.length > 0) {
@@ -663,9 +712,9 @@ window.TrendTraderEngine = {
             markers.push({
               time: ev.time,
               position: ev.isBuy ? (isTp ? 'aboveBar' : 'belowBar') : (isTp ? 'belowBar' : 'aboveBar'),
-              color: isTp ? '#00e479' : '#ff453a',
-              shape: 'circle',
-              text: ev.text,
+              color: isTp ? '#a855f7' : '#ff453a', // Purple for TP, red for SL
+              shape: isTp ? 'square' : 'circle',
+              text: isTp ? 'TP' : 'SL',
               size: 1.2
             });
           }
@@ -768,6 +817,7 @@ window.TrendTraderEngine = {
       if (isSyncing || !range) return;
       isSyncing = true;
       try { this.macdChart.timeScale().setVisibleLogicalRange(range); } catch (e) { }
+      this.updateSMCZonesOverlay();
       isSyncing = false;
     });
 
@@ -794,9 +844,11 @@ window.TrendTraderEngine = {
             to: endOfDaySec
           });
         }
+        this.updateSMCZonesOverlay();
       } catch (e) {
         if (this.mainChart) this.mainChart.timeScale().fitContent();
         if (this.macdChart) this.macdChart.timeScale().fitContent();
+        this.updateSMCZonesOverlay();
       }
     }, 60);
 
@@ -1401,16 +1453,28 @@ window.TrendTraderEngine = {
     this.updateSMCSeriesVisibility();
     this.updateSMCToggleUI();
     if (window.App && typeof window.App.showToast === 'function') {
-      window.App.showToast(`SMC Support & Resistance: ${this.showSMCLevels ? 'Visible' : 'Hidden'}`);
+      window.App.showToast(`SMC Zones (Premium / Discount): ${this.showSMCLevels ? 'Visible' : 'Hidden'}`);
     }
   },
 
   updateSMCSeriesVisibility: function () {
-    if (this.smcResistanceSeries && typeof this.smcResistanceSeries.applyOptions === 'function') {
-      this.smcResistanceSeries.applyOptions({ visible: !!this.showSMCLevels });
+    // 1. Update visual shaded overlay
+    if (this.smcZonesOverlay) {
+      this.smcZonesOverlay.style.display = this.showSMCLevels ? 'block' : 'none';
+      if (this.showSMCLevels) {
+        this.updateSMCZonesOverlay();
+      }
     }
-    if (this.smcSupportSeries && typeof this.smcSupportSeries.applyOptions === 'function') {
-      this.smcSupportSeries.applyOptions({ visible: !!this.showSMCLevels });
+    // 2. Update price lines on right price scale
+    if (this.smcPriceLines && this.candleSeries) {
+      for (const line of this.smcPriceLines) {
+        try {
+          line.applyOptions({
+            axisLabelVisible: !!this.showSMCLevels,
+            lineVisible: !!this.showSMCLevels
+          });
+        } catch (e) { }
+      }
     }
   },
 
@@ -1420,11 +1484,58 @@ window.TrendTraderEngine = {
     if (!btn || !label) return;
 
     if (this.showSMCLevels) {
-      label.innerText = 'SMC Levels: ON';
+      label.innerText = 'SMC Zones: ON';
       btn.className = 'px-2.5 py-0.5 rounded-lg text-[10px] font-semibold border transition-all flex items-center gap-1 bg-primary-container/10 border-primary-container/40 text-primary-container hover:bg-primary-container/20';
     } else {
-      label.innerText = 'SMC Levels: OFF';
+      label.innerText = 'SMC Zones: OFF';
       btn.className = 'px-2.5 py-0.5 rounded-lg text-[10px] font-semibold border transition-all flex items-center gap-1 bg-[#000000] border-white/[0.08] text-on-surface-variant hover:border-white/20 hover:text-white';
+    }
+  },
+
+  updateSMCZonesOverlay: function () {
+    if (!this.smcZonesOverlay || !this.candleSeries || !this.showSMCLevels) {
+      if (this.smcZonesOverlay) this.smcZonesOverlay.innerHTML = '';
+      return;
+    }
+    try {
+      const yHigh = this.candleSeries.priceToCoordinate(this.currentSwingHigh);
+      const yPremLow = this.candleSeries.priceToCoordinate(this.currentPremiumLow);
+      const yMid = this.candleSeries.priceToCoordinate(this.currentMidpoint);
+      const yDiscHigh = this.candleSeries.priceToCoordinate(this.currentDiscountHigh);
+      const yLow = this.candleSeries.priceToCoordinate(this.currentSwingLow);
+
+      if (yHigh === null || yLow === null) return;
+
+      const topHigh = Math.min(yHigh, yPremLow !== null ? yPremLow : yHigh);
+      const premHeight = Math.max(18, Math.abs((yPremLow !== null ? yPremLow : (yHigh + 24)) - yHigh));
+      const discTop = Math.min(yLow, yDiscHigh !== null ? yDiscHigh : yLow);
+      const discHeight = Math.max(18, Math.abs(yLow - (yDiscHigh !== null ? yDiscHigh : (yLow - 24))));
+      const eqTop = (yMid !== null) ? (yMid - 10) : 0;
+
+      this.smcZonesOverlay.innerHTML = `
+        <!-- Premium Zone Box -->
+        <div style="top: ${topHigh}px; height: ${premHeight}px;"
+             class="absolute left-0 right-14 bg-red-500/[0.14] border-t-2 border-red-500/80 border-b border-dashed border-red-500/30 flex items-start justify-between px-3 pt-0.5">
+          <span class="text-[11px] font-bold text-red-400 tracking-wider">Premium</span>
+          <span class="text-[9px] font-semibold text-red-400/80">Strong</span>
+        </div>
+
+        <!-- Equilibrium Zone Band -->
+        ${yMid !== null ? `
+        <div style="top: ${eqTop}px; height: 20px;"
+             class="absolute left-0 right-14 bg-slate-500/[0.10] border-y border-dashed border-slate-400/30 flex items-center justify-end px-3">
+          <span class="text-[10px] font-medium text-slate-300 tracking-wider">Equilibrium</span>
+        </div>` : ''}
+
+        <!-- Discount Zone Box -->
+        <div style="top: ${discTop}px; height: ${discHeight}px;"
+             class="absolute left-0 right-14 bg-emerald-500/[0.14] border-b-2 border-emerald-500/80 border-t border-dashed border-emerald-500/30 flex items-end justify-between px-3 pb-0.5">
+          <span class="text-[11px] font-bold text-emerald-400 tracking-wider">Discount</span>
+          <span class="text-[9px] font-semibold text-emerald-400/80">Weak</span>
+        </div>
+      `;
+    } catch (e) {
+      console.warn('Error updating SMC zones overlay:', e);
     }
   },
 
