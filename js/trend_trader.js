@@ -447,6 +447,12 @@ window.TrendTraderEngine = {
     const { candles, psar, macd, tags } = analysis;
     if (!candles || candles.length < 2) return;
 
+    // Calculate start of day (12:00:00 AM UTC) to strictly isolate today's signals
+    const nowDayObj = new Date();
+    const midnightUtcMs = Date.UTC(nowDayObj.getUTCFullYear(), nowDayObj.getUTCMonth(), nowDayObj.getUTCDate(), 0, 0, 0, 0);
+    const midnightSec = Math.floor(midnightUtcMs / 1000);
+    const endOfDaySec = midnightSec + 86399; // 11:59:59 PM
+
     // Dispose previous chart instances if they exist
     if (this.seriesMarkers) {
       this.seriesMarkers = null;
@@ -643,12 +649,6 @@ window.TrendTraderEngine = {
     setTimeout(() => {
       this.updateSMCZonesOverlay();
     }, 60);
-
-    // Calculate start of day (12:00:00 AM UTC) to strictly isolate today's signals
-    const nowDayObj = new Date();
-    const midnightUtcMs = Date.UTC(nowDayObj.getUTCFullYear(), nowDayObj.getUTCMonth(), nowDayObj.getUTCDate(), 0, 0, 0, 0);
-    const midnightSec = Math.floor(midnightUtcMs / 1000);
-    const endOfDaySec = midnightSec + 86399; // 11:59:59 PM
 
     // Pre-calculate daily signal outcomes to display Win/Loss badges directly on the chart markers
     const prePerf = this.calculateDailySignalPerformance(candles, tags, psar);
@@ -1458,24 +1458,65 @@ window.TrendTraderEngine = {
   },
 
   updateSMCSeriesVisibility: function () {
-    // 1. Update visual shaded overlay
-    if (this.smcZonesOverlay) {
-      this.smcZonesOverlay.style.display = this.showSMCLevels ? 'block' : 'none';
-      if (this.showSMCLevels) {
+    if (this.showSMCLevels) {
+      if (this.smcZonesOverlay) {
+        this.smcZonesOverlay.style.display = 'block';
         this.updateSMCZonesOverlay();
       }
+      this.createSMCPriceLines();
+    } else {
+      if (this.smcZonesOverlay) {
+        this.smcZonesOverlay.style.display = 'none';
+        this.smcZonesOverlay.innerHTML = '';
+      }
+      this.removeSMCPriceLines();
     }
-    // 2. Update price lines on right price scale
+  },
+
+  createSMCPriceLines: function () {
+    if (!this.candleSeries || !this.currentSwingHigh || !this.showSMCLevels) return;
+    const lineStyleSolid = (window.LightweightCharts && window.LightweightCharts.LineStyle) ? window.LightweightCharts.LineStyle.Solid : 0;
+    const lineStyleDashed = (window.LightweightCharts && window.LightweightCharts.LineStyle) ? window.LightweightCharts.LineStyle.Dashed : 2;
+
+    this.removeSMCPriceLines();
+
+    try {
+      this.smcPriceLines.push(this.candleSeries.createPriceLine({
+        price: this.currentSwingHigh,
+        color: '#ef4444',
+        lineWidth: 1,
+        lineStyle: lineStyleSolid,
+        axisLabelVisible: true,
+        title: 'Premium (Strong)',
+      }));
+      this.smcPriceLines.push(this.candleSeries.createPriceLine({
+        price: this.currentMidpoint,
+        color: '#94a3b8',
+        lineWidth: 1,
+        lineStyle: lineStyleDashed,
+        axisLabelVisible: true,
+        title: 'Equilibrium (0.50)',
+      }));
+      this.smcPriceLines.push(this.candleSeries.createPriceLine({
+        price: this.currentSwingLow,
+        color: '#10b981',
+        lineWidth: 1,
+        lineStyle: lineStyleSolid,
+        axisLabelVisible: true,
+        title: 'Discount (Weak)',
+      }));
+    } catch (e) {
+      console.warn('Error creating SMC price lines:', e);
+    }
+  },
+
+  removeSMCPriceLines: function () {
     if (this.smcPriceLines && this.candleSeries) {
       for (const line of this.smcPriceLines) {
-        try {
-          line.applyOptions({
-            axisLabelVisible: !!this.showSMCLevels,
-            lineVisible: !!this.showSMCLevels
-          });
-        } catch (e) { }
+        try { this.candleSeries.removePriceLine(line); } catch (e) { }
       }
     }
+    this.smcPriceLines = [];
   },
 
   updateSMCToggleUI: function () {
@@ -1504,7 +1545,16 @@ window.TrendTraderEngine = {
       const yDiscHigh = this.candleSeries.priceToCoordinate(this.currentDiscountHigh);
       const yLow = this.candleSeries.priceToCoordinate(this.currentSwingLow);
 
-      if (yHigh === null || yLow === null) return;
+      if (yHigh === null || yLow === null) {
+        if (!this._retryingOverlay) {
+          this._retryingOverlay = true;
+          setTimeout(() => {
+            this._retryingOverlay = false;
+            this.updateSMCZonesOverlay();
+          }, 120);
+        }
+        return;
+      }
 
       const topHigh = Math.min(yHigh, yPremLow !== null ? yPremLow : yHigh);
       const premHeight = Math.max(18, Math.abs((yPremLow !== null ? yPremLow : (yHigh + 24)) - yHigh));

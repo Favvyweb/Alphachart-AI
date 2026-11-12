@@ -208,6 +208,9 @@ window.ScannerModule = {
         if (window.TrendTraderEngine) {
           if (mainBox && window.TrendTraderEngine.mainChart) {
             window.TrendTraderEngine.mainChart.resize(mainBox.clientWidth, mainBox.clientHeight);
+            if (typeof window.TrendTraderEngine.updateSMCZonesOverlay === 'function') {
+              window.TrendTraderEngine.updateSMCZonesOverlay();
+            }
           }
           if (macdBox && window.TrendTraderEngine.macdChart) {
             window.TrendTraderEngine.macdChart.resize(macdBox.clientWidth, macdBox.clientHeight);
