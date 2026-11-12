@@ -335,12 +335,13 @@ window.TrendTraderEngine = {
     let entryPrice = 0;
 
     for (let i = 0; i < candles.length; i++) {
-      if (i < 10) {
+      if (i < 14) {
         tags.push(null);
         continue;
       }
       const cur = candles[i];
       const prev = candles[i - 1];
+      const prev2 = i >= 2 ? candles[i - 2] : prev;
       const p = psar[i];
       const f = fractals[i];
       const res = marketStructure.resistanceLevels[i];
@@ -353,17 +354,8 @@ window.TrendTraderEngine = {
       const isBullCandle = cur.close > cur.open;
       const isBearCandle = cur.close < cur.open;
       const range = Math.max(cur.high - cur.low, 0.00001);
-
-      // Check if current active trade hit Stop Loss (-5% ROE = -0.5% price move with 10x leverage)
-      if (activeTrade === 'BUY' && entryPrice > 0) {
-        if (cur.low <= (entryPrice * 0.995)) {
-          activeTrade = null; // Stopped out, reset to neutral to allow next setup
-        }
-      } else if (activeTrade === 'SELL' && entryPrice > 0) {
-        if (cur.high >= (entryPrice * 1.005)) {
-          activeTrade = null; // Stopped out, reset to neutral to allow next setup
-        }
-      }
+      const lowerWick = Math.min(cur.open, cur.close) - cur.low;
+      const upperWick = cur.high - Math.max(cur.open, cur.close);
 
       // Dynamic session swing range for SMC Premium & Discount Zones
       const lookback = Math.max(0, i - 60);
@@ -378,32 +370,38 @@ window.TrendTraderEngine = {
       const discHigh = sL + (sRange * 0.20);
 
       // ==========================================
-      // 1. 5M SCALP BUY CONFLUENCE:
+      // 1. ADVANCED AI BUY MOMENTUM CONFLUENCE:
       // ==========================================
-      // Moving Average: EMA 7 >= EMA 14 * 0.9985 (crossing or running above) AND price closes above EMA 7
-      const emaBull = (ema7[i] >= (ema14[i] * 0.9985)) && (cur.close >= (ema7[i] * 0.999));
-      // MACD Momentum: MACD Line >= Signal Line AND (Histogram positive OR expanding upward out of oversold)
-      const macdBull = (macdLine >= sigLine) && ((macdHist > 0) || (macdHist > prevMacdHist && macdHist > -0.06));
-      // Candle Body: Healthy green close (body >= 18% of candle range, upper wick <= 55%)
-      const candleBull = isBullCandle && ((cur.close - cur.open) >= (range * 0.18)) && ((cur.high - cur.close) <= (range * 0.55));
-      // Market Structure / Zone: In Discount zone OR support bounce OR break of structure OR PSAR bullish with close >= EMA 14
-      const structBull = (cur.low <= discHigh) || (sup !== null && cur.low <= (sup * 1.006)) || (res !== null && cur.close > res) || (p.isUp && cur.close >= ema14[i]);
+      // Setup 1: Liquidity Sweep Reversal at Support / Discount Zone (Exact bottom bounce at support wick)
+      const sweepSupport = (cur.low <= discHigh) || (sup !== null && cur.low <= (sup * 1.004));
+      const hammerRejection = ((cur.close - cur.open) >= (range * 0.15) || lowerWick >= (range * 0.35)) && (cur.close >= cur.open);
+      const macdContracting = (macdHist > prevMacdHist) && (macdHist > (prevMacdHist + 0.015));
+      const isLiquidityReversalBuy = sweepSupport && hammerRejection && macdContracting;
 
-      const canBuy = (activeTrade !== 'BUY') && emaBull && macdBull && candleBull && structBull;
+      // Setup 2: Trend Continuation / Momentum Breakout
+      const isBOSBull = (res !== null && cur.close > res) || (cur.close > prev.high && prev.close > prev2.high);
+      const macdBullReg = (macdLine >= sigLine) && (macdHist > 0);
+      const emaBullReg = (cur.close >= (ema7[i] * 0.999)) && ((ema7[i] >= (ema14[i] * 0.998)) || (cur.close >= ema14[i]));
+      const isTrendBuy = (isBOSBull || sweepSupport) && macdBullReg && emaBullReg && isBullCandle;
+
+      const canBuy = (activeTrade !== 'BUY') && (isLiquidityReversalBuy || isTrendBuy);
 
       // ==========================================
-      // 2. 5M SCALP SELL CONFLUENCE:
+      // 2. ADVANCED AI SELL MOMENTUM CONFLUENCE:
       // ==========================================
-      // Moving Average: EMA 7 <= EMA 14 * 1.0015 (crossing or running below) AND price closes below EMA 7
-      const emaBear = (ema7[i] <= (ema14[i] * 1.0015)) && (cur.close <= (ema7[i] * 1.001));
-      // MACD Momentum: MACD Line <= Signal Line AND (Histogram negative OR expanding downward out of overbought)
-      const macdBear = (macdLine <= sigLine) && ((macdHist < 0) || (macdHist < prevMacdHist && macdHist < 0.06));
-      // Candle Body: Healthy red close (body >= 18% of candle range, lower wick <= 55%)
-      const candleBear = isBearCandle && ((cur.open - cur.close) >= (range * 0.18)) && ((cur.close - cur.low) <= (range * 0.55));
-      // Market Structure / Zone: In Premium zone OR resistance rejection OR break of structure OR PSAR bearish with close <= EMA 14
-      const structBear = (cur.high >= premLow) || (res !== null && cur.high >= (res * 0.994)) || (sup !== null && cur.close < sup) || (!p.isUp && cur.close <= ema14[i]);
+      // Setup 1: Liquidity Sweep Rejection at Resistance / Premium Zone (Exact ceiling rejection at resistance wick)
+      const sweepResistance = (cur.high >= premLow) || (res !== null && cur.high >= (res * 0.996));
+      const starRejection = ((cur.open - cur.close) >= (range * 0.15) || upperWick >= (range * 0.35)) && (cur.close <= cur.open);
+      const macdExpandingDown = (macdHist < prevMacdHist) && (macdHist < (prevMacdHist - 0.015));
+      const isLiquidityReversalSell = sweepResistance && starRejection && macdExpandingDown;
 
-      const canSell = (activeTrade !== 'SELL') && emaBear && macdBear && candleBear && structBear;
+      // Setup 2: Trend Continuation / Momentum Breakdown
+      const isBOSBear = (sup !== null && cur.close < sup) || (cur.close < prev.low && prev.close < prev2.low);
+      const macdBearReg = (macdLine <= sigLine) && (macdHist < 0);
+      const emaBearReg = (cur.close <= (ema7[i] * 1.001)) && ((ema7[i] <= (ema14[i] * 1.002)) || (cur.close <= ema14[i]));
+      const isTrendSell = (isBOSBear || sweepResistance) && macdBearReg && emaBearReg && isBearCandle;
+
+      const canSell = (activeTrade !== 'SELL') && (isLiquidityReversalSell || isTrendSell);
 
       let tag = null;
       if (canBuy) {
@@ -645,11 +643,12 @@ window.TrendTraderEngine = {
     // Add Real-time Signals (BUY/SELL on signal close) and Progressive TP & SL Markers
     const markers = [];
 
-    // 1. Initial Signal Markers (BUY / SELL arrows)
+    // 1. Initial Signal Markers (BUY / SELL arrows) - STRICT FILTER: Exact Day Only (Today)
     for (let i = 0; i < candles.length; i++) {
       const tag = tags[i];
       if (tag !== 'BUY' && tag !== 'SELL') continue;
       const c = candles[i];
+      if (c.time < midnightSec) continue; // Only display signals for the exact current day
 
       if (tag === 'BUY') {
         markers.push({
@@ -672,11 +671,13 @@ window.TrendTraderEngine = {
       }
     }
 
-    // 2. Clean Progressive TP Milestones & SL Markers (Sleek Purple TP Squares & Red SL Badges)
+    // 2. Clean Progressive TP Milestones & SL Markers - STRICT FILTER: Exact Day Only (Today)
     if (prePerf && prePerf.evaluatedSignals) {
       for (const s of prePerf.evaluatedSignals) {
+        if (s.time < midnightSec) continue;
         if (s.tpEvents && s.tpEvents.length > 0) {
           for (const ev of s.tpEvents) {
+            if (ev.time < midnightSec) continue;
             // Never put an outcome badge on the initial signal candle itself
             if (ev.time === s.time) continue;
 
@@ -860,6 +861,9 @@ window.TrendTraderEngine = {
       if (tag !== 'BUY' && tag !== 'SELL') continue;
 
       const c = candles[i];
+      // STRICT FILTER: Only include signals from the EXACT CURRENT DAY (from 12:00:00 AM UTC midnight onward)
+      if (c.time < midnightSec) continue;
+
       const isBuy = (tag === 'BUY');
       const entryPrice = c.close;
 
@@ -1049,33 +1053,16 @@ window.TrendTraderEngine = {
       });
     }
 
-    // Build multi-day grouped records so all session trades are displayed
-    const dayMap = {};
-    for (const s of evaluatedSignals) {
-      if (!dayMap[s.dateKey]) {
-        dayMap[s.dateKey] = {
-          dateKey: s.dateKey,
-          dayName: s.dayName,
-          isToday: (s.dateKey === todayDateKey),
-          buySignals: [],
-          sellSignals: []
-        };
-      }
-      if (s.type === 'BUY') dayMap[s.dateKey].buySignals.push(s);
-      else if (s.type === 'SELL') dayMap[s.dateKey].sellSignals.push(s);
-    }
+    // STRICT FILTER: Only build today's data (strictly the exact current day only)
+    const todayData = {
+      dateKey: todayDateKey,
+      dayName: todayDayName,
+      isToday: true,
+      buySignals: evaluatedSignals.filter(s => s.type === 'BUY'),
+      sellSignals: evaluatedSignals.filter(s => s.type === 'SELL')
+    };
 
-    if (!dayMap[todayDateKey]) {
-      dayMap[todayDateKey] = {
-        dateKey: todayDateKey,
-        dayName: todayDayName,
-        isToday: true,
-        buySignals: [],
-        sellSignals: []
-      };
-    }
-
-    const sortedDays = Object.values(dayMap).sort((a, b) => b.dateKey.localeCompare(a.dateKey));
+    const sortedDays = [todayData];
 
     let totalNet12 = 0;
     let totalWins12 = 0;
