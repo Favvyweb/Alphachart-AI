@@ -497,33 +497,46 @@ window.TrendTraderEngine = {
       let canSell = false;
 
       // ========================================================
-      // 1. PRIMARY ENGINE: TREND TRADER TRAILING LINE FLIPS
+      // 1. ADVANCED SMC SNIPER REVERSALS (Fade Extremes in Range Mode)
       // ========================================================
-      // Whenever the trailing line steps in that direction, signal is guaranteed to print!
-      // - Line steps to UPSIDE below candles (isFlipBull) -> 🟢 BUY SIGNAL
-      // - Line steps to DOWNSIDE above candles (isFlipBear) -> 🔴 SELL SIGNAL
-      if (isFlipBull) {
-        canBuy = true;
-      } else if (isFlipBear) {
+      // --- A: PREMIUM ZONE REJECTION (Mark 2 Peak) ---
+      // Price pushed into Premium Zone (Resistance).
+      // DO NOT wait for lagging trailing line below to flip!
+      // When price touches Premium and forms upper rejection wick OR red reversal candle:
+      const isAtPremium = (cur.high >= premLow || prev.high >= premLow);
+      const hasUpperRejection = (upperWickRatio >= 0.24) || (prevUpperWickRatio >= 0.24 && isBearCandle);
+      const isBearReversal = isBearCandle && (prev.close > prev.open || cur.close < prev.close);
+      const isMacdDecelerating = isHistFalling || macdHist <= 0 || isMacdBearish;
+
+      if (isAtPremium && (hasUpperRejection || isBearReversal) && isMacdDecelerating && activeTrade !== 'SELL' && canSignalAgain) {
         canSell = true;
       }
 
-      // ========================================================
-      // 2. SECONDARY SMC SNIPER REVERSALS (At Extremes)
-      // ========================================================
-      if (!canBuy && !canSell && canSignalAgain) {
-        // At Premium Zone with clear rejection pinbar while line is bearish
-        const isAtPremium = (cur.high >= premLow || prev.high >= premLow);
-        const hasUpperRejection = (upperWickRatio >= 0.28) || (prevUpperWickRatio >= 0.28 && isBearCandle);
-        if (isAtPremium && hasUpperRejection && isBearCandle && activeTrade !== 'SELL' && ttTrend === -1) {
-          canSell = true;
-        }
+      // --- B: EQUILIBRIUM RETEST & DISCOUNT ABSORPTION (Marks 1 & 3 Bounce) ---
+      // Price touched 0.50 Equilibrium level OR Discount Zone.
+      // DO NOT wait for lagging trailing line above to flip!
+      // When price tests Equilibrium/Discount and forms lower rejection wick OR green reversal candle:
+      const isAtDiscount = (cur.low <= discHigh || prev.low <= discHigh);
+      const isAtEquilibrium = (cur.low <= sMid + eqTolerance && cur.close >= sMid - (eqTolerance * 0.45));
+      const hasLowerRejection = (lowerWickRatio >= 0.24) || (prevLowerWickRatio >= 0.24 && isBullCandle);
+      const isBullReversal = isBullCandle && (prev.close < prev.open || cur.close > prev.close);
+      const isMacdAccelerating = isHistRising || macdHist >= 0 || isMacdBullish;
 
-        // At Discount Zone with clear absorption pinbar while line is bullish
-        const isAtDiscount = (cur.low <= discHigh || prev.low <= discHigh);
-        const hasLowerRejection = (lowerWickRatio >= 0.28) || (prevLowerWickRatio >= 0.28 && isBullCandle);
-        if (isAtDiscount && hasLowerRejection && isBullCandle && activeTrade !== 'BUY' && ttTrend === 1) {
+      if ((isAtDiscount || isAtEquilibrium) && (hasLowerRejection || isBullReversal) && isMacdAccelerating && activeTrade !== 'BUY' && canSignalAgain && (cur.close < premLow - (sRange * 0.08))) {
+        canBuy = true;
+      }
+
+      // ========================================================
+      // 2. TREND TRADER REMASTERED TRAILING LINE FLIPS (With Anti-Trap Guard)
+      // ========================================================
+      if (!canBuy && !canSell) {
+        // Line steps to UPSIDE below candles (isFlipBull) -> BUY, unless already slamming into Premium
+        if (isFlipBull && (cur.close < premLow - (sRange * 0.08))) {
           canBuy = true;
+        }
+        // Line steps to DOWNSIDE above candles (isFlipBear) -> SELL, unless already dumping into Discount floor
+        else if (isFlipBear && (cur.close > discHigh + (sRange * 0.08))) {
+          canSell = true;
         }
       }
 
