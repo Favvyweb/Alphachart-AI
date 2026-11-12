@@ -479,15 +479,26 @@ window.TrendTraderEngine = {
       const lookback = Math.max(0, i - 60);
       let sH = -Infinity;
       let sL = Infinity;
-      for (let k = lookback; k <= i; k++) {
+      for (let k = lookback; k < i; k++) {
         if (candles[k].high > sH) sH = candles[k].high;
         if (candles[k].low < sL) sL = candles[k].low;
+      }
+      if (sH === -Infinity || sL === Infinity) {
+        sH = cur.close * 1.02;
+        sL = cur.close * 0.98;
       }
       const sRange = Math.max(sH - sL, 0.0001);
       const sMid = sL + (sRange * 0.5); // 0.50 Equilibrium level
       const premLow = sH - (sRange * 0.22); // Top 22% is Premium Zone (Strong Resistance)
       const discHigh = sL + (sRange * 0.22); // Bottom 22% is Discount Zone (Weak Support)
-      const eqTolerance = sRange * 0.06; // Equilibrium tolerance band (0.44 - 0.56)
+      const eqTolerance = sRange * 0.06; // Equilibrium tolerance band
+
+      // Market Regime Detector: RANGING/SIDEWAYS vs TRENDING EXPANSION
+      const emaSpread = Math.abs(ema20[i] - ema50[i]) / Math.max(cur.close, 1);
+      const isBreakoutBull = cur.close > sH;
+      const isBreakoutBear = cur.close < sL;
+      const isTrending = isBreakoutBull || isBreakoutBear || (emaSpread > 0.015);
+      const isRanging = !isTrending;
 
       // Cooldown check (prevent rapid-fire consecutive flips within 2 bars)
       const barsSinceSignal = i - lastSignalIndex;
@@ -496,70 +507,70 @@ window.TrendTraderEngine = {
       let canBuy = false;
       let canSell = false;
 
-      // ========================================================
-      // SMC ZONE GATES ARCHITECTURE (Stops Chop Losses & Guarantees High Win Rate)
-      // ========================================================
-      const isRangeBound = (cur.close <= sH * 1.003 && cur.close >= sL * 0.997);
-      const isAtPremium = (cur.high >= premLow || prev.high >= premLow);
-      const isAtDiscount = (cur.low <= discHigh || prev.low <= discHigh);
-
-      if (isRangeBound) {
-        // --- 1. PREMIUM ZONE (Resistance Ceiling): ONLY SELL ALLOWED ---
-        // BUY is 100% strictly forbidden in Premium. We only look for rejection shorts at the ceiling.
-        if (isAtPremium && activeTrade !== 'SELL' && canSignalAgain) {
-          const hasUpperRejection = (upperWickRatio >= 0.22) || (prevUpperWickRatio >= 0.22 && isBearCandle);
-          const isBearEngulf = (prev.close > prev.open && isBearCandle && cur.close < prev.open);
-          const isBearClose = isBearCandle || (cur.close < prev.close);
-          const macdDecel = isHistFalling || macdHist <= 0 || isMacdBearish;
-
-          if ((hasUpperRejection || isBearEngulf || isBearClose) && macdDecel) {
-            canSell = true;
-          }
-        }
-
-        // --- 2. DISCOUNT ZONE (Support Floor): ONLY BUY ALLOWED ---
-        // SELL is 100% strictly forbidden in Discount. We only look for absorption longs at the floor.
-        if (isAtDiscount && activeTrade !== 'BUY' && canSignalAgain) {
-          const hasLowerRejection = (lowerWickRatio >= 0.22) || (prevLowerWickRatio >= 0.22 && isBullCandle);
-          const isBullEngulf = (prev.close < prev.open && isBullCandle && cur.close > prev.open);
-          const isBullClose = isBullCandle || (cur.close > prev.close);
-          const macdAccel = isHistRising || macdHist >= 0 || isMacdBullish;
-
-          if ((hasLowerRejection || isBullEngulf || isBullClose) && macdAccel) {
-            canBuy = true;
-          }
-        }
-
-        // --- 3. EQUILIBRIUM (0.50) RETEST BOUNCES ---
-        // Clean continuation bounces off the 0.50 Equilibrium level
-        if (!canBuy && !canSell && canSignalAgain) {
-          // Bullish bounce off Equilibrium
-          const testedEqFromAbove = (cur.low <= sMid + eqTolerance && cur.close >= sMid - (eqTolerance * 0.4));
-          if (testedEqFromAbove && (lowerWickRatio >= 0.20 || isBullCandle) && isHistRising && ttTrend === 1 && cur.close < premLow - (sRange * 0.08) && activeTrade !== 'BUY') {
-            canBuy = true;
-          }
-
-          // Bearish rejection off Equilibrium
-          const testedEqFromBelow = (cur.high >= sMid - eqTolerance && cur.close <= sMid + (eqTolerance * 0.4));
-          if (testedEqFromBelow && (upperWickRatio >= 0.20 || isBearCandle) && isHistFalling && ttTrend === -1 && cur.close > discHigh + (sRange * 0.08) && activeTrade !== 'SELL') {
-            canSell = true;
-          }
-        }
-
-        // --- 4. NO-TRADE DEAD ZONE (The Middle 40%) ---
-        // Trailing line flips in the middle dead zone are MUTED.
-        // This eliminates 100% of the whipsaw losses shown in sideways markets!
-      } else {
+      if (isTrending) {
         // ========================================================
-        // TREND BREAKOUT REGIME (Price breaks outside the SMC Range)
+        // 1. TRENDING EXPANSION REGIME (Breakout / Strong Trend)
         // ========================================================
-        // Runaway bull breakout above swing high
-        if (cur.close > sH && isBullCandle && (isFlipBull || ttTrend === 1) && activeTrade !== 'BUY' && canSignalAgain) {
+        // Ride the trend with the Trend Trader trailing line!
+        if (isFlipBull) {
           canBuy = true;
-        }
-        // Runaway bear breakdown below swing low
-        if (cur.close < sL && isBearCandle && (isFlipBear || ttTrend === -1) && activeTrade !== 'SELL' && canSignalAgain) {
+        } else if (isFlipBear) {
           canSell = true;
+        }
+      } else if (isRanging) {
+        // ========================================================
+        // 2. RANGING / SIDEWAYS REGIME (SMC ZONE GATES ACTIVE)
+        // ========================================================
+        // Fades the extremes (Premium & Discount) and silences mid-range chop.
+
+        // --- SELL SETUPS IN A RANGE ---
+        if (activeTrade !== 'SELL' && canSignalAgain) {
+          // Setup A: Premium Zone Rejection (Top Ceiling)
+          const isAtPremium = (cur.high >= premLow || prev.high >= premLow);
+          const hasUpperRejection = (upperWickRatio >= 0.20) || (prevUpperWickRatio >= 0.20 && isBearCandle);
+          const macdDecelerating = isHistFalling || macdHist <= 0 || isMacdBearish;
+          const premiumSell = isAtPremium && (hasUpperRejection || isBearCandle) && macdDecelerating;
+
+          // Setup B: Equilibrium Rejection from below
+          const testedEqFromBelow = (cur.high >= sMid - eqTolerance && cur.close <= sMid);
+          const eqSell = testedEqFromBelow && (upperWickRatio >= 0.20 || isBearCandle) && isHistFalling;
+
+          // Setup C: Trailing line flip to downside ONLY in upper half of range
+          const flipSellInUpperHalf = isFlipBear && (cur.close > sMid - eqTolerance);
+
+          // STRICT FILTER: Selling is 100% FORBIDDEN near the Discount floor!
+          if ((premiumSell || eqSell || flipSellInUpperHalf) && (cur.close > discHigh)) {
+            canSell = true;
+          }
+        }
+
+        // --- BUY SETUPS IN A RANGE ---
+        if (activeTrade !== 'BUY' && canSignalAgain) {
+          // Setup A: Discount Zone Absorption (Bottom Floor)
+          const isAtDiscount = (cur.low <= discHigh || prev.low <= discHigh);
+          const hasLowerRejection = (lowerWickRatio >= 0.20) || (prevLowerWickRatio >= 0.20 && isBullCandle);
+          const macdAccelerating = isHistRising || macdHist >= 0 || isMacdBullish;
+          const discountBuy = isAtDiscount && (hasLowerRejection || isBullCandle) && macdAccelerating;
+
+          // Setup B: Equilibrium Bounce from above
+          const testedEqFromAbove = (cur.low <= sMid + eqTolerance && cur.close >= sMid);
+          const eqBuy = testedEqFromAbove && (lowerWickRatio >= 0.20 || isBullCandle) && isHistRising;
+
+          // Setup C: Trailing line flip to upside ONLY in lower half of range
+          const flipBuyInLowerHalf = isFlipBull && (cur.close < sMid + eqTolerance);
+
+          // STRICT FILTER: Buying is 100% FORBIDDEN near the Premium ceiling!
+          if ((discountBuy || eqBuy || flipBuyInLowerHalf) && (cur.close < premLow)) {
+            canBuy = true;
+          }
+        }
+      }
+
+      if (canBuy && canSell) {
+        if (cur.close >= sMid) {
+          canBuy = false;
+        } else {
+          canSell = false;
         }
       }
 
