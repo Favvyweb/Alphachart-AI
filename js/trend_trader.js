@@ -423,6 +423,7 @@ window.TrendTraderEngine = {
     const tags = [];
     let activeTrade = null; // null, 'BUY', or 'SELL'
     let entryPrice = 0;
+    let lastSignalIndex = -999;
 
     for (let i = 0; i < candles.length; i++) {
       if (i < 14) {
@@ -448,8 +449,22 @@ window.TrendTraderEngine = {
       const sigLine = (macd.signalLine && macd.signalLine[i] !== undefined) ? macd.signalLine[i] : 0;
       const prevMacdHist = (i > 0 && macd.histogram && macd.histogram[i - 1] !== undefined) ? macd.histogram[i - 1] : 0;
 
+      const isHistRising = macdHist > prevMacdHist;
+      const isHistFalling = macdHist < prevMacdHist;
+      const isMacdBullish = macdLine >= sigLine;
+      const isMacdBearish = macdLine < sigLine;
+
+      const curRange = Math.max(cur.high - cur.low, 0.0001);
+      const upperWick = cur.high - Math.max(cur.close, cur.open);
+      const lowerWick = Math.min(cur.close, cur.open) - cur.low;
+      const upperWickRatio = upperWick / curRange;
+      const lowerWickRatio = lowerWick / curRange;
       const isBullCandle = cur.close > cur.open;
       const isBearCandle = cur.close < cur.open;
+
+      const prevRange = Math.max(prev.high - prev.low, 0.0001);
+      const prevUpperWickRatio = (prev.high - Math.max(prev.close, prev.open)) / prevRange;
+      const prevLowerWickRatio = (Math.min(prev.close, prev.open) - prev.low) / prevRange;
 
       // Dynamic session swing range for SMC Premium, Equilibrium, and Discount Zones
       const lookback = Math.max(0, i - 60);
@@ -460,42 +475,81 @@ window.TrendTraderEngine = {
         if (candles[k].low < sL) sL = candles[k].low;
       }
       const sRange = Math.max(sH - sL, 0.0001);
-      const sMid = sL + (sRange * 0.5);
-      const premLow = sH - (sRange * 0.20);
-      const discHigh = sL + (sRange * 0.20);
+      const sMid = sL + (sRange * 0.5); // 0.50 Equilibrium level
+      const premLow = sH - (sRange * 0.20); // Top 20% is Premium Zone (Strong Resistance)
+      const discHigh = sL + (sRange * 0.20); // Bottom 20% is Discount Zone (Weak Support)
+      const eqTolerance = sRange * 0.07; // Equilibrium tolerance band
 
-      // ========================================================
-      // MASTER DIRECTIONAL GATE & ADVANCED SIGNAL CONFLUENCE:
-      // ========================================================
-      // 1. When Trend Trader line is ABOVE candles (ttTrend === -1):
-      //    BUY is 100% FORBIDDEN. Minor green candles are pullbacks/retests into resistance.
-      // 2. When Trend Trader line is BELOW candles (ttTrend === 1):
-      //    SELL is 100% FORBIDDEN. Minor red candles are dips/consolidations.
+      // Cooldown check (prevent rapid-fire consecutive flips within 2 bars)
+      const barsSinceSignal = i - lastSignalIndex;
+      const canSignalAgain = barsSinceSignal >= 2;
 
       let canBuy = false;
       let canSell = false;
 
-      // --- 1. ACCURATE BUY SIGNAL CONFLUENCE ---
-      // Triggered ONLY when line flips Bullish (or first confirmed candle following flip).
-      // Line is BELOW candles (ttTrend === 1). Riding undisturbed to TP1, TP2, TP3!
-      if (ttTrend === 1 && activeTrade !== 'BUY') {
-        const isBullEntry = isFlipBull || (prevTtTrend === 1 && (i >= 2 && trendTrader.trend[i - 2] === -1));
-        const macdConfirm = (macdHist >= prevMacdHist) || (macdLine >= sigLine);
-        const candleConfirm = isBullCandle || (cur.close >= cur.open);
-        if (isBullEntry && (candleConfirm || macdConfirm)) {
+      // ========================================================
+      // 1. ADVANCED HIGH-WINRATE SELL SETUPS (Target 80-90% Win Rate)
+      // ========================================================
+      if (activeTrade !== 'SELL' && canSignalAgain) {
+        // --- SETUP A: PREMIUM ZONE REJECTION & LIQUIDITY SWEEP (Circle 2 Peak) ---
+        // Price pushed into or swept above Premium Zone (Strong Resistance)
+        const isAtPremium = (cur.high >= premLow || prev.high >= premLow);
+        const hasUpperRejection = (upperWickRatio >= 0.26) || (prevUpperWickRatio >= 0.26 && isBearCandle);
+        const isBearEngulf = (prev.close > prev.open && isBearCandle && cur.close < prev.open);
+        const isBearExhaustion = isBearCandle && (cur.close < prev.close);
+        const macdDecelerating = isHistFalling || macdHist <= 0 || isMacdBearish;
+
+        const premiumSellTrigger = isAtPremium && (hasUpperRejection || isBearEngulf || isBearExhaustion) && macdDecelerating && (cur.close > discHigh);
+
+        // --- SETUP B: EQUILIBRIUM BREAKDOWN / REJECTION ---
+        // Price tested Equilibrium from below and rejected, or broke down through Equilibrium
+        const testedEqFromBelow = (cur.high >= sMid - eqTolerance && cur.close <= sMid + (eqTolerance * 0.35));
+        const eqRejectSell = testedEqFromBelow && (upperWickRatio >= 0.22 || isBearCandle) && isHistFalling && (ttTrend === -1 || cur.close < ema20[i]) && (cur.close > discHigh + (sRange * 0.05));
+
+        // --- SETUP C: TREND TRADER BEARISH FLIP (With Anti-Trap Guard - Eliminates Mark 1) ---
+        // If price is in a strong bounce from Discount/Equilibrium with rising green MACD, BLOCK SELL!
+        const notInBounce = (cur.close <= sMid + eqTolerance) && !(isHistRising && macdHist > 0 && cur.close > prev.close * 1.002);
+        const trendTraderSell = (isFlipBear || (prevTtTrend === -1 && i >= 2 && trendTrader.trend[i - 2] === 1)) && notInBounce && (isBearCandle || isHistFalling) && (cur.close > discHigh);
+
+        if (premiumSellTrigger || eqRejectSell || trendTraderSell) {
+          canSell = true;
+        }
+      }
+
+      // ========================================================
+      // 2. ADVANCED HIGH-WINRATE BUY SETUPS (Target 80-90% Win Rate)
+      // ========================================================
+      if (activeTrade !== 'BUY' && canSignalAgain) {
+        // --- SETUP A: DISCOUNT ZONE ABSORPTION & REJECTION (Circle 3 Bottom) ---
+        // Price dropped into or swept below Discount Zone (Weak Support)
+        const isAtDiscount = (cur.low <= discHigh || prev.low <= discHigh);
+        const hasLowerRejection = (lowerWickRatio >= 0.26) || (prevLowerWickRatio >= 0.26 && isBullCandle);
+        const isBullEngulf = (prev.close < prev.open && isBullCandle && cur.close > prev.open);
+        const isBullExhaustion = isBullCandle && (cur.close > prev.close);
+        const macdAccelerating = isHistRising || macdHist >= 0 || isMacdBullish;
+
+        const discountBuyTrigger = isAtDiscount && (hasLowerRejection || isBullEngulf || isBullExhaustion) && macdAccelerating && (cur.close < premLow);
+
+        // --- SETUP B: EQUILIBRIUM RETEST BOUNCE (Mark 3 Bounce) ---
+        // Price pulled back to Equilibrium from above and holds support
+        const testedEqFromAbove = (cur.low <= sMid + eqTolerance && cur.close >= sMid - (eqTolerance * 0.35));
+        const eqBounceBuy = testedEqFromAbove && (lowerWickRatio >= 0.22 || isBullCandle) && isHistRising && (ttTrend === 1 || cur.close > ema20[i]) && (cur.close < premLow - (sRange * 0.05));
+
+        // --- SETUP C: TREND TRADER BULLISH FLIP (With Anti-Trap Guard) ---
+        // Block buy if already colliding into the Premium ceiling
+        const notAtCeiling = (cur.close < premLow);
+        const trendTraderBuy = (isFlipBull || (prevTtTrend === 1 && i >= 2 && trendTrader.trend[i - 2] === -1)) && notAtCeiling && (isBullCandle || isHistRising) && (cur.close < premLow);
+
+        if (discountBuyTrigger || eqBounceBuy || trendTraderBuy) {
           canBuy = true;
         }
       }
 
-      // --- 2. ACCURATE SELL SIGNAL CONFLUENCE ---
-      // Triggered ONLY when line flips Bearish (or first confirmed candle following flip).
-      // Line is ABOVE candles (ttTrend === -1). Riding undisturbed to TP1, TP2, TP3!
-      if (ttTrend === -1 && activeTrade !== 'SELL') {
-        const isBearEntry = isFlipBear || (prevTtTrend === -1 && (i >= 2 && trendTrader.trend[i - 2] === 1));
-        const macdConfirm = (macdHist <= prevMacdHist) || (macdLine <= sigLine);
-        const candleConfirm = isBearCandle || (cur.close <= cur.open);
-        if (isBearEntry && (candleConfirm || macdConfirm)) {
-          canSell = true;
+      if (canBuy && canSell) {
+        if (cur.close >= sMid) {
+          canBuy = false;
+        } else {
+          canSell = false;
         }
       }
 
@@ -504,10 +558,12 @@ window.TrendTraderEngine = {
         tag = 'BUY';
         activeTrade = 'BUY';
         entryPrice = cur.close;
+        lastSignalIndex = i;
       } else if (canSell) {
         tag = 'SELL';
         activeTrade = 'SELL';
         entryPrice = cur.close;
+        lastSignalIndex = i;
       }
 
       tags.push(tag);
@@ -2135,7 +2191,7 @@ window.TrendTraderAlerts = {
         if (AudioCtx) {
           if (!this.audioCtx) this.audioCtx = new AudioCtx();
           if (this.audioCtx && this.audioCtx.state === 'suspended') {
-            this.audioCtx.resume().catch(() => {});
+            this.audioCtx.resume().catch(() => { });
           }
         }
       } catch (e) { }
@@ -2197,7 +2253,7 @@ window.TrendTraderAlerts = {
       if (!AudioCtx) return;
       if (!this.audioCtx) this.audioCtx = new AudioCtx();
       if (this.audioCtx.state === 'suspended') {
-        this.audioCtx.resume().catch(() => {});
+        this.audioCtx.resume().catch(() => { });
       }
 
       const now = this.audioCtx.currentTime;
@@ -2387,7 +2443,7 @@ ${emoji} *ALPHACHART AI: ${action} CONFIRMED*
     if (window.TrendTraderEngine && (!window.TrendTraderEngine.lastCandles || window.TrendTraderEngine.lastCandles.length < 30)) {
       window.TrendTraderEngine.fetchCandles(cleanSymbol, binanceInterval).then(candles => {
         if (candles && candles.length) window.TrendTraderEngine.lastCandles = candles;
-      }).catch(() => {});
+      }).catch(() => { });
     }
 
     // Connect to WebSocket stream for candle close events
