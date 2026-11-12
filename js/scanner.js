@@ -619,6 +619,10 @@ window.ScannerModule = {
    * Open full real-time interactive chart modal
    */
   openFullChartModal: function (customPair) {
+    if (window.TrendTraderAlerts) {
+      window.TrendTraderAlerts.stopBackgroundMonitor();
+    }
+
     const coinInput = document.getElementById('res-coin-input');
     const pair = customPair || (coinInput && coinInput.value ? coinInput.value.trim() : null) || (this.lastAnalysisData ? this.lastAnalysisData.pair : null) || 'BTC / USDT';
     this.fullChartPair = pair;
@@ -656,6 +660,12 @@ window.ScannerModule = {
     if (this.livePollTimer) {
       clearInterval(this.livePollTimer);
       this.livePollTimer = null;
+    }
+    if (window.TrendTraderEngine) {
+      window.TrendTraderEngine.stopLiveStream();
+    }
+    if (window.TrendTraderAlerts && window.TrendTraderAlerts.isAlertsEnabled()) {
+      window.TrendTraderAlerts.startBackgroundMonitor(this.fullChartPair || 'AAVE / USDT', '5m');
     }
   },
 

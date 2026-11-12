@@ -32,6 +32,11 @@ window.TrendTraderEngine = {
   lastCandles: [],
   lastAnalysis: null,
   candlesCache: {},
+  liveWs: null,
+  liveWsRetryTimer: null,
+  isLiveStreamActive: false,
+  lastNotifiedSignalKey: null,
+  _bannerTimer: null,
 
   /**
    * Fetch live Binance candles for 5m, 15m, or 1h with high-speed parallel fetching and memory cache
@@ -731,84 +736,8 @@ window.TrendTraderEngine = {
       this.updateSMCZonesOverlay();
     }, 60);
 
-    // Pre-calculate daily signal outcomes to display Win/Loss badges directly on the chart markers
-    const prePerf = this.calculateDailySignalPerformance(candles, tags, psar);
-    const signalOutcomesMap = {};
-    if (prePerf && prePerf.evaluatedSignals) {
-      for (const s of prePerf.evaluatedSignals) {
-        signalOutcomesMap[s.index] = s;
-      }
-    }
-
     // Add Real-time Signals (BUY/SELL on signal close) and Progressive TP & SL Markers
-    const markers = [];
-
-    // 1. Initial Signal Markers (BUY / SELL arrows) - STRICT FILTER: Exact Day Only (Today)
-    for (let i = 0; i < candles.length; i++) {
-      const tag = tags[i];
-      if (tag !== 'BUY' && tag !== 'SELL') continue;
-      const c = candles[i];
-      if (c.time < midnightSec) continue; // Only display signals for the exact current day
-
-      if (tag === 'BUY') {
-        markers.push({
-          time: c.time,
-          position: 'belowBar',
-          color: '#00e479',
-          shape: 'arrowUp',
-          text: 'BUY',
-          size: 2
-        });
-      } else if (tag === 'SELL') {
-        markers.push({
-          time: c.time,
-          position: 'aboveBar',
-          color: '#ff3366',
-          shape: 'arrowDown',
-          text: 'SELL',
-          size: 2
-        });
-      }
-    }
-
-    // 2. Clean Progressive TP Milestones & SL Markers - STRICT FILTER: Exact Day Only (Today)
-    if (prePerf && prePerf.evaluatedSignals) {
-      for (const s of prePerf.evaluatedSignals) {
-        if (s.time < midnightSec) continue;
-        if (s.tpEvents && s.tpEvents.length > 0) {
-          for (const ev of s.tpEvents) {
-            if (ev.time < midnightSec) continue;
-            // Never put an outcome badge on the initial signal candle itself
-            if (ev.time === s.time) continue;
-
-            const isTp = ev.level.startsWith('TP');
-            markers.push({
-              time: ev.time,
-              position: ev.isBuy ? (isTp ? 'aboveBar' : 'belowBar') : (isTp ? 'belowBar' : 'aboveBar'),
-              color: isTp ? '#a855f7' : '#ff453a', // Purple for TP, red for SL
-              shape: isTp ? 'square' : 'circle',
-              text: isTp ? (ev.level || 'TP') : 'SL',
-              size: 1.2
-            });
-          }
-        }
-      }
-    }
-
-    // Sort markers by timestamp for Lightweight Charts
-    markers.sort((a, b) => a.time - b.time);
-
-    if (markers.length > 0) {
-      try {
-        if (typeof this.candleSeries.setMarkers === 'function') {
-          this.candleSeries.setMarkers(markers);
-        } else if (window.LightweightCharts && window.LightweightCharts.createSeriesMarkers) {
-          this.seriesMarkers = window.LightweightCharts.createSeriesMarkers(this.candleSeries, markers);
-        }
-      } catch (markerErr) {
-        console.warn('Marker note:', markerErr);
-      }
-    }
+    this.renderSignalMarkers(analysis);
 
     // ==========================================
     // 2. CREATE SYNCHRONIZED MACD SUB-CHART
@@ -929,6 +858,439 @@ window.TrendTraderEngine = {
 
     // Render Compact Daily Signal Performance Table (ONLY 1:2 Ratio)
     this.renderDailyPerformanceTable(analysis);
+
+    // Start live WebSocket streaming for instantaneous candle updates & closed candle alerts
+    this.currentPair = (analysis && analysis.pair) || this.currentPair;
+    this.currentTimeframe = (analysis && analysis.timeframe) || this.currentTimeframe || '5m';
+    this.lastCandles = (analysis && analysis.candles) ? [...analysis.candles] : this.lastCandles;
+    this.lastAnalysis = analysis;
+    this.updateStatusHeader(analysis);
+    this.startLiveStream(this.currentPair, this.currentTimeframe);
+  },
+
+  /**
+   * Add Real-time Signals (BUY/SELL on signal close) and Progressive TP & SL Markers
+   */
+  renderSignalMarkers: function (analysis) {
+    if (!analysis || !this.candleSeries) return;
+    const { candles, tags, psar } = analysis;
+    if (!candles || candles.length < 2) return;
+
+    const nowDayObj = new Date();
+    const midnightUtcMs = Date.UTC(nowDayObj.getUTCFullYear(), nowDayObj.getUTCMonth(), nowDayObj.getUTCDate(), 0, 0, 0, 0);
+    const midnightSec = Math.floor(midnightUtcMs / 1000);
+
+    const prePerf = this.calculateDailySignalPerformance(candles, tags, psar);
+    const markers = [];
+
+    // 1. Initial Signal Markers (BUY / SELL arrows) - STRICT FILTER: Exact Day Only (Today)
+    for (let i = 0; i < candles.length; i++) {
+      const tag = tags[i];
+      if (tag !== 'BUY' && tag !== 'SELL') continue;
+      const c = candles[i];
+      if (c.time < midnightSec) continue; // Only display signals for the exact current day
+
+      if (tag === 'BUY') {
+        markers.push({
+          time: c.time,
+          position: 'belowBar',
+          color: '#00e479',
+          shape: 'arrowUp',
+          text: 'BUY',
+          size: 2
+        });
+      } else if (tag === 'SELL') {
+        markers.push({
+          time: c.time,
+          position: 'aboveBar',
+          color: '#ff3366',
+          shape: 'arrowDown',
+          text: 'SELL',
+          size: 2
+        });
+      }
+    }
+
+    // 2. Clean Progressive TP Milestones & SL Markers - STRICT FILTER: Exact Day Only (Today)
+    if (prePerf && prePerf.evaluatedSignals) {
+      for (const s of prePerf.evaluatedSignals) {
+        if (s.time < midnightSec) continue;
+        if (s.tpEvents && s.tpEvents.length > 0) {
+          for (const ev of s.tpEvents) {
+            if (ev.time < midnightSec) continue;
+            if (ev.time === s.time) continue;
+
+            const isTp = ev.level.startsWith('TP');
+            markers.push({
+              time: ev.time,
+              position: ev.isBuy ? (isTp ? 'aboveBar' : 'belowBar') : (isTp ? 'belowBar' : 'aboveBar'),
+              color: isTp ? '#a855f7' : '#ff453a', // Purple for TP, red for SL
+              shape: isTp ? 'square' : 'circle',
+              text: isTp ? (ev.level || 'TP') : 'SL',
+              size: 1.2
+            });
+          }
+        }
+      }
+    }
+
+    markers.sort((a, b) => a.time - b.time);
+    if (markers.length > 0) {
+      try {
+        if (typeof this.candleSeries.setMarkers === 'function') {
+          this.candleSeries.setMarkers(markers);
+        } else if (window.LightweightCharts && window.LightweightCharts.createSeriesMarkers) {
+          if (this.seriesMarkers && typeof this.seriesMarkers.setMarkers === 'function') {
+            try { this.seriesMarkers.setMarkers(markers); } catch (e) {
+              this.seriesMarkers = window.LightweightCharts.createSeriesMarkers(this.candleSeries, markers);
+            }
+          } else {
+            this.seriesMarkers = window.LightweightCharts.createSeriesMarkers(this.candleSeries, markers);
+          }
+        }
+      } catch (markerErr) {
+        console.warn('Marker note:', markerErr);
+      }
+    }
+  },
+
+  updateMarkersAndPerformance: function (analysis) {
+    this.renderSignalMarkers(analysis);
+    this.renderDailyPerformanceTable(analysis);
+  },
+
+  /**
+   * Updates top modal status banner with latest confirmed signal
+   */
+  updateStatusHeader: function (analysis) {
+    if (!analysis || !analysis.candles || !analysis.tags) return;
+    let latestTag = null;
+    let latestTagIndex = -1;
+    for (let i = analysis.tags.length - 1; i >= 0; i--) {
+      if (analysis.tags[i] === 'BUY' || analysis.tags[i] === 'SELL') {
+        latestTag = analysis.tags[i];
+        latestTagIndex = i;
+        break;
+      }
+    }
+
+    const statusBadge = document.getElementById('ttr-signal-status-badge');
+    const statusText = document.getElementById('ttr-signal-status-text');
+    const macdStatus = document.getElementById('ttr-macd-status-text');
+
+    const lastM = (analysis.macd && analysis.macd.macdLine) ? (analysis.macd.macdLine[analysis.macd.macdLine.length - 1] || 0) : 0;
+    const lastS = (analysis.macd && analysis.macd.signalLine) ? (analysis.macd.signalLine[analysis.macd.signalLine.length - 1] || 0) : 0;
+    const isBullishMacd = lastM >= lastS;
+
+    const perf = this.lastPerformance;
+    const latestEvalTrade = (perf && perf.evaluatedSignals && perf.evaluatedSignals.length > 0)
+      ? perf.evaluatedSignals[perf.evaluatedSignals.length - 1]
+      : null;
+
+    if (latestTag === 'BUY') {
+      if (statusBadge) statusBadge.className = 'px-2.5 py-1 rounded-lg bg-primary-container/20 border border-primary-container/50 text-primary-container font-bold text-[11px] flex items-center gap-1.5 shadow-[0_0_12px_rgba(0,255,136,0.3)]';
+      if (latestEvalTrade && latestEvalTrade.isWin && latestEvalTrade.tpTier && latestEvalTrade.tpTier.startsWith('TP')) {
+        if (statusText) statusText.innerText = `🟣 Trend Trader: BUY TP Hit! (${latestEvalTrade.tpTier}) • Profit: +$${latestEvalTrade.pnl.toFixed(2)}`;
+      } else {
+        const entryP = analysis.candles[latestTagIndex].close;
+        const tp1P = entryP * 1.002;
+        const slP = entryP * 0.995;
+        if (statusText) statusText.innerText = `🟢 Trend Trader: BUY Active ($${entryP.toFixed(2)}) • TP1: $${tp1P.toFixed(2)} (+2%) | SL: $${slP.toFixed(2)} (-5%)`;
+      }
+    } else if (latestTag === 'SELL') {
+      if (statusBadge) statusBadge.className = 'px-2.5 py-1 rounded-lg bg-error/20 border border-error/50 text-error font-bold text-[11px] flex items-center gap-1.5 shadow-[0_0_12px_rgba(255,51,102,0.3)]';
+      if (latestEvalTrade && latestEvalTrade.isWin && latestEvalTrade.tpTier && latestEvalTrade.tpTier.startsWith('TP')) {
+        if (statusText) statusText.innerText = `🟣 Trend Trader: SELL TP Hit! (${latestEvalTrade.tpTier}) • Profit: +$${latestEvalTrade.pnl.toFixed(2)}`;
+      } else {
+        const entryP = analysis.candles[latestTagIndex].close;
+        const tp1P = entryP * 0.998;
+        const slP = entryP * 1.005;
+        if (statusText) statusText.innerText = `🔴 Trend Trader: SELL Active ($${entryP.toFixed(2)}) • TP1: $${tp1P.toFixed(2)} (+2%) | SL: $${slP.toFixed(2)} (-5%)`;
+      }
+    } else {
+      if (statusBadge) statusBadge.className = 'px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-on-surface-variant font-bold text-[11px] flex items-center gap-1.5';
+      if (statusText) statusText.innerText = `⚪ Trend Trader: Scanning Active 5m Scalp Candles...`;
+    }
+
+    if (macdStatus) {
+      macdStatus.innerText = `MACD: ${lastM.toFixed(2)} / ${lastS.toFixed(2)} • ${isBullishMacd ? 'Bullish Expansion' : 'Bearish Pressure'}`;
+    }
+  },
+
+  /**
+   * Start Live Binance WebSocket Kline Streaming (Zero-latency ticks & candle close detection)
+   */
+  startLiveStream: function (pairName, interval = '5m') {
+    this.stopLiveStream();
+
+    let cleanSymbol = 'btcusdt';
+    if (pairName) {
+      const raw = pairName.toLowerCase().replace(/[\s\-_/]/g, '');
+      if (raw.endsWith('usdt') || raw.endsWith('usdc') || raw.endsWith('busd')) {
+        cleanSymbol = raw;
+      } else if (raw.endsWith('usd')) {
+        cleanSymbol = `${raw.replace(/usd$/, '')}usdt`;
+      } else {
+        cleanSymbol = `${raw}usdt`;
+      }
+    }
+
+    let binanceInterval = '5m';
+    if (interval === '60' || interval === '1h') binanceInterval = '1h';
+    else if (interval === '15' || interval === '15m') binanceInterval = '15m';
+
+    this.isLiveStreamActive = true;
+    const wsUrl = `wss://data-stream.binance.vision/ws/${cleanSymbol}@kline_${binanceInterval}`;
+
+    try {
+      this.liveWs = new WebSocket(wsUrl);
+
+      this.liveWs.onopen = () => {
+        console.log(`[AlphaChart AI] Live kline stream active: ${cleanSymbol}@${binanceInterval}`);
+      };
+
+      this.liveWs.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          if (msg && msg.e === 'kline' && msg.k) {
+            this.handleLiveKline(cleanSymbol, binanceInterval, msg.k);
+          }
+        } catch (e) { }
+      };
+
+      this.liveWs.onerror = (err) => {
+        console.warn('[AlphaChart AI] WebSocket stream note:', err);
+      };
+
+      this.liveWs.onclose = () => {
+        if (this.isLiveStreamActive) {
+          this.liveWsRetryTimer = setTimeout(() => {
+            if (this.isLiveStreamActive) this.startLiveStream(pairName, interval);
+          }, 3500);
+        }
+      };
+    } catch (e) {
+      console.warn('Live WebSocket stream init note:', e);
+    }
+  },
+
+  stopLiveStream: function () {
+    this.isLiveStreamActive = false;
+    if (this.liveWsRetryTimer) {
+      clearTimeout(this.liveWsRetryTimer);
+      this.liveWsRetryTimer = null;
+    }
+    if (this.liveWs) {
+      try { this.liveWs.close(); } catch (e) { }
+      this.liveWs = null;
+    }
+  },
+
+  /**
+   * Handle real-time incoming tick & candle close event
+   */
+  handleLiveKline: function (symbol, interval, k) {
+    if (!k) return;
+
+    const candle = {
+      time: Math.floor(k.t / 1000),
+      open: parseFloat(k.o),
+      high: parseFloat(k.h),
+      low: parseFloat(k.l),
+      close: parseFloat(k.c),
+      volume: parseFloat(k.v)
+    };
+
+    // 1. Smooth real-time candlestick update on chart
+    if (this.candleSeries) {
+      try {
+        this.candleSeries.update(candle);
+      } catch (e) { }
+    }
+    if (this.volumeSeries) {
+      try {
+        this.volumeSeries.update({
+          time: candle.time,
+          value: candle.volume || 0,
+          color: candle.close >= candle.open ? 'rgba(0, 255, 136, 0.22)' : 'rgba(255, 51, 102, 0.22)'
+        });
+      } catch (e) { }
+    }
+
+    // 2. CANDLE CLOSE EVENT: Triggered immediately when that very first candle closes!
+    if (k.x === true) {
+      this.onCandleClosed(symbol, interval, candle);
+    }
+  },
+
+  /**
+   * Evaluates newly closed candle immediately and fires instant notification if signal prints!
+   */
+  onCandleClosed: function (symbol, interval, candle) {
+    if (!candle) return;
+
+    // Append or replace closed candle in lastCandles
+    if (this.lastCandles && this.lastCandles.length > 0) {
+      const last = this.lastCandles[this.lastCandles.length - 1];
+      if (last.time === candle.time) {
+        this.lastCandles[this.lastCandles.length - 1] = candle;
+      } else if (candle.time > last.time) {
+        this.lastCandles.push(candle);
+      }
+    } else {
+      this.lastCandles = [candle];
+    }
+
+    // Re-run full institutional analysis on the closed candle
+    const analysis = this.analyzeCandles(this.lastCandles);
+    this.lastAnalysis = analysis;
+
+    // Update trailing stop line & MACD
+    const lastIdx = this.lastCandles.length - 1;
+    if (this.psarSeries && analysis.trendTrader && analysis.trendTrader.stop) {
+      const stopVal = analysis.trendTrader.stop[lastIdx];
+      if (stopVal) {
+        try { this.psarSeries.update({ time: candle.time, value: stopVal }); } catch (e) { }
+      }
+    }
+    if (this.histSeries && analysis.macd && analysis.macd.histogram) {
+      const hVal = analysis.macd.histogram[lastIdx] || 0;
+      try {
+        this.histSeries.update({
+          time: candle.time,
+          value: hVal,
+          color: hVal >= 0 ? 'rgba(0, 255, 136, 0.75)' : 'rgba(255, 51, 102, 0.75)'
+        });
+      } catch (e) { }
+    }
+    if (this.macdLineSeries && analysis.macd && analysis.macd.macdLine) {
+      try { this.macdLineSeries.update({ time: candle.time, value: analysis.macd.macdLine[lastIdx] || 0 }); } catch (e) { }
+    }
+    if (this.signalLineSeries && analysis.macd && analysis.macd.signalLine) {
+      try { this.signalLineSeries.update({ time: candle.time, value: analysis.macd.signalLine[lastIdx] || 0 }); } catch (e) { }
+    }
+
+    // Refresh markers, outcomes, and daily record table
+    this.updateMarkersAndPerformance(analysis);
+    this.updateStatusHeader(analysis);
+
+    // ========================================================
+    // INSTANT NOTIFICATION TRIGGER (First closed candle!):
+    // ========================================================
+    const signalTag = analysis.tags[lastIdx];
+    if (signalTag === 'BUY' || signalTag === 'SELL') {
+      const signalKey = `${symbol}_${interval}_${candle.time}_${signalTag}`;
+      if (this.lastNotifiedSignalKey !== signalKey) {
+        this.lastNotifiedSignalKey = signalKey;
+
+        const displayPair = this.currentPair || `${symbol.toUpperCase().replace('USDT', ' / USDT')}`;
+        const entryPrice = candle.close;
+        const isBuy = (signalTag === 'BUY');
+        const tp1 = isBuy ? entryPrice * 1.002 : entryPrice * 0.998;
+        const tp2 = isBuy ? entryPrice * 1.010 : entryPrice * 0.990;
+        const tp3 = isBuy ? entryPrice * 1.030 : entryPrice * 0.970;
+        const sl = isBuy ? entryPrice * 0.995 : entryPrice * 1.005;
+
+        const signalPayload = {
+          type: signalTag,
+          pair: displayPair,
+          price: entryPrice,
+          timeframe: interval,
+          candleTime: candle.time,
+          tp1,
+          tp2,
+          tp3,
+          sl,
+          notes: `Instant Alert: ${signalTag} confirmed on candle close! Entry: $${entryPrice.toFixed(2)}`
+        };
+
+        // 1. Native Push Notification + Web Audio Chime + Mobile Vibration
+        if (window.TrendTraderAlerts) {
+          window.TrendTraderAlerts.sendNotification(signalPayload);
+        }
+
+        // 2. High-Visibility On-Screen Alert Banner
+        this.showInstantSignalBanner(signalPayload);
+      }
+    }
+  },
+
+  /**
+   * Prominent Neon Glassmorphism In-App Alert Banner (Appears at top center with sound & vibration)
+   */
+  showInstantSignalBanner: function (signal) {
+    if (!signal) return;
+    const isBuy = signal.type === 'BUY';
+    const accentColor = isBuy ? '#00ff88' : '#ff3366';
+    const bgGlow = isBuy ? 'rgba(0, 255, 136, 0.15)' : 'rgba(255, 51, 102, 0.15)';
+    const borderColor = isBuy ? 'rgba(0, 255, 136, 0.6)' : 'rgba(255, 51, 102, 0.6)';
+
+    let banner = document.getElementById('instant-signal-alert-banner');
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.id = 'instant-signal-alert-banner';
+      document.body.appendChild(banner);
+    }
+
+    banner.className = 'fixed top-4 left-1/2 -translate-x-1/2 z-[9999] max-w-md w-[92vw] sm:w-[460px] p-3.5 rounded-2xl shadow-2xl backdrop-blur-xl border transition-all duration-300 transform select-none cursor-pointer';
+    banner.style.backgroundColor = 'rgba(8, 10, 15, 0.95)';
+    banner.style.borderColor = borderColor;
+    banner.style.boxShadow = `0 10px 40px -10px ${bgGlow}, 0 0 25px ${bgGlow}`;
+
+    banner.innerHTML = `
+      <div class="flex items-start gap-3">
+        <div class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style="background: ${bgGlow}; border: 1px solid ${borderColor};">
+          <span class="material-symbols-outlined text-[22px] animate-bounce" style="color: ${accentColor};">
+            ${isBuy ? 'arrow_upward' : 'arrow_downward'}
+          </span>
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center justify-between gap-2">
+            <div class="flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full animate-ping" style="background: ${accentColor};"></span>
+              <span class="text-xs font-black tracking-wider uppercase" style="color: ${accentColor};">
+                ${isBuy ? '🟢 INSTANT BUY CONFIRMED' : '🔴 INSTANT SELL CONFIRMED'}
+              </span>
+            </div>
+            <span class="text-[10px] text-white/50 font-mono">Candle Closed</span>
+          </div>
+          <div class="text-sm font-bold text-white mt-0.5 truncate">
+            ${signal.pair} • <span class="font-mono">$${signal.price.toFixed(2)}</span>
+            <span class="text-[10px] px-1.5 py-0.2 rounded font-mono ml-1 bg-white/10 text-white/80">${signal.timeframe}</span>
+          </div>
+          <div class="flex items-center gap-2 mt-2 text-[10px] font-mono">
+            <span class="px-1.5 py-0.5 rounded bg-primary-container/20 text-primary-container border border-primary-container/30">
+              TP1: $${signal.tp1 ? signal.tp1.toFixed(2) : (signal.price * (isBuy ? 1.002 : 0.998)).toFixed(2)} (+2%)
+            </span>
+            <span class="px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30">
+              TP2: $${signal.tp2 ? signal.tp2.toFixed(2) : (signal.price * (isBuy ? 1.010 : 0.990)).toFixed(2)} (+10%)
+            </span>
+            <span class="px-1.5 py-0.5 rounded bg-error/20 text-error border border-error/30">
+              SL: $${signal.sl ? signal.sl.toFixed(2) : (signal.price * (isBuy ? 0.995 : 1.005)).toFixed(2)} (-5%)
+            </span>
+          </div>
+        </div>
+        <button type="button" class="text-white/40 hover:text-white transition-colors p-1" onclick="event.stopPropagation(); this.closest('#instant-signal-alert-banner').remove();">
+          <span class="material-symbols-outlined text-[16px]">close</span>
+        </button>
+      </div>
+    `;
+
+    banner.onclick = () => {
+      if (window.ScannerModule && typeof window.ScannerModule.openFullChartModal === 'function') {
+        window.ScannerModule.openFullChartModal(signal.pair);
+      }
+      banner.remove();
+    };
+
+    if (this._bannerTimer) clearTimeout(this._bannerTimer);
+    this._bannerTimer = setTimeout(() => {
+      if (banner && banner.parentNode) {
+        banner.style.opacity = '0';
+        banner.style.transform = 'translate(-50%, -20px)';
+        setTimeout(() => { if (banner && banner.parentNode) banner.remove(); }, 300);
+      }
+    }, 10000);
   },
 
   /**
@@ -1712,40 +2074,95 @@ window.TrendTraderAlerts = {
   STORAGE_KEY: 'alphachart_alerts_active',
   HISTORY_KEY: 'alphachart_signal_history_v1',
   audioCtx: null,
+  _bgWs: null,
+  _bgPair: 'AAVE / USDT',
+  _bgInterval: '5m',
+  _bgMonitorActive: false,
 
   isAlertsEnabled: function () {
-    return localStorage.getItem(this.STORAGE_KEY) === 'true';
+    const val = localStorage.getItem(this.STORAGE_KEY);
+    return val !== 'false'; // Defaults to true (Active!)
   },
 
   setAlertsEnabled: function (val) {
     localStorage.setItem(this.STORAGE_KEY, val ? 'true' : 'false');
+    if (val) {
+      this.initAudioUnlock();
+      const pair = (window.TrendTraderEngine && window.TrendTraderEngine.currentPair) || 'AAVE / USDT';
+      this.startBackgroundMonitor(pair, '5m');
+    } else {
+      this.stopBackgroundMonitor();
+    }
+  },
+
+  init: function () {
+    this.initAudioUnlock();
+    if (this.isAlertsEnabled()) {
+      const defaultPair = (window.TrendTraderEngine && window.TrendTraderEngine.currentPair) || 'AAVE / USDT';
+      this.startBackgroundMonitor(defaultPair, '5m');
+    }
+  },
+
+  initAudioUnlock: function () {
+    const unlock = () => {
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx) {
+          if (!this.audioCtx) this.audioCtx = new AudioCtx();
+          if (this.audioCtx && this.audioCtx.state === 'suspended') {
+            this.audioCtx.resume().catch(() => {});
+          }
+        }
+      } catch (e) { }
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('keydown', unlock);
+      window.removeEventListener('click', unlock);
+    };
+    window.addEventListener('pointerdown', unlock, { once: true });
+    window.addEventListener('keydown', unlock, { once: true });
+    window.addEventListener('click', unlock, { once: true });
   },
 
   requestPermission: async function () {
+    // Unlock Web Audio immediately on user button click
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (AudioCtx) {
+        if (!this.audioCtx) this.audioCtx = new AudioCtx();
+        if (this.audioCtx.state === 'suspended') await this.audioCtx.resume();
+      }
+    } catch (e) { }
+
+    this.setAlertsEnabled(true);
+
     if (!('Notification' in window)) {
-      alert('Desktop/Mobile Notifications are not supported in this browser.');
-      return false;
+      if (window.App) window.App.showToast('🔔 Signal Alerts Active with Sound & Vibration!');
+      this.playAlertSound('BUY');
+      this.vibrate();
+      return true;
     }
 
     try {
       const permission = await Notification.requestPermission();
-      if (permission === 'granted') {
-        this.setAlertsEnabled(true);
-        this.playAlertSound('BUY');
-        this.vibrate();
-        this.sendNotification({
-          type: 'BUY',
-          pair: window.ScannerModule.fullChartPair || 'AAVE / USDT',
-          price: 125.36,
-          timeframe: '5m',
-          notes: 'AlphaChart Signal Alerts successfully activated on your phone!'
-        });
-        return true;
-      }
-      return false;
+      this.playAlertSound('BUY');
+      this.vibrate();
+
+      const pair = (window.TrendTraderEngine && window.TrendTraderEngine.currentPair) || (window.ScannerModule && window.ScannerModule.fullChartPair) || 'AAVE / USDT';
+      this.sendNotification({
+        type: 'BUY',
+        pair: pair,
+        price: 119.10,
+        timeframe: '5m',
+        tp1: 119.34,
+        tp2: 120.29,
+        tp3: 122.67,
+        sl: 118.50,
+        notes: 'AlphaChart Instant Signal Alerts activated on your device!'
+      });
+      return true;
     } catch (e) {
       console.warn('Error requesting notification permission:', e);
-      return false;
+      return true;
     }
   },
 
@@ -1754,7 +2171,9 @@ window.TrendTraderAlerts = {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (!AudioCtx) return;
       if (!this.audioCtx) this.audioCtx = new AudioCtx();
-      if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
+      if (this.audioCtx.state === 'suspended') {
+        this.audioCtx.resume().catch(() => {});
+      }
 
       const now = this.audioCtx.currentTime;
       const osc = this.audioCtx.createOscillator();
@@ -1770,7 +2189,7 @@ window.TrendTraderAlerts = {
         osc.frequency.exponentialRampToValueAtTime(1320, now + 0.12);
         osc.frequency.exponentialRampToValueAtTime(1760, now + 0.28);
 
-        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.setValueAtTime(0.35, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
         osc.start(now);
         osc.stop(now + 0.55);
@@ -1780,7 +2199,7 @@ window.TrendTraderAlerts = {
         osc.frequency.setValueAtTime(587.33, now);
         osc.frequency.exponentialRampToValueAtTime(293.66, now + 0.25);
 
-        gain.gain.setValueAtTime(0.35, now);
+        gain.gain.setValueAtTime(0.40, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
         osc.start(now);
         osc.stop(now + 0.6);
@@ -1799,28 +2218,37 @@ window.TrendTraderAlerts = {
   },
 
   sendNotification: function (signal) {
+    if (!signal) return;
     this.playAlertSound(signal.type);
     this.vibrate();
-
     this.saveSignalToHistory(signal);
 
+    const isBuy = signal.type === 'BUY';
+    const entryPrice = typeof signal.price === 'number' ? signal.price : parseFloat(signal.price) || 0;
+    const tp1Text = signal.tp1 ? `$${signal.tp1.toFixed(2)} (+2%)` : `$${(entryPrice * (isBuy ? 1.002 : 0.998)).toFixed(2)} (+2%)`;
+    const slText = signal.sl ? `$${signal.sl.toFixed(2)} (-5%)` : `$${(entryPrice * (isBuy ? 0.995 : 1.005)).toFixed(2)} (-5%)`;
+
     if ('Notification' in window && Notification.permission === 'granted') {
-      const isBuy = signal.type === 'BUY';
       const title = `${isBuy ? '🟢 BUY SIGNAL' : '🔴 SELL SIGNAL'}: ${signal.pair}`;
-      const body = `Trend Trader Remastered confirmed ${signal.type} at $${signal.price.toFixed(2)} (${signal.timeframe}).\nMACD Momentum: ${isBuy ? 'Bullish Expansion' : 'Bearish Breakdown'}.`;
+      const body = `Trend Trader Remastered confirmed ${signal.type} at $${entryPrice.toFixed(2)} (${signal.timeframe}).\nFirst candle closed! TP1: ${tp1Text} | SL: ${slText}.`;
 
       try {
         new Notification(title, {
           body: body,
           icon: 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=128&auto=format&fit=crop',
           badge: 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=128&auto=format&fit=crop',
-          tag: `signal-${signal.pair}-${Date.now()}`
+          tag: `signal-${signal.pair}-${Date.now()}`,
+          requireInteraction: true
         });
       } catch (e) { }
     }
 
-    if (window.App) {
-      window.App.showToast(`🚨 ${signal.type} SIGNAL on ${signal.pair} at $${signal.price.toFixed(2)}!`);
+    if (window.App && typeof window.App.showToast === 'function') {
+      window.App.showToast(`🚨 ${signal.type} SIGNAL on ${signal.pair} at $${entryPrice.toFixed(2)}! First candle closed.`);
+    }
+
+    if (window.TrendTraderEngine && typeof window.TrendTraderEngine.showInstantSignalBanner === 'function') {
+      window.TrendTraderEngine.showInstantSignalBanner(signal);
     }
   },
 
@@ -1836,22 +2264,97 @@ window.TrendTraderAlerts = {
     } catch (e) { }
   },
 
-  testAlert: function () {
-    const isGranted = 'Notification' in window && Notification.permission === 'granted';
-    if (!isGranted && 'Notification' in window && Notification.permission !== 'denied') {
-      this.requestPermission();
-      return;
+  startBackgroundMonitor: function (pairName = 'AAVE / USDT', interval = '5m') {
+    if (this._bgMonitorActive && this._bgPair === pairName && this._bgInterval === interval) return;
+    this.stopBackgroundMonitor();
+
+    let cleanSymbol = 'aaveusdt';
+    if (pairName) {
+      const raw = pairName.toLowerCase().replace(/[\s\-_/]/g, '');
+      if (raw.endsWith('usdt') || raw.endsWith('usdc') || raw.endsWith('busd')) {
+        cleanSymbol = raw;
+      } else if (raw.endsWith('usd')) {
+        cleanSymbol = `${raw.replace(/usd$/, '')}usdt`;
+      } else {
+        cleanSymbol = `${raw}usdt`;
+      }
     }
 
-    const pair = (window.ScannerModule && window.ScannerModule.fullChartPair) ? window.ScannerModule.fullChartPair : 'AAVE / USDT';
-    const tf = (window.ScannerModule && window.ScannerModule.fullChartInterval) ? `${window.ScannerModule.fullChartInterval}m` : '5m';
+    let binanceInterval = '5m';
+    if (interval === '60' || interval === '1h') binanceInterval = '1h';
+    else if (interval === '15' || interval === '15m') binanceInterval = '15m';
+
+    this._bgPair = pairName;
+    this._bgInterval = interval;
+    this._bgMonitorActive = true;
+
+    // Connect to WebSocket stream for candle close events
+    const wsUrl = `wss://data-stream.binance.vision/ws/${cleanSymbol}@kline_${binanceInterval}`;
+    try {
+      this._bgWs = new WebSocket(wsUrl);
+
+      this._bgWs.onmessage = async (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          if (msg && msg.e === 'kline' && msg.k && msg.k.x === true) {
+            // A candle just closed!
+            const k = msg.k;
+            const closedCandle = {
+              time: Math.floor(k.t / 1000),
+              open: parseFloat(k.o),
+              high: parseFloat(k.h),
+              low: parseFloat(k.l),
+              close: parseFloat(k.c),
+              volume: parseFloat(k.v)
+            };
+
+            // Evaluate signal via TrendTraderEngine
+            if (window.TrendTraderEngine) {
+              window.TrendTraderEngine.onCandleClosed(cleanSymbol, binanceInterval, closedCandle);
+            }
+          }
+        } catch (e) { }
+      };
+
+      this._bgWs.onclose = () => {
+        if (this._bgMonitorActive) {
+          setTimeout(() => {
+            if (this._bgMonitorActive) this.startBackgroundMonitor(this._bgPair, this._bgInterval);
+          }, 4000);
+        }
+      };
+    } catch (err) {
+      console.warn('Background monitor WS error:', err);
+    }
+  },
+
+  stopBackgroundMonitor: function () {
+    this._bgMonitorActive = false;
+    if (this._bgWs) {
+      try { this._bgWs.close(); } catch (e) { }
+      this._bgWs = null;
+    }
+  },
+
+  testAlert: function () {
+    const pair = (window.TrendTraderEngine && window.TrendTraderEngine.currentPair) || (window.ScannerModule && window.ScannerModule.fullChartPair) || 'AAVE / USDT';
+    const tf = (window.TrendTraderEngine && window.TrendTraderEngine.currentTimeframe) || (window.ScannerModule && window.ScannerModule.fullChartInterval ? `${window.ScannerModule.fullChartInterval}m` : '5m');
 
     this.sendNotification({
       type: 'BUY',
       pair: pair,
-      price: 125.36,
+      price: 119.10,
       timeframe: tf,
-      notes: 'Test Signal Alert Triggered Successfully!'
+      tp1: 119.34,
+      tp2: 120.29,
+      tp3: 122.67,
+      sl: 118.50,
+      notes: 'Test Instant Signal Alert: First candle closed!'
     });
   }
 };
+
+// Auto-initialize signal alerts and background monitoring
+if (window.TrendTraderAlerts && typeof window.TrendTraderAlerts.init === 'function') {
+  window.TrendTraderAlerts.init();
+}
