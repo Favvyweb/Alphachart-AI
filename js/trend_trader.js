@@ -17,6 +17,10 @@ window.TrendTraderEngine = {
   histSeries: null,
   macdLineSeries: null,
   signalLineSeries: null,
+  smcResistanceSeries: null,
+  smcSupportSeries: null,
+  showSMCLevels: true,
+  lastPerformance: null,
 
   currentPair: 'BTC / USDT',
   currentTimeframe: '5m',
@@ -28,6 +32,7 @@ window.TrendTraderEngine = {
    * Fetch live Binance candles for 5m, 15m, or 1h with high-speed parallel fetching and memory cache
    */
   fetchCandles: async function (pairName, interval = '5m') {
+    if (pairName) this.currentPair = pairName;
     let cleanSymbol = 'BTCUSDT';
     if (pairName) {
       const raw = pairName.toUpperCase().replace(/[\s\-_/]/g, '');
@@ -422,6 +427,12 @@ window.TrendTraderEngine = {
     if (this.seriesMarkers) {
       this.seriesMarkers = null;
     }
+    if (this.smcResistanceSeries) {
+      this.smcResistanceSeries = null;
+    }
+    if (this.smcSupportSeries) {
+      this.smcSupportSeries = null;
+    }
     if (this.mainChart) {
       try { this.mainChart.remove(); } catch (e) { }
       this.mainChart = null;
@@ -530,6 +541,49 @@ window.TrendTraderEngine = {
       }
     }
     this.psarSeries.setData(psarData);
+
+    // Add Smart Money Concepts (SMC) Support & Resistance Structure Lines
+    const dashedStyle = (window.LightweightCharts && window.LightweightCharts.LineStyle) ? window.LightweightCharts.LineStyle.Dashed : 2;
+
+    this.smcResistanceSeries = addLineSeries(this.mainChart, {
+      color: 'rgba(255, 69, 58, 0.75)',
+      lineWidth: 1.5,
+      lineStyle: dashedStyle,
+      title: 'SMC Resistance',
+      lastValueVisible: false,
+      priceLineVisible: false,
+    });
+
+    this.smcSupportSeries = addLineSeries(this.mainChart, {
+      color: 'rgba(0, 228, 121, 0.75)',
+      lineWidth: 1.5,
+      lineStyle: dashedStyle,
+      title: 'SMC Support',
+      lastValueVisible: false,
+      priceLineVisible: false,
+    });
+
+    const resData = [];
+    const supData = [];
+    if (analysis && analysis.marketStructure) {
+      const { resistanceLevels, supportLevels } = analysis.marketStructure;
+      for (let i = 0; i < candles.length; i++) {
+        if (resistanceLevels && resistanceLevels[i] !== null && resistanceLevels[i] !== undefined) {
+          resData.push({ time: candles[i].time, value: resistanceLevels[i] });
+        }
+        if (supportLevels && supportLevels[i] !== null && supportLevels[i] !== undefined) {
+          supData.push({ time: candles[i].time, value: supportLevels[i] });
+        }
+      }
+    }
+    this.smcResistanceSeries.setData(resData);
+    this.smcSupportSeries.setData(supData);
+
+    // Apply saved SMC visibility preference (default: ON)
+    const savedSmcPref = localStorage.getItem('alphachart_show_smc_levels');
+    this.showSMCLevels = (savedSmcPref !== 'false');
+    this.updateSMCSeriesVisibility();
+    this.setupSMCToggle();
 
     // Calculate start of day (12:00:00 AM UTC) to strictly isolate today's signals
     const nowDayObj = new Date();
@@ -781,6 +835,8 @@ window.TrendTraderEngine = {
       let hitTp4 = false;
       let hitTp5 = false;
       let hitSL = false;
+      let tradeClosed = false;
+      let pnl = 0;
 
       // Scan subsequent candles forward (candle i has closed, trade progresses on candle i+1 onwards)
       const maxK = Math.min(candles.length - 1, i + 60);
@@ -859,8 +915,6 @@ window.TrendTraderEngine = {
           } else if (closedReturnRoe >= 0) {
             reason = `Reversed in profit (+${closedReturnRoe.toFixed(1)}%) • Exit $${exitPrice.toFixed(2)}`;
           } else {
-            // Plot SL marker on reversal candle if closed at a loss before TP1
-            tpEvents.push({ time: nextC.time, level: 'SL', text: `SL (${closedReturnRoe.toFixed(1)}%) • -$${Math.min(5.00, Math.abs(closedReturnRoe)).toFixed(2)}`, isBuy });
             reason = `Reversed before TP1 (${closedReturnRoe.toFixed(1)}%) • Exit $${exitPrice.toFixed(2)}`;
           }
           break;
@@ -1002,6 +1056,7 @@ window.TrendTraderEngine = {
     const todayTagEl = document.getElementById('ttr-compact-today-tag');
 
     const perf = this.calculateDailySignalPerformance(analysis.candles, analysis.tags, analysis.psar);
+    this.lastPerformance = perf;
 
     if (todayTagEl) {
       todayTagEl.innerText = `${perf.todayDayName || ''} (Today)`;
@@ -1166,13 +1221,23 @@ window.TrendTraderEngine = {
                 </div>
                 ${outcomeBadge}
               </div>
-              <div class="mt-1 flex items-center justify-between text-[8px] text-on-surface-variant/80">
-                <span class="truncate max-w-[190px]">
+              <div class="mt-1 flex items-center justify-between text-[8px] text-on-surface-variant/80 gap-1.5">
+                <span class="truncate max-w-[145px]" title="${subText}">
                   ${subText}
                 </span>
-                <span class="text-primary-container/70 group-hover:text-primary-container flex items-center gap-0.5 transition-colors font-medium">
-                  Focus on chart ↗
-                </span>
+                <div class="flex items-center gap-1.5 shrink-0">
+                  <button type="button"
+                          onclick="window.TrendTraderEngine.logTradeToJournal(${s.time}, event)"
+                          id="btn-journal-${s.time}"
+                          class="px-1.5 py-0.5 rounded text-[8px] font-bold bg-white/[0.06] hover:bg-primary-container/20 text-white/80 hover:text-primary-container border border-white/[0.1] hover:border-primary-container/30 transition-all flex items-center gap-0.5"
+                          title="1-Click Save this trade to Trading Journal">
+                    <span class="material-symbols-outlined text-[10px]">bookmark_add</span>
+                    <span>+ Journal</span>
+                  </button>
+                  <span class="text-primary-container/70 group-hover:text-primary-container flex items-center gap-0.5 transition-colors font-medium">
+                    Focus ↗
+                  </span>
+                </div>
               </div>
             </div>
           `;
@@ -1294,6 +1359,92 @@ window.TrendTraderEngine = {
     } else {
       collapsedEl.classList.add('hidden');
       expandedEl.classList.remove('hidden');
+    }
+  },
+
+  setupSMCToggle: function () {
+    const btn = document.getElementById('btn-toggle-smc-levels');
+    if (btn && !btn._smcBound) {
+      btn._smcBound = true;
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.toggleSMCLevels();
+      });
+    }
+    this.updateSMCToggleUI();
+  },
+
+  toggleSMCLevels: function () {
+    this.showSMCLevels = !this.showSMCLevels;
+    try {
+      localStorage.setItem('alphachart_show_smc_levels', this.showSMCLevels ? 'true' : 'false');
+    } catch (e) { }
+    this.updateSMCSeriesVisibility();
+    this.updateSMCToggleUI();
+    if (window.App && typeof window.App.showToast === 'function') {
+      window.App.showToast(`SMC Support & Resistance: ${this.showSMCLevels ? 'Visible' : 'Hidden'}`);
+    }
+  },
+
+  updateSMCSeriesVisibility: function () {
+    if (this.smcResistanceSeries && typeof this.smcResistanceSeries.applyOptions === 'function') {
+      this.smcResistanceSeries.applyOptions({ visible: !!this.showSMCLevels });
+    }
+    if (this.smcSupportSeries && typeof this.smcSupportSeries.applyOptions === 'function') {
+      this.smcSupportSeries.applyOptions({ visible: !!this.showSMCLevels });
+    }
+  },
+
+  updateSMCToggleUI: function () {
+    const btn = document.getElementById('btn-toggle-smc-levels');
+    const label = document.getElementById('btn-toggle-smc-levels-text');
+    if (!btn || !label) return;
+
+    if (this.showSMCLevels) {
+      label.innerText = 'SMC Levels: ON';
+      btn.className = 'px-2.5 py-0.5 rounded-lg text-[10px] font-semibold border transition-all flex items-center gap-1 bg-primary-container/10 border-primary-container/40 text-primary-container hover:bg-primary-container/20';
+    } else {
+      label.innerText = 'SMC Levels: OFF';
+      btn.className = 'px-2.5 py-0.5 rounded-lg text-[10px] font-semibold border transition-all flex items-center gap-1 bg-[#000000] border-white/[0.08] text-on-surface-variant hover:border-white/20 hover:text-white';
+    }
+  },
+
+  logTradeToJournal: function (signalTime, event) {
+    if (event) {
+      event.stopPropagation();
+      event.preventDefault();
+    }
+
+    if (!window.JournalModule || typeof window.JournalModule.logTradeDirect !== 'function') {
+      if (window.App && window.App.showToast) window.App.showToast('Journal module not available');
+      return;
+    }
+
+    const s = this.lastPerformance?.evaluatedSignals?.find(sig => sig.time === signalTime);
+    if (!s) {
+      if (window.App && window.App.showToast) window.App.showToast('Trade data not found');
+      return;
+    }
+
+    const pairName = this.currentPair || window.ScannerModule?.fullChartPair || 'AAVE / USDT';
+
+    window.JournalModule.logTradeDirect({
+      pair: pairName,
+      type: s.type,
+      entryPrice: s.entryPrice,
+      exitPrice: s.exitPrice,
+      pnl: s.pnl,
+      isWin: s.isWin,
+      timestamp: s.time * 1000,
+      reason: s.reason,
+      notes: `Trend Trader 10x Signal: ${s.type} @ $${s.entryPrice.toFixed(2)}. ${s.reason}. Tier: ${s.tpTier}.`
+    });
+
+    const btn = document.getElementById(`btn-journal-${signalTime}`);
+    if (btn) {
+      btn.innerHTML = `<span class="material-symbols-outlined text-[10px]">check</span><span>Saved</span>`;
+      btn.className = 'px-1.5 py-0.5 rounded text-[8px] font-bold bg-primary-container/20 text-primary-container border border-primary-container/40 flex items-center gap-0.5 cursor-default';
+      btn.disabled = true;
     }
   }
 };

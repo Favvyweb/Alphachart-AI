@@ -242,6 +242,55 @@ window.JournalModule = {
   },
 
   /**
+   * 1-Click Direct Trade Logging from Trend Trader Signals Log or Scanner
+   */
+  logTradeDirect: function (tradeData) {
+    if (!tradeData) return null;
+
+    const pair = (tradeData.pair || 'AAVE / USDT').toUpperCase();
+    const rawType = (tradeData.type || 'BUY').toUpperCase();
+    const type = (rawType === 'BUY' || rawType === 'LONG') ? 'LONG' : 'SHORT';
+    const entryPrice = tradeData.entryPrice ? `$${Number(tradeData.entryPrice).toFixed(2)}` : '--';
+    const exitPrice = tradeData.exitPrice ? `$${Number(tradeData.exitPrice).toFixed(2)}` : '--';
+
+    const pnlVal = typeof tradeData.pnl === 'number' ? tradeData.pnl : (parseFloat(tradeData.pnl) || 0);
+    const isProfit = tradeData.isWin !== undefined ? !!tradeData.isWin : (pnlVal >= 0);
+    const pnlFormatted = pnlVal >= 0 ? `+$${pnlVal.toFixed(2)}` : `-$${Math.abs(pnlVal).toFixed(2)}`;
+
+    const tradeTimestamp = tradeData.timestamp || Date.now();
+    const formattedTime = this.formatTradeTime(tradeTimestamp);
+    const notes = tradeData.notes || `Trend Trader 10x Setup (${type}). Entry: ${entryPrice}, Exit: ${exitPrice}. ${tradeData.reason || ''}`;
+
+    const newTrade = {
+      id: Date.now(),
+      pair: pair,
+      market: 'Crypto',
+      type: type,
+      timestamp: tradeTimestamp,
+      time: formattedTime,
+      entryPrice: entryPrice,
+      pnl: pnlFormatted,
+      isProfit: isProfit,
+      notes: notes,
+      userOutcomePnl: pnlFormatted,
+      userObservation: notes,
+      feedbackSaved: true
+    };
+
+    // Add directly to journal list
+    this.trades.unshift(newTrade);
+    this.saveToStorage();
+    this.renderTrades();
+    this.updateStats();
+
+    if (window.App && typeof window.App.showToast === 'function') {
+      window.App.showToast(`Saved ${pair} (${type}) to Journal! (${pnlFormatted})`);
+    }
+
+    return newTrade;
+  },
+
+  /**
    * Saves or updates feedback on any existing logged trade
    */
   saveFeedback: function (tradeId) {
