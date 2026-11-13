@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en" class="dark">
 
 <head>
@@ -42,7 +42,7 @@
     }
 
     .mobile-top-safe {
-      padding-top: max(calc(env(safe-area-inset-top, 0px) + 18px), 56px) !important;
+      padding-top: max(calc(env(safe-area-inset-top, 0px) + 20px), 64px) !important;
     }
   </style>
 
@@ -197,10 +197,10 @@
   <div class="mobile-app-wrapper">
 
     <!-- Main Content Container (No Fixed Obstructing Header) -->
-    <main class="flex-1 mobile-top-safe pb-28 px-4 w-full">
+    <main class="flex-1 mobile-top-safe pb-28 w-full">
 
       <!-- ================= PAGE 1: SIGNAL SCANNER (HOME SCREEN) ================= -->
-      <div id="page-signal-scanner" class="tab-page active">
+      <div id="page-signal-scanner" class="tab-page active px-4">
 
         <!-- Top In-Flow Brand & User Status Row -->
         <div class="flex items-center justify-between mb-4">
@@ -465,11 +465,11 @@
       </div>
 
       <!-- ================= PAGE 2: CHARTS & TREND SIGNALS ================= -->
-      <div id="page-charts" class="tab-page">
-        <div class="flex flex-col gap-3">
+      <div id="page-charts" class="tab-page px-0 sm:px-4 pt-1 sm:pt-0">
+        <div class="flex flex-col gap-2 sm:gap-3">
 
           <!-- Top Quick-Select Coin Switcher Bar -->
-          <div class="flex items-center gap-1.5 overflow-x-auto hide-scrollbar pb-1">
+          <div class="flex items-center gap-1.5 overflow-x-auto hide-scrollbar px-3 sm:px-0 pb-1">
             <span class="text-[10px] font-mono text-on-surface-variant uppercase tracking-wider shrink-0 mr-1 flex items-center gap-1">
               <span class="material-symbols-outlined text-[14px] text-primary-container">currency_exchange</span>
               Pairs:
@@ -482,8 +482,8 @@
             <button type="button" class="btn-chart-quick-coin px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-[#1c1c1e] hover:bg-[#2c2c2e] text-white border border-white/10 shrink-0 transition-all active:scale-95 cursor-pointer" data-pair="DOGE / USDT">DOGE</button>
           </div>
 
-          <!-- Main Real-time Chart Card Container -->
-          <div class="relative w-full bg-[#1c1c1e] border border-white/[0.08] rounded-2xl shadow-2xl flex flex-col overflow-hidden text-white">
+          <!-- Main Real-time Chart Card Container (End-to-End on Mobile) -->
+          <div class="relative w-full bg-[#1c1c1e] border-y sm:border border-white/[0.08] rounded-none sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden text-white">
 
             <!-- Chart Top Bar -->
             <div
@@ -728,7 +728,7 @@
       </div>
 
       <!-- ================= PAGE 3: TRADING JOURNAL ================= -->
-      <div id="page-trading-journal" class="tab-page">
+      <div id="page-trading-journal" class="tab-page px-4">
         <div class="flex flex-col gap-4">
 
           <section class="flex flex-col gap-3">
@@ -822,7 +822,7 @@
       </div>
 
       <!-- ================= PAGE 4: USER PROFILE ================= -->
-      <div id="page-user-profile" class="tab-page">
+      <div id="page-user-profile" class="tab-page px-4">
         <div class="flex flex-col gap-6">
 
           <!-- Profile Header -->

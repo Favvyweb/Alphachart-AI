@@ -83,7 +83,7 @@ body {
 .pt-safe,
 .mobile-top-safe {
   /* Dynamic mobile notch & status bar clearance (clears clock, battery & Dynamic Island) */
-  padding-top: max(calc(env(safe-area-inset-top, 0px) + 18px), 56px) !important;
+  padding-top: max(calc(env(safe-area-inset-top, 0px) + 20px), 64px) !important;
 }
 
 /* ==========================================================================
