@@ -479,26 +479,15 @@ window.TrendTraderEngine = {
       const lookback = Math.max(0, i - 60);
       let sH = -Infinity;
       let sL = Infinity;
-      for (let k = lookback; k < i; k++) {
+      for (let k = lookback; k <= i; k++) {
         if (candles[k].high > sH) sH = candles[k].high;
         if (candles[k].low < sL) sL = candles[k].low;
       }
-      if (sH === -Infinity || sL === Infinity) {
-        sH = cur.close * 1.02;
-        sL = cur.close * 0.98;
-      }
       const sRange = Math.max(sH - sL, 0.0001);
       const sMid = sL + (sRange * 0.5); // 0.50 Equilibrium level
-      const premLow = sH - (sRange * 0.22); // Top 22% is Premium Zone (Strong Resistance)
-      const discHigh = sL + (sRange * 0.22); // Bottom 22% is Discount Zone (Weak Support)
-      const eqTolerance = sRange * 0.06; // Equilibrium tolerance band
-
-      // Market Regime Detector: RANGING/SIDEWAYS vs TRENDING EXPANSION
-      const emaSpread = Math.abs(ema20[i] - ema50[i]) / Math.max(cur.close, 1);
-      const isBreakoutBull = cur.close > sH;
-      const isBreakoutBear = cur.close < sL;
-      const isTrending = isBreakoutBull || isBreakoutBear || (emaSpread > 0.015);
-      const isRanging = !isTrending;
+      const premLow = sH - (sRange * 0.20); // Top 20% is Premium Zone (Strong Resistance)
+      const discHigh = sL + (sRange * 0.20); // Bottom 20% is Discount Zone (Weak Support)
+      const eqTolerance = sRange * 0.07; // Equilibrium tolerance band
 
       // Cooldown check (prevent rapid-fire consecutive flips within 2 bars)
       const barsSinceSignal = i - lastSignalIndex;
@@ -507,70 +496,34 @@ window.TrendTraderEngine = {
       let canBuy = false;
       let canSell = false;
 
-      if (isTrending) {
-        // ========================================================
-        // 1. TRENDING EXPANSION REGIME (Breakout / Strong Trend)
-        // ========================================================
-        // Ride the trend with the Trend Trader trailing line!
-        if (isFlipBull) {
-          canBuy = true;
-        } else if (isFlipBear) {
-          canSell = true;
-        }
-      } else if (isRanging) {
-        // ========================================================
-        // 2. RANGING / SIDEWAYS REGIME (SMC ZONE GATES ACTIVE)
-        // ========================================================
-        // Fades the extremes (Premium & Discount) and silences mid-range chop.
-
-        // --- SELL SETUPS IN A RANGE ---
-        if (activeTrade !== 'SELL' && canSignalAgain) {
-          // Setup A: Premium Zone Rejection (Top Ceiling)
-          const isAtPremium = (cur.high >= premLow || prev.high >= premLow);
-          const hasUpperRejection = (upperWickRatio >= 0.20) || (prevUpperWickRatio >= 0.20 && isBearCandle);
-          const macdDecelerating = isHistFalling || macdHist <= 0 || isMacdBearish;
-          const premiumSell = isAtPremium && (hasUpperRejection || isBearCandle) && macdDecelerating;
-
-          // Setup B: Equilibrium Rejection from below
-          const testedEqFromBelow = (cur.high >= sMid - eqTolerance && cur.close <= sMid);
-          const eqSell = testedEqFromBelow && (upperWickRatio >= 0.20 || isBearCandle) && isHistFalling;
-
-          // Setup C: Trailing line flip to downside ONLY in upper half of range
-          const flipSellInUpperHalf = isFlipBear && (cur.close > sMid - eqTolerance);
-
-          // STRICT FILTER: Selling is 100% FORBIDDEN near the Discount floor!
-          if ((premiumSell || eqSell || flipSellInUpperHalf) && (cur.close > discHigh)) {
-            canSell = true;
-          }
-        }
-
-        // --- BUY SETUPS IN A RANGE ---
-        if (activeTrade !== 'BUY' && canSignalAgain) {
-          // Setup A: Discount Zone Absorption (Bottom Floor)
-          const isAtDiscount = (cur.low <= discHigh || prev.low <= discHigh);
-          const hasLowerRejection = (lowerWickRatio >= 0.20) || (prevLowerWickRatio >= 0.20 && isBullCandle);
-          const macdAccelerating = isHistRising || macdHist >= 0 || isMacdBullish;
-          const discountBuy = isAtDiscount && (hasLowerRejection || isBullCandle) && macdAccelerating;
-
-          // Setup B: Equilibrium Bounce from above
-          const testedEqFromAbove = (cur.low <= sMid + eqTolerance && cur.close >= sMid);
-          const eqBuy = testedEqFromAbove && (lowerWickRatio >= 0.20 || isBullCandle) && isHistRising;
-
-          // Setup C: Trailing line flip to upside ONLY in lower half of range
-          const flipBuyInLowerHalf = isFlipBull && (cur.close < sMid + eqTolerance);
-
-          // STRICT FILTER: Buying is 100% FORBIDDEN near the Premium ceiling!
-          if ((discountBuy || eqBuy || flipBuyInLowerHalf) && (cur.close < premLow)) {
-            canBuy = true;
-          }
-        }
+      // ========================================================
+      // 1. PRIMARY ENGINE: TREND TRADER TRAILING LINE FLIPS
+      // ========================================================
+      // Whenever the trailing line steps in that direction, signal is guaranteed to print!
+      // - Line steps to UPSIDE below candles (isFlipBull) -> 🟢 BUY SIGNAL
+      // - Line steps to DOWNSIDE above candles (isFlipBear) -> 🔴 SELL SIGNAL
+      if (isFlipBull) {
+        canBuy = true;
+      } else if (isFlipBear) {
+        canSell = true;
       }
 
-      if (canBuy && canSell) {
-        if (cur.close >= sMid) {
-          canBuy = false;
-        } else {
-          canSell = false;
+      // ========================================================
+      // 2. SECONDARY SMC SNIPER REVERSALS (At Extremes)
+      // ========================================================
+      if (!canBuy && !canSell && canSignalAgain) {
+        // At Premium Zone with clear rejection pinbar while line is bearish
+        const isAtPremium = (cur.high >= premLow || prev.high >= premLow);
+        const hasUpperRejection = (upperWickRatio >= 0.28) || (prevUpperWickRatio >= 0.28 && isBearCandle);
+        if (isAtPremium && hasUpperRejection && isBearCandle && activeTrade !== 'SELL' && ttTrend === -1) {
+          canSell = true;
+        }
+
+        // At Discount Zone with clear absorption pinbar while line is bullish
+        const isAtDiscount = (cur.low <= discHigh || prev.low <= discHigh);
+        const hasLowerRejection = (lowerWickRatio >= 0.28) || (prevLowerWickRatio >= 0.28 && isBullCandle);
+        if (isAtDiscount && hasLowerRejection && isBullCandle && activeTrade !== 'BUY' && ttTrend === 1) {
+          canBuy = true;
         }
       }
 
@@ -960,12 +913,11 @@ window.TrendTraderEngine = {
     const prePerf = this.calculateDailySignalPerformance(candles, tags, psar);
     const markers = [];
 
-    // 1. Initial Signal Markers (BUY / SELL arrows) - STRICT FILTER: Exact Day Only (Today)
+    // 1. Initial Signal Markers (BUY / SELL arrows) across all candles
     for (let i = 0; i < candles.length; i++) {
       const tag = tags[i];
       if (tag !== 'BUY' && tag !== 'SELL') continue;
       const c = candles[i];
-      if (c.time < midnightSec) continue; // Only display signals for the exact current day
 
       if (tag === 'BUY') {
         markers.push({
@@ -988,13 +940,11 @@ window.TrendTraderEngine = {
       }
     }
 
-    // 2. Clean Progressive TP Milestones & SL Markers - STRICT FILTER: Exact Day Only (Today)
+    // 2. Clean Progressive TP Milestones & SL Markers across all candles
     if (prePerf && prePerf.evaluatedSignals) {
       for (const s of prePerf.evaluatedSignals) {
-        if (s.time < midnightSec) continue;
         if (s.tpEvents && s.tpEvents.length > 0) {
           for (const ev of s.tpEvents) {
-            if (ev.time < midnightSec) continue;
             if (ev.time === s.time) continue;
 
             const isTp = ev.level.startsWith('TP');
@@ -1411,9 +1361,6 @@ window.TrendTraderEngine = {
       if (tag !== 'BUY' && tag !== 'SELL') continue;
 
       const c = candles[i];
-      // STRICT FILTER: Only include signals from the EXACT CURRENT DAY (from 12:00:00 AM UTC midnight onward)
-      if (c.time < midnightSec) continue;
-
       const isBuy = (tag === 'BUY');
       const entryPrice = c.close;
 
@@ -1603,16 +1550,33 @@ window.TrendTraderEngine = {
       });
     }
 
-    // STRICT FILTER: Only build today's data (strictly the exact current day only)
-    const todayData = {
-      dateKey: todayDateKey,
-      dayName: todayDayName,
-      isToday: true,
-      buySignals: evaluatedSignals.filter(s => s.type === 'BUY'),
-      sellSignals: evaluatedSignals.filter(s => s.type === 'SELL')
-    };
+    // Group signals by day
+    const daysMap = {};
+    for (const s of evaluatedSignals) {
+      if (!daysMap[s.dateKey]) {
+        daysMap[s.dateKey] = {
+          dateKey: s.dateKey,
+          dayName: s.dayName,
+          isToday: (s.dateKey === todayDateKey),
+          buySignals: [],
+          sellSignals: []
+        };
+      }
+      if (s.type === 'BUY') daysMap[s.dateKey].buySignals.push(s);
+      if (s.type === 'SELL') daysMap[s.dateKey].sellSignals.push(s);
+    }
 
-    const sortedDays = [todayData];
+    if (!daysMap[todayDateKey]) {
+      daysMap[todayDateKey] = {
+        dateKey: todayDateKey,
+        dayName: todayDayName,
+        isToday: true,
+        buySignals: [],
+        sellSignals: []
+      };
+    }
+
+    const sortedDays = Object.values(daysMap).sort((a, b) => b.dateKey.localeCompare(a.dateKey));
 
     let totalNet12 = 0;
     let totalWins12 = 0;
