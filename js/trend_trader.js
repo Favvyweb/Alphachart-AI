@@ -2013,11 +2013,12 @@ window.TrendTraderEngine = {
     const label = document.getElementById('btn-toggle-smc-levels-text');
     if (!btn || !label) return;
 
-    label.innerText = 'SMC Zones';
     if (this.showSMCLevels) {
-      btn.className = 'px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-all flex items-center gap-1 bg-primary-container/10 border-primary-container/40 text-primary-container hover:bg-primary-container/20 whitespace-nowrap shrink-0 cursor-pointer';
+      label.innerText = 'SMC Zones: ON';
+      btn.className = 'px-2.5 py-0.5 rounded-lg text-[10px] font-semibold border transition-all flex items-center gap-1 bg-primary-container/10 border-primary-container/40 text-primary-container hover:bg-primary-container/20';
     } else {
-      btn.className = 'px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-all flex items-center gap-1 bg-[#000000] border-white/[0.08] text-on-surface-variant hover:border-white/20 hover:text-white whitespace-nowrap shrink-0 cursor-pointer';
+      label.innerText = 'SMC Zones: OFF';
+      btn.className = 'px-2.5 py-0.5 rounded-lg text-[10px] font-semibold border transition-all flex items-center gap-1 bg-[#000000] border-white/[0.08] text-on-surface-variant hover:border-white/20 hover:text-white';
     }
   },
 
