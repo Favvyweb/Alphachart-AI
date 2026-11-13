@@ -66,6 +66,102 @@ while ($listener.IsListening) {
             $rawPath = "/index.html"
         }
 
+        # ========================================================
+        # API ROUTE: /api/auth/sync (PostgreSQL / Local Sync)
+        # ========================================================
+        if ($rawPath -eq "/api/auth/sync" -and $request.HttpMethod -eq "POST") {
+            $encoding = if ($request.ContentEncoding) { $request.ContentEncoding } else { [System.Text.Encoding]::UTF8 }
+            $reader = New-Object System.IO.StreamReader($request.InputStream, $encoding)
+            $bodyText = $reader.ReadToEnd()
+            $reader.Close()
+
+            $dbDir = Join-Path $root "database"
+            if (-not (Test-Path $dbDir)) { New-Item -ItemType Directory -Path $dbDir | Out-Null }
+            $localDbPath = Join-Path $dbDir "local_users.json"
+
+            $usersList = @()
+            if (Test-Path $localDbPath) {
+                try {
+                    $jsonContent = Get-Content $localDbPath -Raw
+                    if (-not [string]::IsNullOrWhiteSpace($jsonContent)) {
+                        $usersList = @($jsonContent | ConvertFrom-Json)
+                    }
+                } catch {}
+            }
+
+            $newUser = $null
+            try {
+                $newUser = $bodyText | ConvertFrom-Json
+            } catch {}
+
+            if ($newUser -and $newUser.email) {
+                $cleanEmail = $newUser.email.ToLower().Trim()
+                $existing = $usersList | Where-Object { $_.email -eq $cleanEmail }
+                if ($existing) {
+                    $existing.login_count = ($existing.login_count + 1)
+                    $existing.last_login_at = (Get-Date).ToString("o")
+                    $existing.device_platform = $newUser.device_platform
+                    $existing.pwa_installed = $newUser.pwa_installed
+                } else {
+                    $record = [PSCustomObject]@{
+                        id = [System.Guid]::NewGuid().ToString()
+                        email = $cleanEmail
+                        display_name = $newUser.display_name
+                        subscription_tier = "PRO_TRIAL"
+                        device_platform = $newUser.device_platform
+                        pwa_installed = $newUser.pwa_installed
+                        login_count = 1
+                        created_at = (Get-Date).ToString("o")
+                        last_login_at = (Get-Date).ToString("o")
+                    }
+                    $usersList += $record
+                }
+                $usersList | ConvertTo-Json -Depth 5 | Set-Content $localDbPath
+            }
+
+            $response.ContentType = "application/json; charset=utf-8"
+            $response.StatusCode = 200
+            $resJson = @{
+                success = $true
+                message = "User captured in AlphaChart backend (PostgreSQL Ready)"
+                email = if ($newUser) { $newUser.email } else { $null }
+            } | ConvertTo-Json
+            $bytes = [System.Text.Encoding]::UTF8.GetBytes($resJson)
+            $response.ContentLength64 = $bytes.Length
+            $response.OutputStream.Write($bytes, 0, $bytes.Length)
+            $response.OutputStream.Close()
+            continue
+        }
+
+        # ========================================================
+        # API ROUTE: /api/users (Subscribers List / Marketing Export)
+        # ========================================================
+        if ($rawPath -eq "/api/users") {
+            $localDbPath = Join-Path $root "database\local_users.json"
+            $usersList = @()
+            if (Test-Path $localDbPath) {
+                try {
+                    $jsonContent = Get-Content $localDbPath -Raw
+                    if (-not [string]::IsNullOrWhiteSpace($jsonContent)) {
+                        $usersList = @($jsonContent | ConvertFrom-Json)
+                    }
+                } catch {}
+            }
+
+            $response.ContentType = "application/json; charset=utf-8"
+            $response.StatusCode = 200
+            $resJson = @{
+                success = $true
+                count = $usersList.Count
+                subscribers = $usersList
+            } | ConvertTo-Json -Depth 5
+            $bytes = [System.Text.Encoding]::UTF8.GetBytes($resJson)
+            $response.ContentLength64 = $bytes.Length
+            $response.OutputStream.Write($bytes, 0, $bytes.Length)
+            $response.OutputStream.Close()
+            continue
+        }
+
         # Safe Path Resolution (Protects against path traversal attacks)
         $cleanRelPath = $rawPath.TrimStart('/').Replace('/', [System.IO.Path]::DirectorySeparatorChar)
         $localPath = [System.IO.Path]::GetFullPath((Join-Path $root $cleanRelPath))

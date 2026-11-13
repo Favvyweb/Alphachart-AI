@@ -1,0 +1,22 @@
+{
+  "name": "alphachart-ai",
+  "version": "2.4.1",
+  "description": "AlphaChart AI - Institutional Technical Analysis, Signals & PWA Engine with PostgreSQL Backend",
+  "main": "index.html",
+  "scripts": {
+    "start": "powershell -ExecutionPolicy Bypass -NoProfile -File ./server.ps1"
+  },
+  "dependencies": {
+    "pg": "^8.11.3",
+    "@neondatabase/serverless": "^0.9.0"
+  },
+  "keywords": [
+    "trading",
+    "signals",
+    "pwa",
+    "postgresql",
+    "crypto"
+  ],
+  "author": "Favvyweb",
+  "license": "MIT"
+}

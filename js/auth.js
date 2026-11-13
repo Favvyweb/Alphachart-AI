@@ -31,6 +31,8 @@ window.AuthModule = {
         gateScreen.style.display = 'none';
       }
       this.updateProfileUI(email);
+      // Background heartbeat to PostgreSQL backend (updates last_login_at timestamp)
+      this.syncWithBackend(email);
       return true;
     } else {
       // User has not logged in yet on this phone: display sign-in gate
@@ -85,8 +87,52 @@ window.AuthModule = {
 
     this.updateProfileUI(email);
 
+    // Asynchronously synchronize user with PostgreSQL backend
+    this.syncWithBackend(email);
+
     if (window.App && window.App.showToast) {
       window.App.showToast(`Signed in as ${email} • Access Granted! 🚀`);
+    }
+  },
+
+  /**
+   * Asynchronously push subscriber intelligence to PostgreSQL backend
+   */
+  syncWithBackend: async function (email) {
+    if (!email || !email.includes('@')) return;
+    try {
+      const isPwa = Boolean(
+        window.matchMedia('(display-mode: standalone)').matches ||
+        window.navigator.standalone === true
+      );
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      const platform = /iPhone|iPad|iPod/i.test(navigator.userAgent)
+        ? 'iOS'
+        : /Android/i.test(navigator.userAgent)
+        ? 'Android'
+        : 'Desktop';
+
+      const payload = {
+        email: email.trim().toLowerCase(),
+        display_name: email.split('@')[0],
+        device_platform: `${platform}${isPwa ? ' (PWA)' : ' (Web)'}`,
+        pwa_installed: isPwa,
+        user_agent: navigator.userAgent
+      };
+
+      const res = await fetch('/api/auth/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        console.log('[AlphaChart Backend] PostgreSQL sync response:', data);
+      }
+    } catch (err) {
+      // Non-blocking background sync warning
+      console.warn('[AlphaChart Backend] Sync warning (offline or local server):', err);
     }
   },
 
@@ -200,3 +246,4 @@ window.AuthModule = {
 document.addEventListener('DOMContentLoaded', () => {
   window.AuthModule.init();
 });
+
