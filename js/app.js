@@ -7,8 +7,8 @@ window.App = {
 
   titles: {
     'signal-scanner': 'Signal Scanner',
+    'charts': 'Charts',
     'trading-journal': 'Trading Journal',
-    'market-news': 'Market News',
     'user-profile': 'User Profile'
   },
 
@@ -17,7 +17,6 @@ window.App = {
     this.bindTopEarnersModal();
     if (window.ScannerModule) window.ScannerModule.init();
     if (window.JournalModule) window.JournalModule.init();
-    if (window.NewsModule) window.NewsModule.init();
   },
 
   bindTopEarnersModal: function () {
@@ -102,6 +101,13 @@ window.App = {
         link.removeAttribute('aria-current');
       }
     });
+
+    // Trigger realtime chart render/refresh when navigating to Charts tab
+    if (path === 'charts' && window.ScannerModule && typeof window.ScannerModule.renderFullChart === 'function') {
+      setTimeout(() => {
+        window.ScannerModule.renderFullChart(window.ScannerModule.fullChartPair || 'BTC / USDT', window.ScannerModule.fullChartInterval || '5');
+      }, 50);
+    }
 
     window.scrollTo(0, 0);
   },

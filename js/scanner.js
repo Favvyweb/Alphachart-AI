@@ -199,10 +199,21 @@ window.ScannerModule = {
       });
     }
 
+    // Quick-select coin switcher chips on Charts page
+    document.querySelectorAll('.btn-chart-quick-coin').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const pair = btn.getAttribute('data-pair');
+        if (pair) {
+          self.fullChartPair = pair;
+          self.renderFullChart(pair, self.fullChartInterval);
+        }
+      });
+    });
+
     // Window Resize listener to keep TradingView chart sharp and auto-fitted
     window.addEventListener('resize', () => {
-      const modal = document.getElementById('full-chart-modal');
-      if (modal && !modal.classList.contains('hidden') && self.fullChartMode === 'ttr') {
+      if (window.App && window.App.activeTab === 'charts' && self.fullChartMode === 'ttr') {
         const mainBox = document.getElementById('tv-main-chart-container');
         const macdBox = document.getElementById('tv-macd-chart-container');
         if (window.TrendTraderEngine) {
@@ -355,6 +366,9 @@ window.ScannerModule = {
 
     this.lastAnalysisData = analysisData;
     this.activeChartImage = imageSrc;
+    if (analysisData && analysisData.pair && analysisData.pair !== 'UNKNOWN / CHART') {
+      this.fullChartPair = analysisData.pair;
+    }
 
     // Hide scanning animation and render full Technical Analysis results
     if (scanningView) scanningView.classList.add('hidden');
@@ -616,7 +630,7 @@ window.ScannerModule = {
   },
 
   /**
-   * Open full real-time interactive chart modal
+   * Open full real-time interactive chart (navigates to dedicated Charts tab)
    */
   openFullChartModal: function (customPair) {
     if (window.TrendTraderAlerts) {
@@ -624,12 +638,11 @@ window.ScannerModule = {
     }
 
     const coinInput = document.getElementById('res-coin-input');
-    const pair = customPair || (coinInput && coinInput.value ? coinInput.value.trim() : null) || (this.lastAnalysisData ? this.lastAnalysisData.pair : null) || 'BTC / USDT';
+    const pair = customPair || (coinInput && coinInput.value ? coinInput.value.trim() : null) || (this.lastAnalysisData ? this.lastAnalysisData.pair : null) || this.fullChartPair || 'BTC / USDT';
     this.fullChartPair = pair;
     if (!this.fullChartInterval) this.fullChartInterval = '5';
     if (!this.fullChartMode) this.fullChartMode = 'tv';
 
-    const modal = document.getElementById('full-chart-modal');
     const coinTitle = document.getElementById('full-chart-coin-title');
     const priceDisplay = document.getElementById('full-chart-price-display');
 
@@ -639,16 +652,9 @@ window.ScannerModule = {
       priceDisplay.innerText = `Real-time ${tfLabel} Candles • Live Streaming`;
     }
 
-    // Immediately activate dark loader before opening modal to guarantee zero white flash
-    const loader = document.getElementById('full-chart-loader');
-    if (loader) {
-      loader.style.opacity = '1';
-      loader.classList.remove('pointer-events-none');
-    }
-
-    if (modal) {
-      modal.classList.remove('hidden');
-      modal.classList.add('flex');
+    // Switch to dedicated Charts page
+    if (window.App && typeof window.App.navigateTo === 'function') {
+      window.App.navigateTo('charts');
     }
 
     // Render chart without any continuous reloading loop
@@ -656,13 +662,11 @@ window.ScannerModule = {
   },
 
   /**
-   * Close full real-time interactive chart modal
+   * Close / return from full real-time interactive chart
    */
   closeFullChartModal: function () {
-    const modal = document.getElementById('full-chart-modal');
-    if (modal) {
-      modal.classList.add('hidden');
-      modal.classList.remove('flex');
+    if (window.App && typeof window.App.navigateTo === 'function') {
+      window.App.navigateTo('signal-scanner');
     }
     if (this.livePollTimer) {
       clearInterval(this.livePollTimer);
@@ -759,6 +763,26 @@ window.ScannerModule = {
     const intv = interval || this.fullChartInterval || '5';
     this.fullChartPair = pair;
     this.fullChartInterval = intv;
+
+    // Highlight active quick coin chip
+    document.querySelectorAll('.btn-chart-quick-coin').forEach(btn => {
+      const p = btn.getAttribute('data-pair');
+      if (p === pair || (pair.startsWith('BTC') && p.startsWith('BTC')) || (pair.startsWith('ETH') && p.startsWith('ETH')) || (pair.startsWith('SOL') && p.startsWith('SOL')) || (pair.startsWith('AAVE') && p.startsWith('AAVE')) || (pair.startsWith('XRP') && p.startsWith('XRP')) || (pair.startsWith('DOGE') && p.startsWith('DOGE'))) {
+        btn.classList.add('bg-primary-container', 'text-black', 'border-primary-container');
+        btn.classList.remove('bg-[#1c1c1e]', 'text-white', 'border-white/10');
+      } else {
+        btn.classList.remove('bg-primary-container', 'text-black', 'border-primary-container');
+        btn.classList.add('bg-[#1c1c1e]', 'text-white', 'border-white/10');
+      }
+    });
+
+    const coinTitle = document.getElementById('full-chart-coin-title');
+    const priceDisplay = document.getElementById('full-chart-price-display');
+    if (coinTitle) coinTitle.innerText = pair;
+    if (priceDisplay) {
+      const tfLabel = intv === '5' ? '5-Minute' : intv === '15' ? '15-Minute' : '1-Hour';
+      priceDisplay.innerText = `Real-time ${tfLabel} Candles • Live Streaming`;
+    }
 
     this.updateTimeframeButtonsUI(intv);
     this.updateModeTabsUI();
