@@ -82,8 +82,8 @@ window.TrendTraderEngine = {
     }
 
     const endpoints = [
-      `https://data-api.binance.vision/api/v3/klines?symbol=${cleanSymbol}&interval=${binanceInterval}&limit=500`,
-      `https://api.binance.com/api/v3/klines?symbol=${cleanSymbol}&interval=${binanceInterval}&limit=500`
+      `https://data-api.binance.vision/api/v3/klines?symbol=${cleanSymbol}&interval=${binanceInterval}&limit=1000`,
+      `https://api.binance.com/api/v3/klines?symbol=${cleanSymbol}&interval=${binanceInterval}&limit=1000`
     ];
 
     // Fast parallel fetch: query endpoints simultaneously with a 3.5s timeout. Fastest wins!
@@ -434,9 +434,12 @@ window.TrendTraderEngine = {
       const prev = candles[i - 1];
       const prev2 = i >= 2 ? candles[i - 2] : prev;
 
-      // Session reset at midnight UTC: anchor fresh for today's trading session
-      if (cur.time >= midnightSec && prev.time < midnightSec) {
+      // Session reset at each calendar day midnight UTC (00:00:00 UTC) so each day evaluates deterministically
+      const curDayNum = Math.floor(cur.time / 86400);
+      const prevDayNum = Math.floor(prev.time / 86400);
+      if (curDayNum !== prevDayNum) {
         activeTrade = null;
+        lastSignalIndex = -999;
       }
 
       const ttTrend = (trendTrader.trend && trendTrader.trend[i] !== undefined) ? trendTrader.trend[i] : -1;
@@ -1726,13 +1729,49 @@ window.TrendTraderEngine = {
       };
     }
 
-    const sortedDays = Object.values(daysMap).sort((a, b) => b.dateKey.localeCompare(a.dateKey));
+    // Persist and lock completed past days (strictly before today) so historical records are 100% immutable
+    const symKey = (this.currentPair || 'BTCUSDT').replace(/[\s\-_/]/g, '').toUpperCase();
+    const tfKey = this.currentTimeframe || '5m';
+    const lockedDaysStorageKey = `alphachart_locked_days_v4_${symKey}_${tfKey}`;
+    let lockedDays = {};
+    try {
+      const raw = localStorage.getItem(lockedDaysStorageKey);
+      if (raw) lockedDays = JSON.parse(raw);
+    } catch (e) { }
+
+    for (const dateKey of Object.keys(daysMap)) {
+      if (dateKey < todayDateKey) {
+        const totalDaySignals = daysMap[dateKey].buySignals.length + daysMap[dateKey].sellSignals.length;
+        if (!lockedDays[dateKey] && totalDaySignals > 0) {
+          lockedDays[dateKey] = daysMap[dateKey];
+        } else if (lockedDays[dateKey]) {
+          daysMap[dateKey] = lockedDays[dateKey];
+        }
+      }
+    }
+
+    try {
+      localStorage.setItem(lockedDaysStorageKey, JSON.stringify(lockedDays));
+    } catch (e) { }
+
+    const allSortedDays = Object.values(daysMap).sort((a, b) => b.dateKey.localeCompare(a.dateKey));
+
+    // Strictly show the active relevant trading days: Today (Live) and Yesterday (Completed)
+    const sortedDays = allSortedDays.slice(0, 2);
+
+    // Build the finalized list of evaluated signals matching the displayed days
+    const displayedSignals = [];
+    for (const day of sortedDays) {
+      if (day.buySignals) displayedSignals.push(...day.buySignals);
+      if (day.sellSignals) displayedSignals.push(...day.sellSignals);
+    }
+    displayedSignals.sort((a, b) => a.time - b.time);
 
     let totalNet12 = 0;
     let totalWins12 = 0;
     let totalTrades = 0;
 
-    for (const s of evaluatedSignals) {
+    for (const s of displayedSignals) {
       totalTrades++;
       totalNet12 += s.pnl;
       if (s.outcome === 'win') totalWins12++;
@@ -1748,7 +1787,7 @@ window.TrendTraderEngine = {
       localStorage.removeItem('alphachart_daily_signals_history_v2');
     } catch (e) { }
 
-    return { sortedDays, totalNet12, totalTrades, winRate, todayDayName, evaluatedSignals };
+    return { sortedDays, totalNet12, totalTrades, winRate, todayDayName, evaluatedSignals: displayedSignals };
   },
 
   /**
