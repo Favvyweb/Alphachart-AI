@@ -606,12 +606,12 @@ window.ScannerModule = {
     const toggleBtn = document.getElementById('btn-toggle-phone-alerts');
 
     if (statusLabel) {
-      statusLabel.innerText = isEnabled ? 'Phone Alerts: ACTIVE 🔔' : 'Phone Alerts: OFF';
+      statusLabel.innerText = 'Alert';
     }
     if (toggleBtn) {
       toggleBtn.className = isEnabled
-        ? 'px-3 py-1 rounded-lg text-[11px] font-bold border transition-all flex items-center gap-1.5 bg-primary-container/20 border-primary-container text-primary-container shadow-[0_0_12px_rgba(0,255,136,0.3)]'
-        : 'px-3 py-1 rounded-lg text-[11px] font-bold border transition-all flex items-center gap-1.5 bg-black/60 border-white/10 text-on-surface-variant hover:border-primary-container hover:text-white';
+        ? 'px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all flex items-center gap-1 bg-primary-container/20 border-primary-container text-primary-container shadow-[0_0_12px_rgba(0,255,136,0.3)] whitespace-nowrap shrink-0'
+        : 'px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all flex items-center gap-1 bg-black/60 border-white/10 text-on-surface-variant hover:border-primary-container hover:text-white whitespace-nowrap shrink-0';
     }
   },
 
