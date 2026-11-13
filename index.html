@@ -40,6 +40,10 @@
       color-scheme: dark !important;
       border: none !important;
     }
+
+    .mobile-top-safe {
+      padding-top: max(calc(env(safe-area-inset-top, 0px) + 18px), 56px) !important;
+    }
   </style>
 
   <!-- Google Fonts & Material Symbols -->
@@ -193,16 +197,17 @@
   <div class="mobile-app-wrapper">
 
     <!-- Main Content Container (No Fixed Obstructing Header) -->
-    <main class="flex-1 pt-safe pt-4 pb-28 px-4 w-full">
+    <main class="flex-1 mobile-top-safe pb-28 px-4 w-full">
 
       <!-- ================= PAGE 1: SIGNAL SCANNER (HOME SCREEN) ================= -->
       <div id="page-signal-scanner" class="tab-page active">
 
         <!-- Top In-Flow Brand & User Status Row -->
-        <div class="flex items-center justify-between pt-1 mb-3">
+        <div class="flex items-center justify-between mb-4">
           <div class="flex items-center gap-1.5">
             <span class="material-symbols-outlined text-primary-container text-[20px]">show_chart</span>
-            <span class="font-bold text-xs uppercase tracking-wider text-primary-container font-mono">AlphaChart AI</span>
+            <span class="font-bold text-xs uppercase tracking-wider text-primary-container font-mono">AlphaChart
+              AI</span>
           </div>
           <div class="flex items-center gap-1.5">
             <div id="header-user-pill"
