@@ -9,7 +9,36 @@
   <meta name="description"
     content="Get instant AI-powered technical analysis for your crypto, forex, and stock trades, 24/7.">
   <link rel="manifest" href="/manifest.json">
-  <meta name="theme-color" content="#00ff88">
+  <meta name="theme-color" content="#080a0f">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="AlphaChart">
+  <link rel="icon" type="image/svg+xml" href="/icons/icon.svg">
+  <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <link rel="shortcut icon" href="/favicon.png">
+
+  <!-- Immediate Critical Dark Canvas Styles (Prevents ANY white flash before CSS/JS loads) -->
+  <style>
+    html, body {
+      background-color: #06070a !important;
+      color: #ffffff !important;
+      color-scheme: dark !important;
+    }
+    #full-chart-modal,
+    #full-chart-tv-container,
+    #full-chart-tv-container iframe,
+    #view-tv-embed,
+    #view-ttr-engine,
+    #tv-main-chart-container,
+    #tv-macd-chart-container,
+    iframe[id^="tradingview_"],
+    iframe {
+      background-color: #080a0f !important;
+      color-scheme: dark !important;
+      border: none !important;
+    }
+  </style>
 
   <!-- Google Fonts & Material Symbols -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1087,11 +1116,21 @@
         <!-- Realtime Interactive Chart Container -->
         <div class="flex-1 w-full relative bg-[#000000] overflow-hidden flex flex-col">
 
-          <!-- Loader Overlay -->
+          <!-- Smooth Obsidian Chart Loader Overlay (Zero White Flash) -->
           <div id="full-chart-loader"
-            class="absolute inset-0 flex items-center justify-center bg-black/90 gap-2 z-20 transition-opacity duration-300 pointer-events-none opacity-0">
-            <span class="material-symbols-outlined text-primary-container animate-spin text-[24px]">autorenew</span>
-            <span class="text-xs font-mono text-on-surface-variant">Connecting Live TradingView Feeds...</span>
+            class="absolute inset-0 flex flex-col items-center justify-center bg-[#080a0f] gap-3 z-30 transition-opacity duration-300 pointer-events-none opacity-0 select-none">
+            <div class="relative w-12 h-12 flex items-center justify-center">
+              <div class="absolute inset-0 rounded-full border-2 border-primary-container/20 animate-ping"></div>
+              <div class="w-10 h-10 rounded-full border-2 border-t-primary-container border-r-primary-container/30 border-b-transparent border-l-transparent animate-spin"></div>
+              <span class="material-symbols-outlined text-primary-container text-[20px] absolute">candlestick_chart</span>
+            </div>
+            <div class="flex flex-col items-center gap-1">
+              <span class="text-xs font-mono font-bold text-white tracking-wide">AlphaChart Live Engine</span>
+              <span class="text-[11px] font-mono text-on-surface-variant flex items-center gap-1.5">
+                <span class="w-1.5 h-1.5 rounded-full bg-primary-container animate-pulse"></span>
+                Connecting High-Speed Feeds...
+              </span>
+            </div>
           </div>
 
           <!-- VIEW 1: Native TradingView Chart Engine with Trend Trader Reversals + MACD Sub-Chart -->

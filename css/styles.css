@@ -391,3 +391,33 @@ button:active,
 #ttr-compact-table-overlay tbody tr:hover {
   background-color: rgba(255, 255, 255, 0.04);
 }
+
+/* ========================================================
+   Obsidian Zero-White-Flash Chart Loader & Embed Container
+   ======================================================== */
+#full-chart-tv-container,
+#full-chart-tv-container iframe,
+#view-tv-embed,
+#view-ttr-engine,
+#tv-main-chart-container,
+#tv-macd-chart-container,
+iframe[id^="tradingview_"],
+iframe {
+  background-color: #080a0f !important;
+  color-scheme: dark !important;
+  border: 0 !important;
+}
+
+#full-chart-tv-container {
+  background: #080a0f;
+  position: relative;
+  overflow: hidden;
+}
+
+#full-chart-loader {
+  transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.25s;
+}
+
+#full-chart-tv-container iframe {
+  transition: opacity 0.25s ease-out;
+}

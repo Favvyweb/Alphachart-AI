@@ -1,21 +1,80 @@
 {
+  "id": "/?source=pwa",
   "name": "AlphaChart AI - Scalp Trading Engine",
   "short_name": "AlphaChart",
-  "start_url": "/",
+  "description": "Institutional AI Technical Analysis, Real-time Trailing Line Signals & Scalping Notifications",
+  "start_url": "/?mode=standalone",
+  "scope": "/",
   "display": "standalone",
+  "display_override": [
+    "standalone",
+    "minimal-ui",
+    "window-controls-overlay"
+  ],
+  "orientation": "any",
   "background_color": "#080a0f",
-  "theme_color": "#00ff88",
+  "theme_color": "#080a0f",
+  "categories": [
+    "finance",
+    "productivity",
+    "utilities"
+  ],
   "icons": [
     {
-      "src": "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=192&auto=format&fit=crop",
+      "src": "/icons/icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
-      "src": "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=512&auto=format&fit=crop",
+      "src": "/icons/icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Trend Trader Chart",
+      "short_name": "Signals",
+      "description": "Live BUY/SELL Trailing Line Signals",
+      "url": "/",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Trading Journal",
+      "short_name": "Journal",
+      "description": "View logged trades and analytics",
+      "url": "/#journal",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
     }
   ]
 }
-

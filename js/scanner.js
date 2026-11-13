@@ -639,6 +639,13 @@ window.ScannerModule = {
       priceDisplay.innerText = `Real-time ${tfLabel} Candles • Live Streaming`;
     }
 
+    // Immediately activate dark loader before opening modal to guarantee zero white flash
+    const loader = document.getElementById('full-chart-loader');
+    if (loader) {
+      loader.style.opacity = '1';
+      loader.classList.remove('pointer-events-none');
+    }
+
     if (modal) {
       modal.classList.remove('hidden');
       modal.classList.add('flex');
@@ -848,7 +855,7 @@ window.ScannerModule = {
       }
 
     } else {
-      // FULL TRADINGVIEW TOOLS & INTERFACE MODE (Native Realtime WebSockets - ZERO Reloads)
+      // FULL TRADINGVIEW TOOLS & INTERFACE MODE (Native Realtime WebSockets - ZERO White Flash)
       if (viewTTR) viewTTR.classList.add('hidden');
       if (viewTV) viewTV.classList.remove('hidden');
 
@@ -861,13 +868,19 @@ window.ScannerModule = {
       if (this.currentTvSymbol === tvSymbol && this.currentTvInterval === intv && tvContainer.children.length > 0) {
         if (loader) {
           loader.style.opacity = '0';
-          loader.classList.add('pointer-events-none');
+          setTimeout(() => loader.classList.add('pointer-events-none'), 250);
         }
         return;
       }
 
       this.currentTvSymbol = tvSymbol;
       this.currentTvInterval = intv;
+
+      // Keep dark loader active so no unpainted white canvas is ever visible
+      if (loader) {
+        loader.style.opacity = '1';
+        loader.classList.remove('pointer-events-none');
+      }
 
       tvContainer.innerHTML = '';
 
@@ -886,6 +899,14 @@ window.ScannerModule = {
           hide_side_toolbar: false, // Full Left Drawing Toolbar: Lines, Fibs, Text, Ruler, Brush, etc.
           allow_symbol_change: true, // Search and switch any crypto or forex pair directly
           save_image: true,
+          loading_screen: {
+            backgroundColor: "#080a0f",
+            foregroundColor: "#00ff88"
+          },
+          overrides: {
+            "paneProperties.background": "#080a0f",
+            "paneProperties.backgroundType": "solid"
+          },
           studies: [
             "MACD@tv-basicstudies",
             "MASimple@tv-basicstudies"
@@ -898,13 +919,45 @@ window.ScannerModule = {
         });
       }
 
-      // Hide loader quickly once widget initializes
-      if (loader) {
-        setTimeout(() => {
+      // Smooth loader fade-out once iframe is styled and paints
+      let loaderFinished = false;
+      const finishLoader = () => {
+        if (loaderFinished) return;
+        loaderFinished = true;
+        if (loader) {
           loader.style.opacity = '0';
-          loader.classList.add('pointer-events-none');
-        }, 350);
+          setTimeout(() => loader.classList.add('pointer-events-none'), 250);
+        }
+      };
+
+      const setupIframe = (iframe) => {
+        if (!iframe) return;
+        iframe.style.backgroundColor = '#080a0f';
+        iframe.style.colorScheme = 'dark';
+        iframe.setAttribute('allowtransparency', 'true');
+        iframe.addEventListener('load', () => {
+          setTimeout(finishLoader, 150);
+        }, { once: true });
+      };
+
+      const existingIframe = tvContainer.querySelector('iframe');
+      if (existingIframe) {
+        setupIframe(existingIframe);
       }
+
+      const tvObserver = new MutationObserver(() => {
+        const iframe = tvContainer.querySelector('iframe');
+        if (iframe) {
+          setupIframe(iframe);
+        }
+      });
+      tvObserver.observe(tvContainer, { childList: true, subtree: true });
+
+      // Guaranteed safety timeout (1200ms) so user is never blocked
+      setTimeout(() => {
+        tvObserver.disconnect();
+        finishLoader();
+      }, 1200);
     }
   }
 };
