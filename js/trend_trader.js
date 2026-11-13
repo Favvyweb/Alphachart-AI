@@ -2124,8 +2124,6 @@ window.TrendTraderEngine = {
 window.TrendTraderAlerts = {
   STORAGE_KEY: 'alphachart_alerts_active',
   HISTORY_KEY: 'alphachart_signal_history_v1',
-  TG_TOKEN_KEY: 'alphachart_tg_bot_token',
-  TG_CHAT_ID_KEY: 'alphachart_tg_chat_id',
   audioCtx: null,
   _bgWs: null,
   _bgPair: 'AAVE / USDT',
@@ -2159,8 +2157,6 @@ window.TrendTraderAlerts = {
         console.warn('Service worker registration note:', err);
       });
     }
-
-    this.initTelegramModal();
 
     if (this.isAlertsEnabled()) {
       const defaultPair = (window.TrendTraderEngine && window.TrendTraderEngine.currentPair) || 'AAVE / USDT';
@@ -2330,60 +2326,12 @@ window.TrendTraderAlerts = {
       }
     }
 
-    // Direct Telegram Phone Alert
-    this.sendTelegramAlert(signal);
-
     if (window.App && typeof window.App.showToast === 'function') {
       window.App.showToast(`🚨 ${signal.type} SIGNAL on ${signal.pair} at $${entryPrice.toFixed(2)}! Confirmed on candle close.`);
     }
 
     if (window.TrendTraderEngine && typeof window.TrendTraderEngine.showInstantSignalBanner === 'function') {
       window.TrendTraderEngine.showInstantSignalBanner(signal);
-    }
-  },
-
-  sendTelegramAlert: async function (signal) {
-    const token = localStorage.getItem(this.TG_TOKEN_KEY);
-    const chatId = localStorage.getItem(this.TG_CHAT_ID_KEY);
-    if (!token || !chatId) return;
-
-    const isBuy = signal.type === 'BUY';
-    const entryPrice = typeof signal.price === 'number' ? signal.price : parseFloat(signal.price) || 0;
-    const emoji = isBuy ? '🟢' : '🔴';
-    const action = isBuy ? 'BUY / LONG' : 'SELL / SHORT';
-    const tp1P = signal.tp1 ? signal.tp1.toFixed(2) : (entryPrice * (isBuy ? 1.002 : 0.998)).toFixed(2);
-    const tp2P = signal.tp2 ? signal.tp2.toFixed(2) : (entryPrice * (isBuy ? 1.010 : 0.990)).toFixed(2);
-    const tp3P = signal.tp3 ? signal.tp3.toFixed(2) : (entryPrice * (isBuy ? 1.030 : 0.970)).toFixed(2);
-    const slP = signal.sl ? signal.sl.toFixed(2) : (entryPrice * (isBuy ? 0.995 : 1.005)).toFixed(2);
-
-    const message = `
-${emoji} *ALPHACHART AI: ${action} CONFIRMED*
-━━━━━━━━━━━━━━━━━━
-📊 *Asset:* \`${signal.pair}\`
-⏱ *Timeframe:* \`${signal.timeframe}\`
-💵 *Entry Price:* \`$${entryPrice.toFixed(2)}\` *(Candle Closed)*
-━━━━━━━━━━━━━━━━━━
-🎯 *TP1 (+2%):* \`$${tp1P}\`
-🎯 *TP2 (+10%):* \`$${tp2P}\`
-🎯 *TP3 (+30%):* \`$${tp3P}\`
-🛑 *SL (-5%):* \`$${slP}\`
-━━━━━━━━━━━━━━━━━━
-⚡ *Trend Trader Stop Line Confirmed*
-📱 *Sent instantly to your phone*
-    `.trim();
-
-    try {
-      await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: chatId,
-          text: message,
-          parse_mode: 'Markdown'
-        })
-      });
-    } catch (e) {
-      console.warn('Telegram phone alert note:', e);
     }
   },
 
@@ -2515,100 +2463,6 @@ ${emoji} *ALPHACHART AI: ${action} CONFIRMED*
       sl: sl,
       notes: `Test Instant Signal Alert: Confirmed on ${type} candle close!`
     });
-  },
-
-  initTelegramModal: function () {
-    const openBtn = document.getElementById('btn-open-telegram-modal');
-    const closeBtn = document.getElementById('btn-close-telegram-modal');
-    const backdrop = document.getElementById('telegram-modal-backdrop');
-    const modal = document.getElementById('telegram-alerts-modal');
-    const tokenInput = document.getElementById('input-tg-bot-token');
-    const chatIdInput = document.getElementById('input-tg-chat-id');
-    const saveBtn = document.getElementById('btn-save-tg-alert');
-    const testBtn = document.getElementById('btn-test-tg-alert');
-    const label = document.getElementById('telegram-alerts-btn-label');
-
-    const hasConfig = !!(localStorage.getItem(this.TG_TOKEN_KEY) && localStorage.getItem(this.TG_CHAT_ID_KEY));
-    if (label && hasConfig) {
-      label.innerText = 'Telegram: ON 📱';
-    }
-
-    if (openBtn && modal) {
-      openBtn.onclick = () => {
-        if (tokenInput) tokenInput.value = localStorage.getItem(this.TG_TOKEN_KEY) || '';
-        if (chatIdInput) chatIdInput.value = localStorage.getItem(this.TG_CHAT_ID_KEY) || '';
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
-      };
-    }
-
-    const closeModal = () => {
-      if (modal) {
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
-      }
-    };
-    if (closeBtn) closeBtn.onclick = closeModal;
-    if (backdrop) backdrop.onclick = closeModal;
-
-    if (saveBtn) {
-      saveBtn.onclick = () => {
-        const token = tokenInput ? tokenInput.value.trim() : '';
-        const chatId = chatIdInput ? chatIdInput.value.trim() : '';
-        if (token && chatId) {
-          localStorage.setItem(this.TG_TOKEN_KEY, token);
-          localStorage.setItem(this.TG_CHAT_ID_KEY, chatId);
-          if (label) label.innerText = 'Telegram: ON 📱';
-          if (window.App) window.App.showToast('✅ Telegram Phone Alerts activated successfully!');
-          closeModal();
-        } else {
-          localStorage.removeItem(this.TG_TOKEN_KEY);
-          localStorage.removeItem(this.TG_CHAT_ID_KEY);
-          if (label) label.innerText = 'Telegram Phone 📱';
-          if (window.App) window.App.showToast('Telegram alerts removed');
-          closeModal();
-        }
-      };
-    }
-
-    if (testBtn) {
-      testBtn.onclick = async () => {
-        const token = tokenInput ? tokenInput.value.trim() : '';
-        const chatId = chatIdInput ? chatIdInput.value.trim() : '';
-        if (!token || !chatId) {
-          alert('Please enter your Telegram Bot Token and Chat ID first!');
-          return;
-        }
-        testBtn.disabled = true;
-        testBtn.innerText = 'Sending...';
-
-        const pair = (window.TrendTraderEngine && window.TrendTraderEngine.currentPair) || 'AAVE / USDT';
-        const tf = (window.TrendTraderEngine && window.TrendTraderEngine.currentTimeframe) || '5m';
-
-        try {
-          const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              chat_id: chatId,
-              text: `🟢 *ALPHACHART AI TEST ALERT*\n━━━━━━━━━━━━━━━━━━\n✅ Instant Signal Notifications are ACTIVE on your phone!\n*Asset:* \`${pair}\` (${tf})\n*Entry:* \`$119.10\`\n*TP1:* \`$119.34\` | *SL:* \`$118.50\``,
-              parse_mode: 'Markdown'
-            })
-          });
-          const json = await res.json();
-          if (json.ok) {
-            alert('🎉 Test alert sent to your Telegram phone successfully!');
-          } else {
-            alert(`Telegram API error: ${json.description || 'Check token and chat ID'}`);
-          }
-        } catch (err) {
-          alert(`Network error connecting to Telegram: ${err.message}`);
-        } finally {
-          testBtn.disabled = false;
-          testBtn.innerHTML = '<span class="material-symbols-outlined text-[15px] text-[#38bdf8]">notifications_active</span><span>Send Test to Phone</span>';
-        }
-      };
-    }
   }
 };
 
