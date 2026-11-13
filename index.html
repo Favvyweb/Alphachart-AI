@@ -192,31 +192,29 @@
   <!-- Outer Mobile App Wrapper -->
   <div class="mobile-app-wrapper">
 
-    <!-- Header bar (Fixed Top) -->
-    <header class="fixed top-0 max-w-[430px] w-full z-40 ios-nav-header pt-safe left-1/2 -translate-x-1/2">
-      <div class="h-14 px-4 flex items-center justify-between">
-        <div class="flex items-center gap-2">
-          <span class="material-symbols-outlined text-primary-container text-[22px]">show_chart</span>
-          <span id="app-header-title" class="font-bold text-base text-white tracking-tight">AlphaChart AI</span>
-        </div>
-        <div class="flex items-center gap-2">
-          <div id="header-user-pill"
-            class="hidden px-2 py-0.5 rounded-full bg-white/[0.06] border border-white/[0.1] flex items-center gap-1.5 text-[9px] font-mono text-on-surface-variant truncate max-w-[120px]">
-          </div>
-          <span
-            class="px-2 py-0.5 rounded-full bg-primary-container/15 text-primary-container font-mono font-semibold text-[10px] uppercase border border-primary-container/25">PRO</span>
-        </div>
-      </div>
-    </header>
-
-    <!-- Main Content Container -->
-    <main class="flex-1 pt-20 pb-28 px-4 w-full">
+    <!-- Main Content Container (No Fixed Obstructing Header) -->
+    <main class="flex-1 pt-safe pt-4 pb-28 px-4 w-full">
 
       <!-- ================= PAGE 1: SIGNAL SCANNER (HOME SCREEN) ================= -->
       <div id="page-signal-scanner" class="tab-page active">
 
+        <!-- Top In-Flow Brand & User Status Row -->
+        <div class="flex items-center justify-between pt-1 mb-3">
+          <div class="flex items-center gap-1.5">
+            <span class="material-symbols-outlined text-primary-container text-[20px]">show_chart</span>
+            <span class="font-bold text-xs uppercase tracking-wider text-primary-container font-mono">AlphaChart AI</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <div id="header-user-pill"
+              class="hidden px-2 py-0.5 rounded-full bg-white/[0.06] border border-white/[0.1] flex items-center gap-1.5 text-[9px] font-mono text-on-surface-variant truncate max-w-[120px]">
+            </div>
+            <span
+              class="px-2 py-0.5 rounded-full bg-primary-container/15 text-primary-container font-mono font-semibold text-[10px] uppercase border border-primary-container/25">PRO</span>
+          </div>
+        </div>
+
         <!-- Header Text -->
-        <div class="mb-6 pt-1">
+        <div class="mb-5">
           <h1 class="text-[28px] font-bold text-white tracking-tight leading-tight mb-1">
             AlphaChart AI</h1>
           <p class="text-[14px] text-on-surface-variant leading-snug">Real-time technical analysis & signals for crypto
