@@ -1110,73 +1110,77 @@
 
         <!-- Modal Top Bar -->
         <div
-          class="flex items-center justify-between px-3 sm:px-4 py-2.5 border-b border-white/[0.08] bg-[#121214] shrink-0 gap-2">
-          <div class="flex items-center gap-2.5 min-w-0">
+          class="flex flex-wrap sm:flex-nowrap items-center justify-between px-3 sm:px-4 py-2 sm:py-2.5 border-b border-white/[0.08] bg-[#121214] shrink-0 gap-y-2 gap-x-2">
+          
+          <!-- Coin info (Order 1 on mobile, Order 1 on desktop) -->
+          <div class="order-1 flex items-center gap-2 min-w-0 max-w-[calc(100%-44px)] sm:max-w-none">
             <div
-              class="w-8 h-8 rounded-xl bg-primary-container/15 border border-primary-container/20 flex items-center justify-center shrink-0 text-primary-container">
-              <span class="material-symbols-outlined text-[18px]">candlestick_chart</span>
+              class="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-primary-container/15 border border-primary-container/20 flex items-center justify-center shrink-0 text-primary-container">
+              <span class="material-symbols-outlined text-[16px] sm:text-[18px]">candlestick_chart</span>
             </div>
             <div class="min-w-0">
               <div class="flex items-center gap-1.5">
-                <h3 id="full-chart-coin-title" class="font-bold text-sm text-white truncate">BTC / USDT</h3>
+                <h3 id="full-chart-coin-title" class="font-bold text-xs sm:text-sm text-white truncate">BTC / USDT</h3>
                 <span class="w-1.5 h-1.5 rounded-full bg-primary-container animate-ping shrink-0"></span>
                 <span class="text-[9px] font-mono font-bold text-primary-container uppercase hidden sm:inline">Live
                   Engine</span>
               </div>
-              <p id="full-chart-price-display" class="text-[11px] font-mono text-[#38bdf8] font-semibold truncate">
+              <p id="full-chart-price-display" class="text-[10px] sm:text-[11px] font-mono text-[#38bdf8] font-semibold truncate">
                 Real-time Candles & Signals</p>
             </div>
           </div>
 
-          <!-- Mode Tabs + Timeframe Controls + Close -->
-          <div class="flex items-center gap-1.5 shrink-0">
+          <!-- Close Button: Order 2 on mobile (top right!), Order 3 on desktop (far right!) -->
+          <button id="full-chart-close-btn" type="button"
+            class="order-2 sm:order-3 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#2c2c2e] hover:bg-[#3a3a3c] flex items-center justify-center text-white transition-all shrink-0 active:scale-90 cursor-pointer ml-auto sm:ml-0"
+            title="Close Full Chart">
+            <span class="material-symbols-outlined text-[16px] sm:text-[18px]">close</span>
+          </button>
+
+          <!-- Mode Tabs + Timeframe Controls: Order 3 on mobile (full width row 2!), Order 2 on desktop (middle/right!) -->
+          <div class="order-3 sm:order-2 flex items-center justify-between sm:justify-end gap-1.5 w-full sm:w-auto shrink-0">
             <!-- Engine View Tabs -->
             <div class="flex items-center bg-[#000000] p-0.5 rounded-xl border border-white/[0.08] text-xs">
               <button id="full-chart-tab-tv" type="button"
-                class="px-2 py-1 rounded-lg font-semibold transition-all bg-primary-container text-black shadow-sm flex items-center gap-1 text-[11px]">
-                <span class="material-symbols-outlined text-[14px]">public</span>
-                <span>Full TV Tools</span>
+                class="px-2 sm:px-2.5 py-1 rounded-lg font-semibold transition-all bg-primary-container text-black shadow-sm flex items-center gap-1 text-[10px] sm:text-[11px] whitespace-nowrap cursor-pointer">
+                <span class="material-symbols-outlined text-[13px] sm:text-[14px]">public</span>
+                <span>TV Tools</span>
               </button>
               <button id="full-chart-tab-ttr" type="button"
-                class="px-2 py-1 rounded-lg font-semibold transition-all text-on-surface-variant hover:text-white flex items-center gap-1 text-[11px]">
-                <span class="material-symbols-outlined text-[14px]">bolt</span>
+                class="px-2 sm:px-2.5 py-1 rounded-lg font-semibold transition-all text-on-surface-variant hover:text-white flex items-center gap-1 text-[10px] sm:text-[11px] whitespace-nowrap cursor-pointer">
+                <span class="material-symbols-outlined text-[13px] sm:text-[14px]">bolt</span>
                 <span>Trend Trader</span>
               </button>
             </div>
 
             <!-- Timeframe Controls: Strictly 5min, 15min & 1hour -->
-            <div class="flex items-center bg-[#000000] p-0.5 rounded-xl border border-white/[0.08]">
+            <div class="flex items-center bg-[#000000] p-0.5 rounded-xl border border-white/[0.08] shrink-0">
               <button id="full-chart-tf-5m" type="button"
-                class="px-2 py-1 rounded-lg text-[11px] font-mono font-bold transition-all bg-primary-container text-black shadow-sm">
+                class="px-2.5 py-1 rounded-lg text-[10px] sm:text-[11px] font-mono font-bold transition-all bg-primary-container text-black shadow-sm cursor-pointer">
                 5m
               </button>
               <button id="full-chart-tf-15m" type="button"
-                class="px-2 py-1 rounded-lg text-[11px] font-mono font-bold transition-all text-on-surface-variant hover:text-white">
+                class="px-2.5 py-1 rounded-lg text-[10px] sm:text-[11px] font-mono font-bold transition-all text-on-surface-variant hover:text-white cursor-pointer">
                 15m
               </button>
               <button id="full-chart-tf-1h" type="button"
-                class="px-2 py-1 rounded-lg text-[11px] font-mono font-bold transition-all text-on-surface-variant hover:text-white">
+                class="px-2.5 py-1 rounded-lg text-[10px] sm:text-[11px] font-mono font-bold transition-all text-on-surface-variant hover:text-white cursor-pointer">
                 1h
               </button>
             </div>
-
-            <button id="full-chart-close-btn" type="button"
-              class="w-7 h-7 rounded-full bg-[#2c2c2e] flex items-center justify-center text-white hover:bg-[#3a3a3c] transition-all shrink-0 active:scale-90">
-              <span class="material-symbols-outlined text-[16px]">close</span>
-            </button>
           </div>
         </div>
 
         <!-- Signal & Alert Sub-Bar: Signal Tag Status, MACD Status & Phone Alerts Toggle -->
         <div
           class="px-3 sm:px-4 py-1.5 bg-[#18181b] border-b border-white/[0.06] flex items-center justify-between gap-2 shrink-0 flex-wrap text-xs">
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-2 min-w-0 max-w-full">
             <span id="ttr-signal-status-badge"
-              class="px-2 py-0.5 rounded-md bg-primary-container/15 border border-primary-container/30 text-primary-container font-semibold text-[10px] flex items-center gap-1">
-              <span class="w-1.5 h-1.5 rounded-full bg-primary-container animate-pulse"></span>
-              <span id="ttr-signal-status-text">Scanning Trend Trader Reversals...</span>
+              class="px-2 py-0.5 rounded-md bg-primary-container/15 border border-primary-container/30 text-primary-container font-semibold text-[10px] sm:text-[11px] flex items-center gap-1 max-w-full min-w-0 overflow-hidden">
+              <span class="w-1.5 h-1.5 rounded-full bg-primary-container animate-pulse shrink-0"></span>
+              <span id="ttr-signal-status-text" class="truncate">Scanning Trend Trader Reversals...</span>
             </span>
-            <span id="ttr-macd-status-text" class="text-[10px] font-mono text-on-surface-variant hidden sm:inline">
+            <span id="ttr-macd-status-text" class="text-[10px] font-mono text-on-surface-variant hidden sm:inline shrink-0">
               MACD: Calculating...
             </span>
           </div>
