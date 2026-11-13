@@ -1,10 +1,11 @@
 // AlphaChart AI - Institutional PWA Service Worker (Mobile & Desktop)
-const CACHE_NAME = 'alphachart-pwa-v3';
+const CACHE_NAME = 'alphachart-pwa-v4';
 const PRECACHE_ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
   '/css/styles.css',
+  '/js/auth.js',
   '/js/app.js',
   '/js/trend_trader.js',
   '/js/scanner.js',
