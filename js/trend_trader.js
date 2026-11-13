@@ -1144,7 +1144,63 @@ window.TrendTraderEngine = {
       } catch (e) { }
     }
 
-    // 2. CANDLE CLOSE EVENT: Triggered immediately when that very first candle closes!
+    // 2. Real-time Live Price Check for Active Trade TP1, TP2 & SL hits
+    if (this.lastPerformance && this.lastPerformance.evaluatedSignals && this.lastPerformance.evaluatedSignals.length > 0) {
+      const activeTrade = this.lastPerformance.evaluatedSignals[this.lastPerformance.evaluatedSignals.length - 1];
+      if (activeTrade && (activeTrade.reason === 'In Play' || activeTrade.outcome === 'active' || !activeTrade.tpEvents?.some(e => e.level === 'SL'))) {
+        const isBuy = activeTrade.type === 'BUY';
+        const entry = activeTrade.entryPrice;
+        const highRoe = isBuy ? ((candle.high - entry) / entry) * 1000 : ((entry - candle.low) / entry) * 1000;
+        const lowRoe = isBuy ? ((candle.low - entry) / entry) * 1000 : ((entry - candle.high) / entry) * 1000;
+
+        if (!this._notifiedTpSlKeys) this._notifiedTpSlKeys = new Set();
+        const tp1Key = `${symbol}_${activeTrade.time}_TP1`;
+        const tp2Key = `${symbol}_${activeTrade.time}_TP2`;
+        const slKey = `${symbol}_${activeTrade.time}_SL`;
+        const displayPair = this.currentPair || `${symbol.toUpperCase().replace('USDT', ' / USDT')}`;
+
+        if (highRoe >= 2.0 && !this._notifiedTpSlKeys.has(tp1Key)) {
+          this._notifiedTpSlKeys.add(tp1Key);
+          const p = {
+            type: 'TP1',
+            pair: displayPair,
+            price: isBuy ? (entry * 1.002) : (entry * 0.998),
+            timeframe: this.currentTimeframe || '5m',
+            direction: activeTrade.type,
+            pnl: 10.06
+          };
+          if (window.TrendTraderAlerts) window.TrendTraderAlerts.sendNotification(p);
+        }
+
+        if (highRoe >= 10.0 && !this._notifiedTpSlKeys.has(tp2Key)) {
+          this._notifiedTpSlKeys.add(tp2Key);
+          const p = {
+            type: 'TP2',
+            pair: displayPair,
+            price: isBuy ? (entry * 1.010) : (entry * 0.990),
+            timeframe: this.currentTimeframe || '5m',
+            direction: activeTrade.type,
+            pnl: 30.30
+          };
+          if (window.TrendTraderAlerts) window.TrendTraderAlerts.sendNotification(p);
+        }
+
+        if (lowRoe <= -5.0 && !this._notifiedTpSlKeys.has(slKey) && !this._notifiedTpSlKeys.has(tp1Key)) {
+          this._notifiedTpSlKeys.add(slKey);
+          const p = {
+            type: 'SL',
+            pair: displayPair,
+            price: isBuy ? (entry * 0.995) : (entry * 1.005),
+            timeframe: this.currentTimeframe || '5m',
+            direction: activeTrade.type,
+            pnl: -5.00
+          };
+          if (window.TrendTraderAlerts) window.TrendTraderAlerts.sendNotification(p);
+        }
+      }
+    }
+
+    // 3. CANDLE CLOSE EVENT: Triggered immediately when that very first candle closes!
     if (k.x === true) {
       this.onCandleClosed(symbol, interval, candle);
     }
@@ -1213,7 +1269,7 @@ window.TrendTraderEngine = {
     this.updateStatusHeader(analysis);
 
     // ========================================================
-    // INSTANT NOTIFICATION TRIGGER (First closed candle!):
+    // 1. INSTANT BUY / SELL NOTIFICATION (On Candle Close):
     // ========================================================
     const signalTag = analysis.tags[lastIdx];
     if (signalTag === 'BUY' || signalTag === 'SELL') {
@@ -1242,13 +1298,47 @@ window.TrendTraderEngine = {
           notes: `Instant Alert: ${signalTag} confirmed on candle close! Entry: $${entryPrice.toFixed(2)}`
         };
 
-        // 1. Native Push Notification + Web Audio Chime + Mobile Vibration
         if (window.TrendTraderAlerts) {
           window.TrendTraderAlerts.sendNotification(signalPayload);
         }
-
-        // 2. High-Visibility On-Screen Alert Banner
         this.showInstantSignalBanner(signalPayload);
+      }
+    }
+
+    // ========================================================
+    // 2. INSTANT TP1, TP2 & SL NOTIFICATION (On Candle Close):
+    // ========================================================
+    if (this.lastPerformance && this.lastPerformance.evaluatedSignals) {
+      for (const s of this.lastPerformance.evaluatedSignals) {
+        if (s.tpEvents && s.tpEvents.length > 0) {
+          for (const ev of s.tpEvents) {
+            if (ev.time === candle.time) {
+              const eventKey = `${symbol}_${interval}_${s.time}_${ev.level}`;
+              if (!this._notifiedTpSlKeys) this._notifiedTpSlKeys = new Set();
+              if (!this._notifiedTpSlKeys.has(eventKey)) {
+                this._notifiedTpSlKeys.add(eventKey);
+
+                const displayPair = this.currentPair || `${symbol.toUpperCase().replace('USDT', ' / USDT')}`;
+                const eventPayload = {
+                  type: ev.level, // 'TP1', 'TP2', or 'SL'
+                  pair: displayPair,
+                  price: candle.close,
+                  timeframe: interval,
+                  candleTime: candle.time,
+                  direction: s.type,
+                  entryPrice: s.entryPrice,
+                  exitPrice: s.exitPrice,
+                  pnl: (ev.level === 'TP1' ? 10.06 : (ev.level === 'TP2' ? 30.30 : (ev.level === 'SL' ? -5.00 : s.pnl)))
+                };
+
+                if (window.TrendTraderAlerts) {
+                  window.TrendTraderAlerts.sendNotification(eventPayload);
+                }
+                this.showInstantSignalBanner(eventPayload);
+              }
+            }
+          }
+        }
       }
     }
   },
@@ -1259,9 +1349,47 @@ window.TrendTraderEngine = {
   showInstantSignalBanner: function (signal) {
     if (!signal) return;
     const isBuy = signal.type === 'BUY';
-    const accentColor = isBuy ? '#00ff88' : '#ff3366';
-    const bgGlow = isBuy ? 'rgba(0, 255, 136, 0.15)' : 'rgba(255, 51, 102, 0.15)';
-    const borderColor = isBuy ? 'rgba(0, 255, 136, 0.6)' : 'rgba(255, 51, 102, 0.6)';
+    const isSell = signal.type === 'SELL';
+    const isTp1 = signal.type === 'TP1';
+    const isTp2 = signal.type === 'TP2';
+    const isSl = signal.type === 'SL';
+
+    let accentColor = '#00ff88';
+    let bgGlow = 'rgba(0, 255, 136, 0.15)';
+    let borderColor = 'rgba(0, 255, 136, 0.6)';
+    let bannerTitle = '🟢 INSTANT BUY CONFIRMED';
+    let bannerIcon = 'arrow_upward';
+    let subHeader = 'Candle Closed';
+
+    if (isSell) {
+      accentColor = '#ff3366';
+      bgGlow = 'rgba(255, 51, 102, 0.15)';
+      borderColor = 'rgba(255, 51, 102, 0.6)';
+      bannerTitle = '🔴 INSTANT SELL CONFIRMED';
+      bannerIcon = 'arrow_downward';
+      subHeader = 'Candle Closed';
+    } else if (isTp1) {
+      accentColor = '#a855f7';
+      bgGlow = 'rgba(168, 85, 247, 0.2)';
+      borderColor = 'rgba(168, 85, 247, 0.7)';
+      bannerTitle = '🎯 TAKE PROFIT 1 HIT (+2%)';
+      bannerIcon = 'task_alt';
+      subHeader = 'Milestone Secured';
+    } else if (isTp2) {
+      accentColor = '#c084fc';
+      bgGlow = 'rgba(192, 132, 252, 0.25)';
+      borderColor = 'rgba(192, 132, 252, 0.8)';
+      bannerTitle = '🎯🎯 TAKE PROFIT 2 HIT (+10%)';
+      bannerIcon = 'stars';
+      subHeader = 'Runner Achieved';
+    } else if (isSl) {
+      accentColor = '#ff453a';
+      bgGlow = 'rgba(255, 69, 58, 0.2)';
+      borderColor = 'rgba(255, 69, 58, 0.7)';
+      bannerTitle = '🛑 STOP LOSS TRIGGERED (-5%)';
+      bannerIcon = 'gpp_bad';
+      subHeader = 'Safety Cut';
+    }
 
     let banner = document.getElementById('instant-signal-alert-banner');
     if (!banner) {
@@ -1275,38 +1403,60 @@ window.TrendTraderEngine = {
     banner.style.borderColor = borderColor;
     banner.style.boxShadow = `0 10px 40px -10px ${bgGlow}, 0 0 25px ${bgGlow}`;
 
+    let bottomRowHtml = '';
+    if (isTp1 || isTp2 || isSl) {
+      const pnlText = isSl
+        ? `-$${Math.abs(signal.pnl || 5.00).toFixed(2)} (-5%)`
+        : `+$${(signal.pnl || (isTp1 ? 10.06 : 30.30)).toFixed(2)} (${isTp1 ? '+2%' : '+10%'})`;
+      const pnlBg = isSl ? 'bg-error/20 text-error border-error/30' : 'bg-primary-container/20 text-primary-container border-primary-container/30';
+      bottomRowHtml = `
+        <div class="flex items-center gap-2 mt-2 text-[10px] font-mono">
+          <span class="px-2 py-0.5 rounded ${pnlBg} font-bold border">
+            ${isSl ? 'Loss' : 'Profit'}: ${pnlText}
+          </span>
+          <span class="px-2 py-0.5 rounded bg-white/10 text-white/80 border border-white/10">
+            Price: $${(signal.price || signal.exitPrice || 0).toFixed(2)}
+          </span>
+        </div>
+      `;
+    } else {
+      bottomRowHtml = `
+        <div class="flex items-center gap-2 mt-2 text-[10px] font-mono">
+          <span class="px-1.5 py-0.5 rounded bg-primary-container/20 text-primary-container border border-primary-container/30">
+            TP1: $${signal.tp1 ? signal.tp1.toFixed(2) : (signal.price * (isBuy ? 1.002 : 0.998)).toFixed(2)} (+2%)
+          </span>
+          <span class="px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30">
+            TP2: $${signal.tp2 ? signal.tp2.toFixed(2) : (signal.price * (isBuy ? 1.010 : 0.990)).toFixed(2)} (+10%)
+          </span>
+          <span class="px-1.5 py-0.5 rounded bg-error/20 text-error border border-error/30">
+            SL: $${signal.sl ? signal.sl.toFixed(2) : (signal.price * (isBuy ? 0.995 : 1.005)).toFixed(2)} (-5%)
+          </span>
+        </div>
+      `;
+    }
+
     banner.innerHTML = `
       <div class="flex items-start gap-3">
         <div class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style="background: ${bgGlow}; border: 1px solid ${borderColor};">
           <span class="material-symbols-outlined text-[22px] animate-bounce" style="color: ${accentColor};">
-            ${isBuy ? 'arrow_upward' : 'arrow_downward'}
+            ${bannerIcon}
           </span>
         </div>
         <div class="flex-1 min-w-0">
           <div class="flex items-center justify-between gap-2">
-            <div class="flex items-center gap-1.5">
-              <span class="w-2 h-2 rounded-full animate-ping" style="background: ${accentColor};"></span>
-              <span class="text-xs font-black tracking-wider uppercase" style="color: ${accentColor};">
-                ${isBuy ? '🟢 INSTANT BUY CONFIRMED' : '🔴 INSTANT SELL CONFIRMED'}
+            <div class="flex items-center gap-1.5 min-w-0">
+              <span class="w-2 h-2 rounded-full animate-ping shrink-0" style="background: ${accentColor};"></span>
+              <span class="text-xs font-black tracking-wider uppercase truncate" style="color: ${accentColor};">
+                ${bannerTitle}
               </span>
             </div>
-            <span class="text-[10px] text-white/50 font-mono">Candle Closed</span>
+            <span class="text-[10px] text-white/50 font-mono shrink-0">${subHeader}</span>
           </div>
           <div class="text-sm font-bold text-white mt-0.5 truncate">
-            ${signal.pair} • <span class="font-mono">$${signal.price.toFixed(2)}</span>
-            <span class="text-[10px] px-1.5 py-0.2 rounded font-mono ml-1 bg-white/10 text-white/80">${signal.timeframe}</span>
+            ${signal.pair} • <span class="font-mono">$${(signal.price || 0).toFixed(2)}</span>
+            <span class="text-[10px] px-1.5 py-0.2 rounded font-mono ml-1 bg-white/10 text-white/80">${signal.timeframe || '5m'}</span>
           </div>
-          <div class="flex items-center gap-2 mt-2 text-[10px] font-mono">
-            <span class="px-1.5 py-0.5 rounded bg-primary-container/20 text-primary-container border border-primary-container/30">
-              TP1: $${signal.tp1 ? signal.tp1.toFixed(2) : (signal.price * (isBuy ? 1.002 : 0.998)).toFixed(2)} (+2%)
-            </span>
-            <span class="px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30">
-              TP2: $${signal.tp2 ? signal.tp2.toFixed(2) : (signal.price * (isBuy ? 1.010 : 0.990)).toFixed(2)} (+10%)
-            </span>
-            <span class="px-1.5 py-0.5 rounded bg-error/20 text-error border border-error/30">
-              SL: $${signal.sl ? signal.sl.toFixed(2) : (signal.price * (isBuy ? 0.995 : 1.005)).toFixed(2)} (-5%)
-            </span>
-          </div>
+          ${bottomRowHtml}
         </div>
         <button type="button" class="text-white/40 hover:text-white transition-colors p-1" onclick="event.stopPropagation(); this.closest('#instant-signal-alert-banner').remove();">
           <span class="material-symbols-outlined text-[16px]">close</span>
@@ -2254,8 +2404,40 @@ window.TrendTraderAlerts = {
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
         osc.start(now);
         osc.stop(now + 0.55);
+      } else if (signalType === 'TP1') {
+        // Double energetic profit chime (1046.5Hz -> 1318.5Hz -> 1567.98Hz - C6-E6-G6)
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(1046.5, now);
+        osc.frequency.exponentialRampToValueAtTime(1318.5, now + 0.10);
+        osc.frequency.exponentialRampToValueAtTime(1567.98, now + 0.25);
+
+        gain.gain.setValueAtTime(0.40, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.65);
+        osc.start(now);
+        osc.stop(now + 0.65);
+      } else if (signalType === 'TP2') {
+        // Triumphant triple ascending victory chord (1046.5Hz -> 1318.5Hz -> 2093Hz - C6-E6-C7)
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(1046.5, now);
+        osc.frequency.exponentialRampToValueAtTime(1318.5, now + 0.12);
+        osc.frequency.exponentialRampToValueAtTime(2093.0, now + 0.30);
+
+        gain.gain.setValueAtTime(0.45, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.85);
+        osc.start(now);
+        osc.stop(now + 0.85);
+      } else if (signalType === 'SL') {
+        // Deep cautionary cut-loss tone (329.63Hz -> 220Hz - E4 to A3)
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(329.63, now);
+        osc.frequency.exponentialRampToValueAtTime(220.0, now + 0.35);
+
+        gain.gain.setValueAtTime(0.30, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.70);
+        osc.start(now);
+        osc.stop(now + 0.70);
       } else {
-        // Deep descending warning chime (587Hz -> 293Hz)
+        // Deep descending warning chime for SELL (587.33Hz -> 293.66Hz)
         osc.type = 'triangle';
         osc.frequency.setValueAtTime(587.33, now);
         osc.frequency.exponentialRampToValueAtTime(293.66, now + 0.25);
@@ -2270,10 +2452,20 @@ window.TrendTraderAlerts = {
     }
   },
 
-  vibrate: function () {
+  vibrate: function (signalType) {
     if ('navigator' in window && 'vibrate' in navigator) {
       try {
-        navigator.vibrate([250, 100, 250, 100, 350]);
+        if (signalType === 'TP2') {
+          navigator.vibrate([150, 70, 150, 70, 350]);
+        } else if (signalType === 'TP1') {
+          navigator.vibrate([180, 80, 240]);
+        } else if (signalType === 'SL') {
+          navigator.vibrate([400, 120, 400]);
+        } else if (signalType === 'SELL') {
+          navigator.vibrate([300, 100, 300, 100, 300]);
+        } else {
+          navigator.vibrate([250, 100, 250]);
+        }
       } catch (e) { }
     }
   },
@@ -2281,24 +2473,50 @@ window.TrendTraderAlerts = {
   sendNotification: function (signal) {
     if (!signal) return;
     this.playAlertSound(signal.type);
-    this.vibrate();
+    this.vibrate(signal.type);
     this.saveSignalToHistory(signal);
 
-    const isBuy = signal.type === 'BUY';
     const entryPrice = typeof signal.price === 'number' ? signal.price : parseFloat(signal.price) || 0;
-    const tp1Text = signal.tp1 ? `$${signal.tp1.toFixed(2)} (+2%)` : `$${(entryPrice * (isBuy ? 1.002 : 0.998)).toFixed(2)} (+2%)`;
-    const tp2Text = signal.tp2 ? `$${signal.tp2.toFixed(2)} (+10%)` : `$${(entryPrice * (isBuy ? 1.010 : 0.990)).toFixed(2)} (+10%)`;
-    const tp3Text = signal.tp3 ? `$${signal.tp3.toFixed(2)} (+30%)` : `$${(entryPrice * (isBuy ? 1.030 : 0.970)).toFixed(2)} (+30%)`;
-    const slText = signal.sl ? `$${signal.sl.toFixed(2)} (-5%)` : `$${(entryPrice * (isBuy ? 0.995 : 1.005)).toFixed(2)} (-5%)`;
+    let title = '';
+    let body = '';
+    let toastMsg = '';
 
-    const title = `${isBuy ? '🟢 BUY SIGNAL CONFIRMED' : '🔴 SELL SIGNAL CONFIRMED'}: ${signal.pair}`;
-    const body = `Trend Trader Stop flipped ${isBuy ? 'BULLISH' : 'BEARISH'}! Entry: $${entryPrice.toFixed(2)} (${signal.timeframe}).\n🎯 TP1: ${tp1Text} | TP2: ${tp2Text} | TP3: ${tp3Text}\n🛑 SL: ${slText}\nCandle closed & verified!`;
+    if (signal.type === 'BUY') {
+      const tp1Text = signal.tp1 ? `$${signal.tp1.toFixed(2)} (+2%)` : `$${(entryPrice * 1.002).toFixed(2)} (+2%)`;
+      const tp2Text = signal.tp2 ? `$${signal.tp2.toFixed(2)} (+10%)` : `$${(entryPrice * 1.010).toFixed(2)} (+10%)`;
+      const slText = signal.sl ? `$${signal.sl.toFixed(2)} (-5%)` : `$${(entryPrice * 0.995).toFixed(2)} (-5%)`;
+      title = `🟢 BUY SIGNAL CONFIRMED: ${signal.pair}`;
+      body = `Trend Trader Stop flipped BULLISH! Entry: $${entryPrice.toFixed(2)} (${signal.timeframe || '5m'}).\n🎯 TP1: ${tp1Text} | TP2: ${tp2Text}\n🛑 SL: ${slText}\nCandle closed & verified!`;
+      toastMsg = `🚨 BUY SIGNAL on ${signal.pair} at $${entryPrice.toFixed(2)}! Confirmed on candle close.`;
+    } else if (signal.type === 'SELL') {
+      const tp1Text = signal.tp1 ? `$${signal.tp1.toFixed(2)} (+2%)` : `$${(entryPrice * 0.998).toFixed(2)} (+2%)`;
+      const tp2Text = signal.tp2 ? `$${signal.tp2.toFixed(2)} (+10%)` : `$${(entryPrice * 0.990).toFixed(2)} (+10%)`;
+      const slText = signal.sl ? `$${signal.sl.toFixed(2)} (-5%)` : `$${(entryPrice * 1.005).toFixed(2)} (-5%)`;
+      title = `🔴 SELL SIGNAL CONFIRMED: ${signal.pair}`;
+      body = `Trend Trader Stop flipped BEARISH! Entry: $${entryPrice.toFixed(2)} (${signal.timeframe || '5m'}).\n🎯 TP1: ${tp1Text} | TP2: ${tp2Text}\n🛑 SL: ${slText}\nCandle closed & verified!`;
+      toastMsg = `🚨 SELL SIGNAL on ${signal.pair} at $${entryPrice.toFixed(2)}! Confirmed on candle close.`;
+    } else if (signal.type === 'TP1') {
+      const profit = signal.pnl ? `+$${signal.pnl.toFixed(2)}` : '+$10.06';
+      title = `🎯 TP1 HIT (+2%): ${signal.pair}`;
+      body = `Take Profit 1 achieved at $${entryPrice.toFixed(2)} (+2.0% gain)! Profit: ${profit}. First target secured!`;
+      toastMsg = `🎯 TP1 HIT on ${signal.pair} at $${entryPrice.toFixed(2)}! Profit: ${profit} (+2%)`;
+    } else if (signal.type === 'TP2') {
+      const profit = signal.pnl ? `+$${signal.pnl.toFixed(2)}` : '+$30.30';
+      title = `🎯🎯 TP2 HIT (+10%): ${signal.pair}`;
+      body = `Take Profit 2 achieved at $${entryPrice.toFixed(2)} (+10.0% gain)! Profit: ${profit}. Super runner secured!`;
+      toastMsg = `🎯🎯 TP2 HIT on ${signal.pair} at $${entryPrice.toFixed(2)}! Profit: ${profit} (+10%)`;
+    } else if (signal.type === 'SL') {
+      const loss = signal.pnl ? `-$${Math.abs(signal.pnl).toFixed(2)}` : '-$5.00';
+      title = `🛑 STOP LOSS HIT (-5%): ${signal.pair}`;
+      body = `Stop Loss reached at $${entryPrice.toFixed(2)} (-5.0% loss). PnL: ${loss}. Capital protection exit executed.`;
+      toastMsg = `🛑 STOP LOSS HIT on ${signal.pair} at $${entryPrice.toFixed(2)} (${loss})`;
+    }
 
     const notificationOptions = {
       body: body,
-      icon: 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=128&auto=format&fit=crop',
-      badge: 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=128&auto=format&fit=crop',
-      tag: `signal-${signal.pair}-${Date.now()}`,
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-192.png',
+      tag: `signal-${signal.pair}-${signal.type}-${Date.now()}`,
       vibrate: [300, 100, 300, 100, 400],
       requireInteraction: true,
       data: {
@@ -2326,8 +2544,8 @@ window.TrendTraderAlerts = {
       }
     }
 
-    if (window.App && typeof window.App.showToast === 'function') {
-      window.App.showToast(`🚨 ${signal.type} SIGNAL on ${signal.pair} at $${entryPrice.toFixed(2)}! Confirmed on candle close.`);
+    if (window.App && typeof window.App.showToast === 'function' && toastMsg) {
+      window.App.showToast(toastMsg);
     }
 
     if (window.TrendTraderEngine && typeof window.TrendTraderEngine.showInstantSignalBanner === 'function') {
@@ -2426,42 +2644,68 @@ window.TrendTraderAlerts = {
     }
   },
 
+  _testCycle: ['BUY', 'TP1', 'TP2', 'SELL', 'SL'],
+  _testIndex: 0,
+
   /**
-   * Test BUY and SELL alerts interchangeably with sound, vibration, banner & push notification!
+   * Test BUY, TP1, TP2, SELL, and SL alerts with unique audio chimes, phone vibration, banners & push notifications!
    */
   testAlert: function (forcedType) {
-    const type = forcedType || (this._lastTestType === 'BUY' ? 'SELL' : 'BUY');
-    this._lastTestType = type;
+    const type = forcedType || this._testCycle[this._testIndex % this._testCycle.length];
+    this._testIndex++;
 
-    const pair = (window.TrendTraderEngine && window.TrendTraderEngine.currentPair) || (window.ScannerModule && window.ScannerModule.fullChartPair) || 'AAVE / USDT';
-    const tf = (window.TrendTraderEngine && window.TrendTraderEngine.currentTimeframe) || (window.ScannerModule && window.ScannerModule.fullChartInterval ? `${window.ScannerModule.fullChartInterval}m` : '5m');
+    const pair = (window.TrendTraderEngine && window.TrendTraderEngine.currentPair) ||
+      (window.ScannerModule && window.ScannerModule.fullChartPair) || 'BTC / USDT';
+    const tf = (window.TrendTraderEngine && window.TrendTraderEngine.currentTimeframe) ||
+      (window.ScannerModule && window.ScannerModule.fullChartInterval ? `${window.ScannerModule.fullChartInterval}m` : '5m');
 
-    const entry = type === 'BUY' ? 119.10 : 118.66;
-    const isBuy = type === 'BUY';
-    const tp1 = isBuy ? entry * 1.002 : entry * 0.998;
-    const tp2 = isBuy ? entry * 1.010 : entry * 0.990;
-    const tp3 = isBuy ? entry * 1.030 : entry * 0.970;
-    const sl = isBuy ? entry * 0.995 : entry * 1.005;
+    const entry = 119.10;
+    const isBuy = type === 'BUY' || type === 'TP1' || type === 'TP2';
+    const tp1 = isBuy ? (entry * 1.002) : (entry * 0.998);
+    const tp2 = isBuy ? (entry * 1.010) : (entry * 0.990);
+    const tp3 = isBuy ? (entry * 1.030) : (entry * 0.970);
+    const sl = isBuy ? (entry * 0.995) : (entry * 1.005);
 
-    // Update button text to inform user which signal was just tested
+    let testPrice = entry;
+    let pnl = 0;
+    if (type === 'TP1') {
+      testPrice = tp1;
+      pnl = 10.06;
+    } else if (type === 'TP2') {
+      testPrice = tp2;
+      pnl = 30.30;
+    } else if (type === 'SL') {
+      testPrice = sl;
+      pnl = -5.00;
+    }
+
     const btnText = document.getElementById('test-alert-btn-text');
     if (btnText) {
-      btnText.innerText = `Test: ${type} ✓`;
+      const typeIcons = {
+        BUY: 'BUY 🟢',
+        TP1: 'TP1 🎯',
+        TP2: 'TP2 🎯🎯',
+        SELL: 'SELL 🔴',
+        SL: 'SL 🛑'
+      };
+      btnText.innerText = `Testing: ${typeIcons[type] || type}`;
       setTimeout(() => {
-        if (btnText) btnText.innerText = 'Test (BUY/SELL)';
-      }, 3000);
+        if (btnText) btnText.innerText = 'Test Alert';
+      }, 3500);
     }
 
     this.sendNotification({
       type: type,
       pair: pair,
-      price: entry,
+      price: testPrice,
       timeframe: tf,
       tp1: tp1,
       tp2: tp2,
       tp3: tp3,
       sl: sl,
-      notes: `Test Instant Signal Alert: Confirmed on ${type} candle close!`
+      pnl: pnl,
+      direction: isBuy ? 'BUY' : 'SELL',
+      notes: `Test Instant Signal Alert: Confirmed ${type} demonstration!`
     });
   }
 };
