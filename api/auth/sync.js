@@ -16,7 +16,15 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const { email, display_name, device_platform, pwa_installed, user_agent } = req.body || {};
+    let body = req.body;
+    if (typeof body === 'string') {
+      try {
+        body = JSON.parse(body);
+      } catch (err) {
+        // Fallback: continue with string or raw body
+      }
+    }
+    const { email, display_name, device_platform, pwa_installed, user_agent } = body || {};
 
     if (!email || !email.includes('@')) {
       return res.status(400).json({ error: 'Invalid email address provided.' });
