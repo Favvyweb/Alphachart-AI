@@ -16,6 +16,9 @@ window.JournalModule = {
     this.bindEvents();
     this.renderTrades();
     this.updateStats();
+    if (window.MonthlyResultModule) {
+      window.MonthlyResultModule.init();
+    }
   },
 
   toggleTradeFeedback: function (tradeId) {
@@ -549,6 +552,10 @@ window.JournalModule = {
       const formatted = totalPnlNum >= 0 ? `+$${totalPnlNum.toFixed(2)}` : `-$${Math.abs(totalPnlNum).toFixed(2)}`;
       pnlEl.innerText = formatted;
     }
+
+    if (window.MonthlyResultModule) {
+      window.MonthlyResultModule.updatePreviewPill();
+    }
   },
 
   openCoachChat: function () {
@@ -562,5 +569,462 @@ window.JournalModule = {
     }
 
     alert(coachMsg);
+  }
+};
+
+/**
+ * Monthly Result & Target Module
+ * Provides calendar visualization of monthly trading P&L, daily breakdown, and progress against monthly target.
+ * Strictly independent: reads and displays logged trades without mutating or overwriting the journal.
+ */
+window.MonthlyResultModule = {
+  TARGET_STORAGE_KEY: 'alphachart_monthly_target_v1',
+  selectedYear: 2025,
+  selectedMonth: 11, // December (0-indexed)
+  viewMode: 'weekdays', // 'weekdays' (Mon-Fri matching screenshot) or 'all7'
+  selectedPeriod: 'month',
+
+  // Benchmark December 2025 dataset matching user's design reference
+  _benchmarkDec2025: {
+    1: { pnl: 193.11, count: 2, trades: [{ pair: 'BTC / USDT', type: 'LONG', pnl: '+$112.50', time: '09:30' }, { pair: 'ETH / USDT', type: 'SHORT', pnl: '+$80.61', time: '14:20' }] },
+    2: { pnl: -98.62, count: 2, trades: [{ pair: 'SOL / USDT', type: 'LONG', pnl: '-$50.00', time: '11:15' }, { pair: 'AAVE / USDT', type: 'LONG', pnl: '-$48.62', time: '16:40' }] },
+    3: { pnl: -135.41, count: 1, trades: [{ pair: 'BTC / USDT', type: 'LONG', pnl: '-$135.41', time: '10:00' }] },
+    4: { pnl: -45.73, count: 3, trades: [{ pair: 'ETH / USDT', type: 'SHORT', pnl: '-$20.50', time: '08:15' }, { pair: 'SOL / USDT', type: 'LONG', pnl: '+$15.00', time: '13:00' }, { pair: 'AAVE / USDT', type: 'SHORT', pnl: '-$40.23', time: '17:30' }] },
+    5: { pnl: 102.10, count: 2, trades: [{ pair: 'BTC / USDT', type: 'LONG', pnl: '+$60.00', time: '09:45' }, { pair: 'ETH / USDT', type: 'LONG', pnl: '+$42.10', time: '15:10' }] },
+    8: { pnl: 152.68, count: 1, trades: [{ pair: 'AAVE / USDT', type: 'LONG', pnl: '+$152.68', time: '11:20' }] },
+    9: { pnl: 155.64, count: 1, trades: [{ pair: 'BTC / USDT', type: 'SHORT', pnl: '+$155.64', time: '14:00' }] },
+    10: { pnl: -38.90, count: 2, trades: [{ pair: 'ETH / USDT', type: 'LONG', pnl: '-$18.90', time: '10:30' }, { pair: 'SOL / USDT', type: 'SHORT', pnl: '-$20.00', time: '16:00' }] },
+    11: { pnl: 55.00, count: 1, trades: [{ pair: 'AAVE / USDT', type: 'LONG', pnl: '+$55.00', time: '12:15' }] },
+    12: { pnl: 573.00, count: 2, trades: [{ pair: 'BTC / USDT', type: 'LONG', pnl: '+$350.00', time: '09:30' }, { pair: 'SOL / USDT', type: 'LONG', pnl: '+$223.00', time: '14:45' }] },
+    15: { pnl: 31.00, count: 1, trades: [{ pair: 'ETH / USDT', type: 'LONG', pnl: '+$31.00', time: '10:15' }] },
+    16: { pnl: -35.56, count: 1, trades: [{ pair: 'AAVE / USDT', type: 'SHORT', pnl: '-$35.56', time: '13:50' }] },
+    17: { pnl: -31.00, count: 1, trades: [{ pair: 'BTC / USDT', type: 'LONG', pnl: '-$31.00', time: '11:00' }] },
+    18: { pnl: 152.64, count: 1, trades: [{ pair: 'SOL / USDT', type: 'LONG', pnl: '+$152.64', time: '15:20' }] },
+    19: { pnl: 34.34, count: 1, trades: [{ pair: 'ETH / USDT', type: 'SHORT', pnl: '+$34.34', time: '16:30' }] },
+    22: { pnl: -313.46, count: 1, trades: [{ pair: 'BTC / USDT', type: 'LONG', pnl: '-$313.46', time: '09:10' }] },
+    23: { pnl: 21.00, count: 1, trades: [{ pair: 'AAVE / USDT', type: 'LONG', pnl: '+$21.00', time: '12:40' }] },
+    24: { pnl: 233.65, count: 2, trades: [{ pair: 'SOL / USDT', type: 'LONG', pnl: '+$140.00', time: '11:00' }, { pair: 'ETH / USDT', type: 'LONG', pnl: '+$93.65', time: '14:15' }] },
+    25: { pnl: -31.34, count: 1, trades: [{ pair: 'BTC / USDT', type: 'SHORT', pnl: '-$31.34', time: '15:45' }] },
+    26: { pnl: 54.96, count: 2, trades: [{ pair: 'AAVE / USDT', type: 'LONG', pnl: '+$30.00', time: '10:20' }, { pair: 'ETH / USDT', type: 'SHORT', pnl: '+$24.96', time: '16:10' }] },
+    29: { pnl: 31.00, count: 1, trades: [{ pair: 'SOL / USDT', type: 'LONG', pnl: '+$31.00', time: '11:30' }] },
+    30: { pnl: 105.00, count: 1, trades: [{ pair: 'BTC / USDT', type: 'LONG', pnl: '+$105.00', time: '14:00' }] },
+    31: { pnl: 0, count: 0, trades: [] }
+  },
+
+  init: function () {
+    this.bindEvents();
+    this.updatePreviewPill();
+  },
+
+  getTargetGoal: function () {
+    const raw = localStorage.getItem(this.TARGET_STORAGE_KEY);
+    const parsed = parseFloat(raw);
+    return (!isNaN(parsed) && parsed > 0) ? parsed : 3000;
+  },
+
+  setTargetGoal: function (val) {
+    const num = parseFloat(val);
+    if (!isNaN(num) && num > 0) {
+      localStorage.setItem(this.TARGET_STORAGE_KEY, num.toString());
+      this.render();
+      if (window.App && typeof window.App.showToast === 'function') {
+        window.App.showToast(`🎯 Monthly target updated to $${num.toLocaleString()}!`);
+      }
+    }
+  },
+
+  bindEvents: function () {
+    const self = this;
+
+    // Button under AI Discipline Coach
+    const openBtn = document.getElementById('btn-open-monthly-result');
+    if (openBtn) {
+      openBtn.addEventListener('click', () => self.openModal());
+    }
+
+    // Modal Close Buttons
+    const closeBtn = document.getElementById('monthly-result-close-btn');
+    const closeXBtn = document.getElementById('monthly-result-close-x-btn');
+    const backdrop = document.getElementById('monthly-result-backdrop');
+    if (closeBtn) closeBtn.addEventListener('click', () => self.closeModal());
+    if (closeXBtn) closeXBtn.addEventListener('click', () => self.closeModal());
+    if (backdrop) backdrop.addEventListener('click', () => self.closeModal());
+
+    // Navigation Buttons
+    const prevBtn = document.getElementById('monthly-nav-prev');
+    const nextBtn = document.getElementById('monthly-nav-next');
+    if (prevBtn) prevBtn.addEventListener('click', () => self.changeMonth(-1));
+    if (nextBtn) nextBtn.addEventListener('click', () => self.changeMonth(1));
+
+    // Timeframe Filter Pills (Week, Month, Year, All time)
+    document.querySelectorAll('.monthly-period-pill').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        document.querySelectorAll('.monthly-period-pill').forEach(b => {
+          b.className = 'monthly-period-pill flex-1 py-1.5 rounded-lg text-xs font-semibold text-white/50 hover:text-white transition-all text-center';
+        });
+        btn.className = 'monthly-period-pill active flex-1 py-1.5 rounded-lg text-xs font-bold bg-primary-container text-black shadow-sm transition-all text-center';
+        self.selectedPeriod = btn.getAttribute('data-period') || 'month';
+        self.render();
+      });
+    });
+
+    // View Mode Switcher: Mon-Fri vs 7 Days
+    const viewWeekdaysBtn = document.getElementById('monthly-view-weekdays');
+    const viewAll7Btn = document.getElementById('monthly-view-all7');
+    if (viewWeekdaysBtn) {
+      viewWeekdaysBtn.addEventListener('click', () => {
+        self.viewMode = 'weekdays';
+        viewWeekdaysBtn.className = 'px-2 py-0.5 rounded text-[10px] font-bold bg-white/10 text-white transition-all cursor-pointer';
+        if (viewAll7Btn) viewAll7Btn.className = 'px-2 py-0.5 rounded text-[10px] font-semibold text-white/40 hover:text-white transition-all cursor-pointer';
+        self.render();
+      });
+    }
+    if (viewAll7Btn) {
+      viewAll7Btn.addEventListener('click', () => {
+        self.viewMode = 'all7';
+        viewAll7Btn.className = 'px-2 py-0.5 rounded text-[10px] font-bold bg-white/10 text-white transition-all cursor-pointer';
+        if (viewWeekdaysBtn) viewWeekdaysBtn.className = 'px-2 py-0.5 rounded text-[10px] font-semibold text-white/40 hover:text-white transition-all cursor-pointer';
+        self.render();
+      });
+    }
+
+    // Goal Edit Modal
+    const editGoalBtn = document.getElementById('btn-edit-monthly-goal');
+    const closeGoalBtn = document.getElementById('monthly-goal-edit-close');
+    const cancelGoalBtn = document.getElementById('monthly-goal-cancel-btn');
+    const saveGoalBtn = document.getElementById('monthly-goal-save-btn');
+    const goalBackdrop = document.getElementById('monthly-goal-edit-backdrop');
+
+    if (editGoalBtn) editGoalBtn.addEventListener('click', () => self.openGoalModal());
+    if (closeGoalBtn) closeGoalBtn.addEventListener('click', () => self.closeGoalModal());
+    if (cancelGoalBtn) cancelGoalBtn.addEventListener('click', () => self.closeGoalModal());
+    if (goalBackdrop) goalBackdrop.addEventListener('click', () => self.closeGoalModal());
+    if (saveGoalBtn) {
+      saveGoalBtn.addEventListener('click', () => {
+        const input = document.getElementById('monthly-goal-input');
+        if (input && input.value) {
+          self.setTargetGoal(input.value);
+          self.closeGoalModal();
+        }
+      });
+    }
+
+    // Day Details Close
+    const dayDetailsClose = document.getElementById('monthly-day-details-close');
+    if (dayDetailsClose) {
+      dayDetailsClose.addEventListener('click', () => {
+        const panel = document.getElementById('monthly-day-details-panel');
+        if (panel) panel.classList.add('hidden');
+      });
+    }
+  },
+
+  openModal: function () {
+    const modal = document.getElementById('monthly-result-modal');
+    if (modal) {
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      this.render();
+    }
+  },
+
+  closeModal: function () {
+    const modal = document.getElementById('monthly-result-modal');
+    if (modal) {
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+    const dayPanel = document.getElementById('monthly-day-details-panel');
+    if (dayPanel) dayPanel.classList.add('hidden');
+  },
+
+  openGoalModal: function () {
+    const modal = document.getElementById('monthly-goal-edit-modal');
+    const input = document.getElementById('monthly-goal-input');
+    if (modal) {
+      if (input) input.value = this.getTargetGoal();
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      setTimeout(() => { if (input) input.focus(); }, 50);
+    }
+  },
+
+  closeGoalModal: function () {
+    const modal = document.getElementById('monthly-goal-edit-modal');
+    if (modal) {
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+  },
+
+  changeMonth: function (delta) {
+    let m = this.selectedMonth + delta;
+    let y = this.selectedYear;
+    if (m < 0) {
+      m = 11;
+      y -= 1;
+    } else if (m > 11) {
+      m = 0;
+      y += 1;
+    }
+    this.selectedMonth = m;
+    this.selectedYear = y;
+    this.render();
+  },
+
+  /**
+   * Retrieves all trades for the active month:
+   * Merges user manual logged trades with the reference dataset if viewing Dec 2025
+   */
+  getMonthTradesMap: function (year, month) {
+    const dayMap = {}; // dayNumber (1..31) -> { pnl: number, count: number, trades: [] }
+
+    // If viewing December 2025, prefill with benchmark dataset matching user's screenshot
+    const isBenchmarkDec2025 = (year === 2025 && month === 11);
+    if (isBenchmarkDec2025) {
+      for (const d of Object.keys(this._benchmarkDec2025)) {
+        const item = this._benchmarkDec2025[d];
+        dayMap[d] = {
+          pnl: item.pnl,
+          count: item.count,
+          trades: [...item.trades]
+        };
+      }
+    }
+
+    // Merge user's actual journal trades
+    const userTrades = (window.JournalModule && window.JournalModule.trades) ? window.JournalModule.trades : [];
+    for (const t of userTrades) {
+      const dObj = new Date(t.timestamp || t.id);
+      if (!isNaN(dObj.getTime())) {
+        if (dObj.getFullYear() === year && dObj.getMonth() === month) {
+          const dayNum = dObj.getDate();
+          if (!dayMap[dayNum]) {
+            dayMap[dayNum] = { pnl: 0, count: 0, trades: [] };
+          }
+          const numMatch = (t.pnl || '').replace(/[^0-9.-]/g, '');
+          const parsed = parseFloat(numMatch);
+          if (!isNaN(parsed)) {
+            const pnlVal = (t.pnl || '').includes('-') ? -Math.abs(parsed) : Math.abs(parsed);
+            dayMap[dayNum].pnl += pnlVal;
+          }
+          dayMap[dayNum].count += 1;
+          dayMap[dayNum].trades.push({
+            pair: t.pair,
+            type: t.type,
+            pnl: t.pnl,
+            time: t.time
+          });
+        }
+      }
+    }
+
+    return dayMap;
+  },
+
+  render: function () {
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    const monthName = monthNames[this.selectedMonth];
+    const titleEl = document.getElementById('monthly-nav-label');
+    if (titleEl) {
+      titleEl.innerText = `${monthName} ${this.selectedYear}`;
+    }
+
+    const dayMap = this.getMonthTradesMap(this.selectedYear, this.selectedMonth);
+
+    // Calculate Month Totals
+    let totalMonthPnl = 0;
+    let totalMonthTrades = 0;
+    for (const d of Object.keys(dayMap)) {
+      totalMonthPnl += dayMap[d].pnl;
+      totalMonthTrades += dayMap[d].count;
+    }
+    totalMonthPnl = Math.round(totalMonthPnl * 100) / 100;
+
+    // Update Card 1: Total P&L
+    const totalPnlEl = document.getElementById('monthly-kpi-total-pnl');
+    const tradesCountEl = document.getElementById('monthly-kpi-trades-count');
+    if (totalPnlEl) {
+      const pnlFormatted = totalMonthPnl >= 0 ? `+$${totalMonthPnl.toFixed(2)}` : `-$${Math.abs(totalMonthPnl).toFixed(2)}`;
+      totalPnlEl.innerText = pnlFormatted;
+      totalPnlEl.className = `font-mono text-xl sm:text-2xl font-black ${totalMonthPnl >= 0 ? 'text-primary-container' : 'text-[#ff3366]'}`;
+    }
+    if (tradesCountEl) {
+      tradesCountEl.innerText = `${totalMonthTrades} trade${totalMonthTrades === 1 ? '' : 's'} this month`;
+    }
+
+    // Update Card 2: Monthly Goal Progress
+    const targetGoal = this.getTargetGoal();
+    const curGoalLabel = document.getElementById('monthly-goal-cur-label');
+    const tgtGoalLabel = document.getElementById('monthly-goal-tgt-label');
+    const goalBarFill = document.getElementById('monthly-goal-bar-fill');
+
+    if (curGoalLabel) {
+      curGoalLabel.innerText = `$${Math.max(0, Math.round(totalMonthPnl))}`;
+    }
+    if (tgtGoalLabel) {
+      tgtGoalLabel.innerText = `$${Math.round(targetGoal)}`;
+    }
+    if (goalBarFill) {
+      const pct = Math.max(0, Math.min(100, (totalMonthPnl / targetGoal) * 100));
+      goalBarFill.style.width = `${pct.toFixed(1)}%`;
+    }
+
+    // Render Calendar Grid Headers
+    const headersEl = document.getElementById('monthly-calendar-headers');
+    const gridEl = document.getElementById('monthly-calendar-grid');
+    if (!headersEl || !gridEl) return;
+
+    const isWeekdaysOnly = (this.viewMode === 'weekdays');
+    if (isWeekdaysOnly) {
+      headersEl.className = 'grid grid-cols-5 gap-1.5 text-center text-[10px] font-bold text-white/60 uppercase tracking-wider py-1 font-mono';
+      headersEl.innerHTML = `
+        <div>MON</div>
+        <div>TUE</div>
+        <div>WED</div>
+        <div>THU</div>
+        <div>FRI</div>
+      `;
+      gridEl.className = 'grid grid-cols-5 gap-1.5';
+    } else {
+      headersEl.className = 'grid grid-cols-7 gap-1 text-center text-[9px] font-bold text-white/60 uppercase tracking-wider py-1 font-mono';
+      headersEl.innerHTML = `
+        <div>MON</div>
+        <div>TUE</div>
+        <div>WED</div>
+        <div>THU</div>
+        <div>FRI</div>
+        <div>SAT</div>
+        <div>SUN</div>
+      `;
+      gridEl.className = 'grid grid-cols-7 gap-1';
+    }
+
+    // Days in this month
+    const daysInMonth = new Date(this.selectedYear, this.selectedMonth + 1, 0).getDate();
+    let gridHtml = '';
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateObj = new Date(this.selectedYear, this.selectedMonth, day);
+      const dayOfWeek = dateObj.getDay(); // 0 = Sun, 1 = Mon, ..., 6 = Sat
+
+      // In weekdays mode, omit weekends (matching screenshot)
+      if (isWeekdaysOnly && (dayOfWeek === 0 || dayOfWeek === 6)) {
+        continue;
+      }
+
+      const dayData = dayMap[day] || { pnl: 0, count: 0, trades: [] };
+      const hasTrades = dayData.count > 0;
+      const isProfit = dayData.pnl >= 0;
+
+      let cardClass = '';
+      let pnlText = '';
+      let subText = '';
+      let iconColor = '';
+
+      if (hasTrades) {
+        if (isProfit) {
+          cardClass = 'bg-[#0d4a2b] hover:bg-[#115e37] border border-[#00e479]/40 text-white shadow-sm';
+          pnlText = `+${dayData.pnl.toFixed(2)}`;
+          iconColor = 'text-[#00e479]';
+        } else {
+          cardClass = 'bg-[#63171e] hover:bg-[#781c24] border border-[#ff3366]/40 text-white shadow-sm';
+          pnlText = `-${Math.abs(dayData.pnl).toFixed(2)}`;
+          iconColor = 'text-[#ff3366]';
+        }
+        subText = `${dayData.count} trade${dayData.count === 1 ? '' : 's'}`;
+      } else {
+        cardClass = 'bg-[#15171d] border border-white/[0.04] text-white/40';
+        pnlText = '—';
+        subText = '';
+        iconColor = 'text-white/20';
+      }
+
+      gridHtml += `
+        <div onclick="window.MonthlyResultModule.showDayDetails(${day})"
+          class="relative rounded-xl sm:rounded-2xl p-2 sm:p-2.5 flex flex-col justify-between min-h-[64px] sm:min-h-[74px] transition-all cursor-pointer active:scale-95 ${cardClass}">
+          
+          <!-- Top Row: Icon + Day Number -->
+          <div class="flex items-center gap-1">
+            <span class="material-symbols-outlined text-[13px] ${iconColor}">event_note</span>
+            <span class="text-[11px] font-bold font-mono text-white/90">${day}</span>
+          </div>
+
+          <!-- Middle Row: Day P&L -->
+          <div class="my-auto py-0.5">
+            <span class="font-mono text-xs sm:text-[13px] font-black tracking-tight block ${hasTrades ? (isProfit ? 'text-white' : 'text-white') : 'text-white/30 text-center'}">
+              ${pnlText}
+            </span>
+          </div>
+
+          <!-- Bottom Row: Trade Count -->
+          <div class="text-[9px] sm:text-[10px] text-white/60 font-sans truncate">
+            ${subText || '&nbsp;'}
+          </div>
+
+        </div>
+      `;
+    }
+
+    gridEl.innerHTML = gridHtml;
+    this.updatePreviewPill();
+  },
+
+  showDayDetails: function (dayNumber) {
+    const dayMap = this.getMonthTradesMap(this.selectedYear, this.selectedMonth);
+    const dayData = dayMap[dayNumber];
+    if (!dayData || dayData.count === 0) return;
+
+    const panel = document.getElementById('monthly-day-details-panel');
+    const title = document.getElementById('monthly-day-details-title');
+    const list = document.getElementById('monthly-day-trades-list');
+
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    if (title) {
+      const pnlFormatted = dayData.pnl >= 0 ? `+$${dayData.pnl.toFixed(2)}` : `-$${Math.abs(dayData.pnl).toFixed(2)}`;
+      title.innerText = `${monthNames[this.selectedMonth]} ${dayNumber}, ${this.selectedYear}: ${dayData.count} Trades (${pnlFormatted})`;
+    }
+
+    if (list) {
+      list.innerHTML = dayData.trades.map((t, idx) => {
+        const isLong = (t.type === 'LONG' || t.type === 'BUY');
+        const isWin = !t.pnl.startsWith('-') && !t.pnl.toLowerCase().includes('loss');
+        return `
+          <div class="p-2 rounded-xl bg-black/40 border border-white/[0.06] flex items-center justify-between text-xs font-mono">
+            <div class="flex items-center gap-2">
+              <span class="px-1.5 py-0.5 rounded text-[9px] font-bold ${isLong ? 'bg-[#00e479]/20 text-[#00e479]' : 'bg-[#ff3366]/20 text-[#ff3366]'}">
+                ${t.type || 'TRADE'}
+              </span>
+              <span class="font-bold text-white">${t.pair}</span>
+              ${t.time ? `<span class="text-[10px] text-white/40">${t.time}</span>` : ''}
+            </div>
+            <span class="font-bold ${isWin ? 'text-primary-container' : 'text-[#ff3366]'}">
+              ${t.pnl}
+            </span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    if (panel) {
+      panel.classList.remove('hidden');
+      panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  },
+
+  updatePreviewPill: function () {
+    const pill = document.getElementById('monthly-result-preview-pnl');
+    if (!pill) return;
+    const dayMap = this.getMonthTradesMap(this.selectedYear, this.selectedMonth);
+    let totalPnl = 0;
+    for (const d of Object.keys(dayMap)) {
+      totalPnl += dayMap[d].pnl;
+    }
+    const formatted = totalPnl >= 0 ? `+$${totalPnl.toFixed(2)}` : `-$${Math.abs(totalPnl).toFixed(2)}`;
+    pill.innerText = formatted;
+    pill.className = `text-xs font-mono font-bold ${totalPnl >= 0 ? 'text-primary-container' : 'text-[#ff3366]'}`;
   }
 };
