@@ -1126,23 +1126,25 @@
           <span class="text-[10px] font-mono text-primary-container bg-primary-container/10 px-2.5 py-0.5 rounded-full border border-primary-container/20 font-bold">7 Days &bull; Mon–Sun</span>
         </div>
 
-        <!-- 4. Calendar Day of Week Headers & Days Grid -->
-        <div class="flex flex-col gap-1.5">
-          <!-- Headers: MON, TUE, WED, THU, FRI, SAT, SUN -->
-          <div id="monthly-calendar-headers"
-            class="grid grid-cols-7 gap-1 sm:gap-1.5 text-center text-[9px] sm:text-[10px] font-bold text-white/60 uppercase tracking-wider py-1 font-mono">
-            <div>MON</div>
-            <div>TUE</div>
-            <div>WED</div>
-            <div>THU</div>
-            <div>FRI</div>
-            <div>SAT</div>
-            <div>SUN</div>
-          </div>
+        <!-- 4. Calendar Day of Week Headers & Days Grid (Horizontally scrollable on mobile to guarantee large box size) -->
+        <div class="overflow-x-auto pb-1.5 -mx-1 px-1 scrollbar-thin scrollbar-thumb-white/10">
+          <div class="min-w-[490px] sm:min-w-0 flex flex-col gap-1.5">
+            <!-- Headers: MON, TUE, WED, THU, FRI, SAT, SUN -->
+            <div id="monthly-calendar-headers"
+              class="grid grid-cols-7 gap-1.5 text-center text-[10px] sm:text-[11px] font-bold text-white/60 uppercase tracking-wider py-1 font-mono">
+              <div>MON</div>
+              <div>TUE</div>
+              <div>WED</div>
+              <div>THU</div>
+              <div>FRI</div>
+              <div>SAT</div>
+              <div>SUN</div>
+            </div>
 
-          <!-- Calendar Days Grid -->
-          <div id="monthly-calendar-grid" class="grid grid-cols-7 gap-1 sm:gap-1.5">
-            <!-- Dynamic day cards rendered here -->
+            <!-- Calendar Days Grid -->
+            <div id="monthly-calendar-grid" class="grid grid-cols-7 gap-1.5">
+              <!-- Dynamic day cards rendered here -->
+            </div>
           </div>
         </div>
 

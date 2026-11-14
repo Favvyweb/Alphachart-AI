@@ -1069,9 +1069,9 @@ window.MonthlyResultModule = {
     if (!headersEl || !gridEl) return;
 
     const dayNamesShort = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
-    headersEl.className = 'grid grid-cols-7 gap-1 sm:gap-1.5 text-center text-[9px] sm:text-[10px] font-bold text-white/60 uppercase tracking-wider py-1 font-mono';
+    headersEl.className = 'grid grid-cols-7 gap-1.5 text-center text-[10px] sm:text-[11px] font-bold text-white/60 uppercase tracking-wider py-1 font-mono';
     headersEl.innerHTML = dayNamesShort.map(name => `<div>${name}</div>`).join('');
-    gridEl.className = 'grid grid-cols-7 gap-1 sm:gap-1.5';
+    gridEl.className = 'grid grid-cols-7 gap-1.5';
 
     let gridHtml = '';
     for (const d of daysToRender) {
@@ -1108,17 +1108,17 @@ window.MonthlyResultModule = {
 
       gridHtml += `
         <div onclick="window.MonthlyResultModule.showDateDetails('${dKey}')"
-          class="relative rounded-xl sm:rounded-2xl flex flex-col justify-between transition-all cursor-pointer active:scale-95 min-h-[66px] sm:min-h-[76px] p-1.5 sm:p-2.5 ${cardClass}">
-          <div class="flex items-center gap-0.5 sm:gap-1">
-            <span class="material-symbols-outlined text-[11px] sm:text-[13px] ${iconColor}">event_note</span>
-            <span class="text-[10px] sm:text-[11px] font-bold font-mono text-white/90">${dayShort} ${dayNum}</span>
+          class="relative rounded-2xl flex flex-col justify-between transition-all cursor-pointer active:scale-95 min-h-[72px] sm:min-h-[78px] p-2 sm:p-2.5 ${cardClass}">
+          <div class="flex items-center gap-1">
+            <span class="material-symbols-outlined text-[13px] ${iconColor}">event_note</span>
+            <span class="text-[11px] font-bold font-mono text-white/90">${dayShort} ${dayNum}</span>
           </div>
           <div class="my-auto py-0.5 text-center">
             <span class="font-mono text-xs sm:text-[13px] font-black tracking-tight block ${hasTrades ? 'text-white' : 'text-white/30'}">
               ${pnlText}
             </span>
           </div>
-          <div class="text-[8px] sm:text-[9.5px] text-white/60 font-sans truncate text-center">
+          <div class="text-[9px] sm:text-[10px] text-white/60 font-sans truncate text-center">
             ${subText || '&nbsp;'}
           </div>
         </div>
@@ -1189,7 +1189,7 @@ window.MonthlyResultModule = {
     const gridEl = document.getElementById('monthly-calendar-grid');
     if (!headersEl || !gridEl) return;
 
-    headersEl.className = 'grid grid-cols-7 gap-1 sm:gap-1.5 text-center text-[9px] sm:text-[10px] font-bold text-white/60 uppercase tracking-wider py-1 font-mono';
+    headersEl.className = 'grid grid-cols-7 gap-1.5 text-center text-[10px] sm:text-[11px] font-bold text-white/60 uppercase tracking-wider py-1 font-mono';
     headersEl.innerHTML = `
       <div>MON</div>
       <div>TUE</div>
@@ -1199,7 +1199,7 @@ window.MonthlyResultModule = {
       <div>SAT</div>
       <div>SUN</div>
     `;
-    gridEl.className = 'grid grid-cols-7 gap-1 sm:gap-1.5';
+    gridEl.className = 'grid grid-cols-7 gap-1.5';
 
     let gridHtml = '';
 
@@ -1216,15 +1216,15 @@ window.MonthlyResultModule = {
       gridHtml += `
         <div onclick="window.MonthlyResultModule.changeMonth(-1)"
           title="Previous month"
-          class="relative rounded-xl sm:rounded-2xl p-1.5 sm:p-2.5 flex flex-col justify-between min-h-[66px] sm:min-h-[76px] bg-[#101216]/50 border border-white/[0.03] opacity-25 hover:opacity-50 transition-all cursor-pointer select-none">
-          <div class="flex items-center gap-0.5 sm:gap-1">
-            <span class="material-symbols-outlined text-[11px] sm:text-[13px] text-white/20">event_note</span>
-            <span class="text-[10px] sm:text-[11px] font-bold font-mono text-white/40">${prevDay}</span>
+          class="relative rounded-2xl p-2 sm:p-2.5 flex flex-col justify-between min-h-[72px] sm:min-h-[78px] bg-[#101216]/50 border border-white/[0.03] opacity-25 hover:opacity-50 transition-all cursor-pointer select-none">
+          <div class="flex items-center gap-1">
+            <span class="material-symbols-outlined text-[13px] text-white/20">event_note</span>
+            <span class="text-[11px] font-bold font-mono text-white/40">${prevDay}</span>
           </div>
           <div class="my-auto py-0.5 text-center">
             <span class="font-mono text-xs sm:text-[13px] font-black tracking-tight block text-white/20">—</span>
           </div>
-          <div class="text-[8px] sm:text-[9.5px] text-white/20 font-sans truncate text-center">&nbsp;</div>
+          <div class="text-[9px] sm:text-[10px] text-white/20 font-sans truncate text-center">&nbsp;</div>
         </div>
       `;
     }
@@ -1262,17 +1262,17 @@ window.MonthlyResultModule = {
 
       gridHtml += `
         <div onclick="window.MonthlyResultModule.showDateDetails('${dKey}')"
-          class="relative rounded-xl sm:rounded-2xl flex flex-col justify-between transition-all cursor-pointer active:scale-95 min-h-[66px] sm:min-h-[76px] p-1.5 sm:p-2.5 ${cardClass}">
-          <div class="flex items-center gap-0.5 sm:gap-1">
-            <span class="material-symbols-outlined text-[11px] sm:text-[13px] ${iconColor}">event_note</span>
-            <span class="text-[10px] sm:text-[11px] font-bold font-mono text-white/90">${day}</span>
+          class="relative rounded-2xl flex flex-col justify-between transition-all cursor-pointer active:scale-95 min-h-[72px] sm:min-h-[78px] p-2 sm:p-2.5 ${cardClass}">
+          <div class="flex items-center gap-1">
+            <span class="material-symbols-outlined text-[13px] ${iconColor}">event_note</span>
+            <span class="text-[11px] font-bold font-mono text-white/90">${day}</span>
           </div>
           <div class="my-auto py-0.5 text-center">
             <span class="font-mono text-xs sm:text-[13px] font-black tracking-tight block ${hasTrades ? 'text-white' : 'text-white/30'}">
               ${pnlText}
             </span>
           </div>
-          <div class="text-[8px] sm:text-[9.5px] text-white/60 font-sans truncate text-center">
+          <div class="text-[9px] sm:text-[10px] text-white/60 font-sans truncate text-center">
             ${subText || '&nbsp;'}
           </div>
         </div>
@@ -1287,15 +1287,15 @@ window.MonthlyResultModule = {
       gridHtml += `
         <div onclick="window.MonthlyResultModule.changeMonth(1)"
           title="Next month"
-          class="relative rounded-xl sm:rounded-2xl p-1.5 sm:p-2.5 flex flex-col justify-between min-h-[66px] sm:min-h-[76px] bg-[#101216]/50 border border-white/[0.03] opacity-25 hover:opacity-50 transition-all cursor-pointer select-none">
-          <div class="flex items-center gap-0.5 sm:gap-1">
-            <span class="material-symbols-outlined text-[11px] sm:text-[13px] text-white/20">event_note</span>
-            <span class="text-[10px] sm:text-[11px] font-bold font-mono text-white/40">${t}</span>
+          class="relative rounded-2xl p-2 sm:p-2.5 flex flex-col justify-between min-h-[72px] sm:min-h-[78px] bg-[#101216]/50 border border-white/[0.03] opacity-25 hover:opacity-50 transition-all cursor-pointer select-none">
+          <div class="flex items-center gap-1">
+            <span class="material-symbols-outlined text-[13px] text-white/20">event_note</span>
+            <span class="text-[11px] font-bold font-mono text-white/40">${t}</span>
           </div>
           <div class="my-auto py-0.5 text-center">
             <span class="font-mono text-xs sm:text-[13px] font-black tracking-tight block text-white/20">—</span>
           </div>
-          <div class="text-[8px] sm:text-[9.5px] text-white/20 font-sans truncate text-center">&nbsp;</div>
+          <div class="text-[9px] sm:text-[10px] text-white/20 font-sans truncate text-center">&nbsp;</div>
         </div>
       `;
     }
