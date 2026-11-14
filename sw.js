@@ -1,5 +1,5 @@
 // AlphaChart AI - Institutional PWA Service Worker (Mobile & Desktop)
-const CACHE_NAME = 'alphachart-pwa-v22';
+const CACHE_NAME = 'alphachart-pwa-v23';
 const PRECACHE_ASSETS = [
   '/',
   '/index.html',
@@ -99,9 +99,9 @@ self.addEventListener('push', (event) => {
     body: data.body || 'A new confirmed BUY/SELL signal just closed!',
     icon: data.icon || '/icons/icon-192.png',
     badge: data.badge || '/icons/icon-192.png',
-    tag: data.tag || `alphachart-signal-${Date.now()}`,
+    tag: data.tag || (data.signal ? `alphachart-${data.signal.pair || data.signal.symbol}-${data.signal.type}-${data.signal.candleTime || data.signal.time}` : `alphachart-signal-${Date.now()}`),
     vibrate: [300, 100, 300, 100, 400],
-    renotify: true,
+    renotify: false,
     requireInteraction: true,
     data: {
       url: data.url || '/',

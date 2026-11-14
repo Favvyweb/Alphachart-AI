@@ -1156,46 +1156,50 @@ window.TrendTraderEngine = {
         const highRoe = isBuy ? ((candle.high - entry) / entry) * 1000 : ((entry - candle.low) / entry) * 1000;
         const lowRoe = isBuy ? ((candle.low - entry) / entry) * 1000 : ((entry - candle.high) / entry) * 1000;
 
-        if (!this._notifiedTpSlKeys) this._notifiedTpSlKeys = new Set();
-        const tp1Key = `${symbol}_${activeTrade.time}_TP1`;
-        const tp2Key = `${symbol}_${activeTrade.time}_TP2`;
-        const slKey = `${symbol}_${activeTrade.time}_SL`;
+        const cleanSymbol = symbol.replace(/[\s\-_/]/g, '').toUpperCase();
+        const tradeTime = activeTrade.time;
+        const tp1Key = `${cleanSymbol}_${tradeTime}_TP1`;
+        const tp2Key = `${cleanSymbol}_${tradeTime}_TP2`;
+        const slKey = `${cleanSymbol}_${tradeTime}_SL`;
         const displayPair = this.currentPair || `${symbol.toUpperCase().replace('USDT', ' / USDT')}`;
 
-        if (highRoe >= 2.0 && !this._notifiedTpSlKeys.has(tp1Key)) {
-          this._notifiedTpSlKeys.add(tp1Key);
+        if (highRoe >= 2.0 && (!window.TrendTraderAlerts || !window.TrendTraderAlerts.hasNotified(tp1Key))) {
           const p = {
+            dedupeKey: tp1Key,
             type: 'TP1',
             pair: displayPair,
             price: isBuy ? (entry * 1.002) : (entry * 0.998),
             timeframe: this.currentTimeframe || '5m',
             direction: activeTrade.type,
+            candleTime: tradeTime,
             pnl: 10.06
           };
           if (window.TrendTraderAlerts) window.TrendTraderAlerts.sendNotification(p);
         }
 
-        if (highRoe >= 10.0 && !this._notifiedTpSlKeys.has(tp2Key)) {
-          this._notifiedTpSlKeys.add(tp2Key);
+        if (highRoe >= 10.0 && (!window.TrendTraderAlerts || !window.TrendTraderAlerts.hasNotified(tp2Key))) {
           const p = {
+            dedupeKey: tp2Key,
             type: 'TP2',
             pair: displayPair,
             price: isBuy ? (entry * 1.010) : (entry * 0.990),
             timeframe: this.currentTimeframe || '5m',
             direction: activeTrade.type,
+            candleTime: tradeTime,
             pnl: 30.30
           };
           if (window.TrendTraderAlerts) window.TrendTraderAlerts.sendNotification(p);
         }
 
-        if (lowRoe <= -5.0 && !this._notifiedTpSlKeys.has(slKey) && !this._notifiedTpSlKeys.has(tp1Key)) {
-          this._notifiedTpSlKeys.add(slKey);
+        if (lowRoe <= -5.0 && (!window.TrendTraderAlerts || !window.TrendTraderAlerts.hasNotified(slKey)) && (!window.TrendTraderAlerts || !window.TrendTraderAlerts.hasNotified(tp1Key))) {
           const p = {
+            dedupeKey: slKey,
             type: 'SL',
             pair: displayPair,
             price: isBuy ? (entry * 0.995) : (entry * 1.005),
             timeframe: this.currentTimeframe || '5m',
             direction: activeTrade.type,
+            candleTime: tradeTime,
             pnl: -5.00
           };
           if (window.TrendTraderAlerts) window.TrendTraderAlerts.sendNotification(p);
@@ -1276,10 +1280,10 @@ window.TrendTraderEngine = {
     // ========================================================
     const signalTag = analysis.tags[lastIdx];
     if (signalTag === 'BUY' || signalTag === 'SELL') {
-      const signalKey = `${symbol}_${interval}_${candle.time}_${signalTag}`;
-      if (this.lastNotifiedSignalKey !== signalKey) {
-        this.lastNotifiedSignalKey = signalKey;
+      const cleanSymbol = symbol.replace(/[\s\-_/]/g, '').toUpperCase();
+      const signalKey = `${cleanSymbol}_${candle.time}_${signalTag}`;
 
+      if (!window.TrendTraderAlerts || !window.TrendTraderAlerts.hasNotified(signalKey)) {
         const displayPair = this.currentPair || `${symbol.toUpperCase().replace('USDT', ' / USDT')}`;
         const entryPrice = candle.close;
         const isBuy = (signalTag === 'BUY');
@@ -1289,6 +1293,7 @@ window.TrendTraderEngine = {
         const sl = isBuy ? entryPrice * 0.995 : entryPrice * 1.005;
 
         const signalPayload = {
+          dedupeKey: signalKey,
           type: signalTag,
           pair: displayPair,
           price: entryPrice,
@@ -1304,7 +1309,6 @@ window.TrendTraderEngine = {
         if (window.TrendTraderAlerts) {
           window.TrendTraderAlerts.sendNotification(signalPayload);
         }
-        this.showInstantSignalBanner(signalPayload);
       }
     }
 
@@ -1316,18 +1320,18 @@ window.TrendTraderEngine = {
         if (s.tpEvents && s.tpEvents.length > 0) {
           for (const ev of s.tpEvents) {
             if (ev.time === candle.time) {
-              const eventKey = `${symbol}_${interval}_${s.time}_${ev.level}`;
-              if (!this._notifiedTpSlKeys) this._notifiedTpSlKeys = new Set();
-              if (!this._notifiedTpSlKeys.has(eventKey)) {
-                this._notifiedTpSlKeys.add(eventKey);
+              const cleanSymbol = symbol.replace(/[\s\-_/]/g, '').toUpperCase();
+              const eventKey = `${cleanSymbol}_${s.time}_${ev.level}`;
 
+              if (!window.TrendTraderAlerts || !window.TrendTraderAlerts.hasNotified(eventKey)) {
                 const displayPair = this.currentPair || `${symbol.toUpperCase().replace('USDT', ' / USDT')}`;
                 const eventPayload = {
+                  dedupeKey: eventKey,
                   type: ev.level, // 'TP1', 'TP2', or 'SL'
                   pair: displayPair,
                   price: candle.close,
                   timeframe: interval,
-                  candleTime: candle.time,
+                  candleTime: s.time,
                   direction: s.type,
                   entryPrice: s.entryPrice,
                   exitPrice: s.exitPrice,
@@ -1337,7 +1341,6 @@ window.TrendTraderEngine = {
                 if (window.TrendTraderAlerts) {
                   window.TrendTraderAlerts.sendNotification(eventPayload);
                 }
-                this.showInstantSignalBanner(eventPayload);
               }
             }
           }
@@ -2383,12 +2386,41 @@ window.TrendTraderEngine = {
 window.TrendTraderAlerts = {
   STORAGE_KEY: 'alphachart_alerts_active',
   HISTORY_KEY: 'alphachart_signal_history_v1',
+  NOTIFIED_EVENTS_KEY: 'alphachart_notified_events_v3',
   audioCtx: null,
   _bgWs: null,
   _bgPair: 'AAVE / USDT',
   _bgInterval: '5m',
   _bgMonitorActive: false,
   _lastTestType: 'SELL',
+
+  getNotifiedKeys: function () {
+    try {
+      return JSON.parse(localStorage.getItem(this.NOTIFIED_EVENTS_KEY) || '[]');
+    } catch (e) {
+      return [];
+    }
+  },
+
+  hasNotified: function (key) {
+    if (!key) return false;
+    const list = this.getNotifiedKeys();
+    return list.includes(key);
+  },
+
+  markNotified: function (key) {
+    if (!key) return;
+    try {
+      let list = this.getNotifiedKeys();
+      if (!list.includes(key)) {
+        list.push(key);
+        if (list.length > 300) {
+          list = list.slice(list.length - 300);
+        }
+        localStorage.setItem(this.NOTIFIED_EVENTS_KEY, JSON.stringify(list));
+      }
+    } catch (e) { }
+  },
 
   isAlertsEnabled: function () {
     const val = localStorage.getItem(this.STORAGE_KEY);
@@ -2646,6 +2678,23 @@ window.TrendTraderAlerts = {
 
   sendNotification: function (signal) {
     if (!signal) return;
+
+    // Deduplication Key: Guarantee each event is notified EXACTLY ONCE!
+    const cleanPair = (signal.pair || 'UNKNOWN').replace(/[\s\-_/]/g, '').toUpperCase();
+    const eventTime = signal.candleTime || signal.time || Math.floor(Date.now() / 60000);
+    const eventType = signal.type; // BUY, SELL, TP1, TP2, SL
+    const dedupeKey = signal.dedupeKey || `${cleanPair}_${eventTime}_${eventType}`;
+
+    // Test alerts pass signal.isTest = true to bypass deduplication on demand
+    if (!signal.isTest && this.hasNotified(dedupeKey)) {
+      console.log(`[TrendTraderAlerts] Notification suppressed (already notified): ${dedupeKey}`);
+      return;
+    }
+
+    if (!signal.isTest) {
+      this.markNotified(dedupeKey);
+    }
+
     this.playAlertSound(signal.type);
     this.vibrate(signal.type);
     this.saveSignalToHistory(signal);
@@ -2690,7 +2739,8 @@ window.TrendTraderAlerts = {
       body: body,
       icon: '/icons/icon-192.png',
       badge: '/icons/icon-192.png',
-      tag: `signal-${signal.pair}-${signal.type}-${Date.now()}`,
+      tag: signal.isTest ? `test-${Date.now()}` : `alphachart-${cleanPair}-${eventType}-${eventTime}`,
+      renotify: false,
       vibrate: [300, 100, 300, 100, 400],
       requireInteraction: true,
       data: {
@@ -2869,6 +2919,8 @@ window.TrendTraderAlerts = {
     }
 
     this.sendNotification({
+      isTest: true,
+      dedupeKey: `test_${type}_${Date.now()}`,
       type: type,
       pair: pair,
       price: testPrice,
