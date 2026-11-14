@@ -1534,9 +1534,20 @@ window.TrendTraderEngine = {
 
       // Scan subsequent candles forward (candle i has closed, trade progresses on candle i+1 onwards)
       const maxK = candles.length - 1;
+      const isPastDay = (c.time < midnightSec);
+      const signalDayEndSec = Math.floor(c.time / 86400) * 86400 + 86400; // 00:00:00 UTC of next day
+
       for (let k = i + 1; k <= maxK; k++) {
         const nextC = candles[k];
         const nextTag = tags[k];
+
+        // Past Day Boundary: Close open trade at session close (23:55 UTC) so past days are strictly self-contained
+        if (isPastDay && nextC.time >= signalDayEndSec) {
+          tradeClosed = true;
+          exitPrice = candles[k - 1].close;
+          reason = `Session Close at $${exitPrice.toFixed(2)}`;
+          break;
+        }
 
         // Calculate % move on this candle (10x Leverage Framework on $100 Margin):
         // 0.20% price move * 10 = +2.0% ROE (TP1 Hit!)
@@ -1729,29 +1740,45 @@ window.TrendTraderEngine = {
       };
     }
 
-    // Persist and lock completed past days (strictly before today) so historical records are 100% immutable
+    // Persist and lock completed past days using centralized server records and master v5 cache
     const symKey = (this.currentPair || 'BTCUSDT').replace(/[\s\-_/]/g, '').toUpperCase();
     const tfKey = this.currentTimeframe || '5m';
-    const lockedDaysStorageKey = `alphachart_locked_days_v4_${symKey}_${tfKey}`;
-    let lockedDays = {};
+    const masterDaysStorageKey = `alphachart_master_days_v5_${symKey}_${tfKey}`;
+
+    // Purge outdated v4 local cache that caused device desynchronization
     try {
-      const raw = localStorage.getItem(lockedDaysStorageKey);
-      if (raw) lockedDays = JSON.parse(raw);
+      localStorage.removeItem(`alphachart_locked_days_v4_${symKey}_${tfKey}`);
+    } catch (e) { }
+
+    let masterDays = {};
+    try {
+      const raw = localStorage.getItem(masterDaysStorageKey);
+      if (raw) masterDays = JSON.parse(raw);
     } catch (e) { }
 
     for (const dateKey of Object.keys(daysMap)) {
       if (dateKey < todayDateKey) {
-        const totalDaySignals = daysMap[dateKey].buySignals.length + daysMap[dateKey].sellSignals.length;
-        if (!lockedDays[dateKey] && totalDaySignals > 0) {
-          lockedDays[dateKey] = daysMap[dateKey];
-        } else if (lockedDays[dateKey]) {
-          daysMap[dateKey] = lockedDays[dateKey];
+        const cloudKey = `${symKey}_${tfKey}_${dateKey}`;
+        if (this._cloudDailyRecords && this._cloudDailyRecords[cloudKey]) {
+          const rec = this._cloudDailyRecords[cloudKey];
+          daysMap[dateKey] = {
+            dateKey: rec.dateKey,
+            dayName: rec.dayName,
+            isToday: false,
+            buySignals: rec.buySignals || [],
+            sellSignals: rec.sellSignals || []
+          };
+          masterDays[dateKey] = daysMap[dateKey];
+        } else if (masterDays[dateKey]) {
+          daysMap[dateKey] = masterDays[dateKey];
+        } else {
+          masterDays[dateKey] = daysMap[dateKey];
         }
       }
     }
 
     try {
-      localStorage.setItem(lockedDaysStorageKey, JSON.stringify(lockedDays));
+      localStorage.setItem(masterDaysStorageKey, JSON.stringify(masterDays));
     } catch (e) { }
 
     const allSortedDays = Object.values(daysMap).sort((a, b) => b.dateKey.localeCompare(a.dateKey));
@@ -1790,11 +1817,54 @@ window.TrendTraderEngine = {
     return { sortedDays, totalNet12, totalTrades, winRate, todayDayName, evaluatedSignals: displayedSignals };
   },
 
+  _cloudDailyRecords: {},
+  _lastDailySyncTime: {},
+
+  /**
+   * Synchronizes master locked past day records from the centralized backend server
+   * Guarantees 100% uniformity across all devices and refreshes
+   */
+  syncDailyServerRecords: async function (pair, timeframe) {
+    const sym = (pair || this.currentPair || 'BTCUSDT').replace(/[\s\-_/]/g, '').toUpperCase();
+    const tf = timeframe || this.currentTimeframe || '5m';
+    const syncKey = `${sym}_${tf}`;
+    const now = Date.now();
+    if (this._lastDailySyncTime[syncKey] && (now - this._lastDailySyncTime[syncKey] < 60000)) {
+      return;
+    }
+    this._lastDailySyncTime[syncKey] = now;
+
+    try {
+      const res = await fetch(`/api/signals/daily?pair=${sym}&timeframe=${tf}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.records) {
+          if (!this._cloudDailyRecords) this._cloudDailyRecords = {};
+          let updated = false;
+          for (const k of Object.keys(data.records)) {
+            const compositeKey = `${sym}_${tf}_${k}`;
+            if (!this._cloudDailyRecords[compositeKey]) {
+              this._cloudDailyRecords[compositeKey] = data.records[k];
+              updated = true;
+            }
+          }
+          if (updated && this.lastAnalysis) {
+            this.renderDailyPerformanceTable(this.lastAnalysis);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Daily records server sync note:', e);
+    }
+  },
+
   /**
    * Renders the compact daily performance table inside the chart overlay (ONLY 1:2 Ratio)
    */
   renderDailyPerformanceTable: function (analysis) {
     if (!analysis || !analysis.candles) return;
+    this.lastAnalysis = analysis;
+    this.syncDailyServerRecords(this.currentPair, this.currentTimeframe);
 
     const tbody = document.getElementById('ttr-compact-table-tbody');
     const netPnlEl = document.getElementById('ttr-compact-net-pnl');

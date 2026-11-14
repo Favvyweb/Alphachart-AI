@@ -14,6 +14,7 @@ webpush.setVapidDetails(
 // In-memory fallback if PostgreSQL is not connected
 global._pushSubscriptionsMemory = global._pushSubscriptionsMemory || new Map();
 global._lastProcessedSignals = global._lastProcessedSignals || new Map();
+global._dailyRecordsMemory = global._dailyRecordsMemory || new Map();
 
 async function getDbClient() {
   const dbUrl = process.env.DATABASE_URL;
@@ -46,6 +47,20 @@ async function getDbClient() {
         timeframe TEXT DEFAULT '5m',
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         last_notified_at TIMESTAMP WITH TIME ZONE DEFAULT NULL
+      );
+    `);
+
+    // Ensure daily_signal_records table exists for immutable past days
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS daily_signal_records (
+        id SERIAL PRIMARY KEY,
+        pair TEXT NOT NULL,
+        timeframe TEXT NOT NULL,
+        date_key TEXT NOT NULL,
+        day_name TEXT NOT NULL,
+        data JSONB NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE (pair, timeframe, date_key)
       );
     `);
 
@@ -122,10 +137,63 @@ async function removeSubscription(endpoint) {
   global._pushSubscriptionsMemory.delete(endpoint);
 }
 
+async function saveDailySignalRecord(pair, timeframe, dateKey, dayName, data) {
+  const cleanPair = (pair || 'BTCUSDT').replace(/[\s\-_/]/g, '').toUpperCase();
+  const cleanTf = timeframe || '5m';
+  const memKey = `${cleanPair}_${cleanTf}_${dateKey}`;
+  global._dailyRecordsMemory.set(memKey, data);
+
+  const client = await getDbClient();
+  if (client) {
+    try {
+      await client.query(`
+        INSERT INTO daily_signal_records (pair, timeframe, date_key, day_name, data)
+        VALUES ($1, $2, $3, $4, $5)
+        ON CONFLICT (pair, timeframe, date_key) DO UPDATE SET
+          day_name = EXCLUDED.day_name,
+          data = EXCLUDED.data;
+      `, [cleanPair, cleanTf, dateKey, dayName, JSON.stringify(data)]);
+    } catch (e) {
+      console.warn('Error saving daily signal record to DB:', e.message);
+    } finally {
+      await client.end().catch(() => {});
+    }
+  }
+}
+
+async function getDailySignalRecord(pair, timeframe, dateKey) {
+  const cleanPair = (pair || 'BTCUSDT').replace(/[\s\-_/]/g, '').toUpperCase();
+  const cleanTf = timeframe || '5m';
+  const memKey = `${cleanPair}_${cleanTf}_${dateKey}`;
+
+  const client = await getDbClient();
+  if (client) {
+    try {
+      const res = await client.query(
+        `SELECT data FROM daily_signal_records WHERE pair = $1 AND timeframe = $2 AND date_key = $3`,
+        [cleanPair, cleanTf, dateKey]
+      );
+      if (res.rows && res.rows.length > 0) {
+        const d = res.rows[0].data;
+        return typeof d === 'string' ? JSON.parse(d) : d;
+      }
+    } catch (e) {
+      console.warn('Error querying daily signal record from DB:', e.message);
+    } finally {
+      await client.end().catch(() => {});
+    }
+  }
+
+  return global._dailyRecordsMemory.get(memKey) || null;
+}
+
 module.exports = {
   webpush,
   VAPID_PUBLIC_KEY,
   saveSubscription,
   getSubscriptions,
-  removeSubscription
+  removeSubscription,
+  saveDailySignalRecord,
+  getDailySignalRecord
 };
+
