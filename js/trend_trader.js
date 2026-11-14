@@ -891,6 +891,7 @@ window.TrendTraderEngine = {
 
     // Render Compact Daily Signal Performance Table (ONLY 1:2 Ratio)
     this.renderDailyPerformanceTable(analysis);
+    this.seedHistoricalEvents(analysis);
 
     // Start live WebSocket streaming for instantaneous candle updates & closed candle alerts
     this.currentPair = (analysis && analysis.pair) || this.currentPair;
@@ -987,6 +988,46 @@ window.TrendTraderEngine = {
   updateMarkersAndPerformance: function (analysis) {
     this.renderSignalMarkers(analysis);
     this.renderDailyPerformanceTable(analysis);
+    this.seedHistoricalEvents(analysis);
+  },
+
+  /**
+   * Pre-marks all historical candle signals and completed TP/SL events as notified.
+   * Guarantees ZERO historical alert spam when the app or chart is opened!
+   */
+  seedHistoricalEvents: function (analysis) {
+    if (!analysis || !analysis.candles || !window.TrendTraderAlerts) return;
+    const cleanSymbol = (this.currentPair || analysis.pair || 'BTCUSDT').replace(/[\s\-_/]/g, '').toUpperCase();
+    this._initialLoadTime = this._initialLoadTime || Math.floor(Date.now() / 1000);
+
+    // 1. Mark all historical BUY / SELL candle signals as notified
+    if (analysis.tags) {
+      for (let i = 0; i < analysis.candles.length; i++) {
+        const tag = analysis.tags[i];
+        if (tag === 'BUY' || tag === 'SELL') {
+          const cTime = analysis.candles[i].time;
+          window.TrendTraderAlerts.markNotified(`${cleanSymbol}_${cTime}_${tag}`);
+        }
+      }
+    }
+
+    // 2. Mark all historical TP1, TP2, TP3, SL events as notified
+    const perf = this.lastPerformance || (this.calculateDailySignalPerformance && this.calculateDailySignalPerformance(analysis.candles, analysis.tags, analysis.psar));
+    if (perf && perf.evaluatedSignals) {
+      for (const s of perf.evaluatedSignals) {
+        if (s.tpEvents && s.tpEvents.length > 0) {
+          for (const ev of s.tpEvents) {
+            window.TrendTraderAlerts.markNotified(`${cleanSymbol}_${s.time}_${ev.level}`);
+          }
+        }
+        // If trade is already completed / closed, ensure all possible events are marked
+        if (s.outcome === 'win' || s.outcome === 'loss' || s.reason !== 'In Play') {
+          window.TrendTraderAlerts.markNotified(`${cleanSymbol}_${s.time}_TP1`);
+          window.TrendTraderAlerts.markNotified(`${cleanSymbol}_${s.time}_TP2`);
+          window.TrendTraderAlerts.markNotified(`${cleanSymbol}_${s.time}_SL`);
+        }
+      }
+    }
   },
 
   /**
@@ -1150,7 +1191,10 @@ window.TrendTraderEngine = {
     // 2. Real-time Live Price Check for Active Trade TP1, TP2 & SL hits
     if (this.lastPerformance && this.lastPerformance.evaluatedSignals && this.lastPerformance.evaluatedSignals.length > 0) {
       const activeTrade = this.lastPerformance.evaluatedSignals[this.lastPerformance.evaluatedSignals.length - 1];
-      if (activeTrade && (activeTrade.reason === 'In Play' || activeTrade.outcome === 'active' || !activeTrade.tpEvents?.some(e => e.level === 'SL'))) {
+      const isTradeInPlay = activeTrade && (activeTrade.reason === 'In Play' || activeTrade.outcome === 'active') && !activeTrade.tpEvents?.some(e => e.level === 'SL');
+
+      // Only evaluate live price ticks if trade is currently in play and belongs to the active live session
+      if (isTradeInPlay) {
         const isBuy = activeTrade.type === 'BUY';
         const entry = activeTrade.entryPrice;
         const highRoe = isBuy ? ((candle.high - entry) / entry) * 1000 : ((entry - candle.low) / entry) * 1000;
@@ -1163,7 +1207,12 @@ window.TrendTraderEngine = {
         const slKey = `${cleanSymbol}_${tradeTime}_SL`;
         const displayPair = this.currentPair || `${symbol.toUpperCase().replace('USDT', ' / USDT')}`;
 
-        if (highRoe >= 2.0 && (!window.TrendTraderAlerts || !window.TrendTraderAlerts.hasNotified(tp1Key))) {
+        if (!activeTrade.tpEvents) activeTrade.tpEvents = [];
+
+        // TP1 Hit (+2% ROE): Exactly once
+        if (highRoe >= 2.0 && !activeTrade.tpEvents.some(e => e.level === 'TP1') && (!window.TrendTraderAlerts || !window.TrendTraderAlerts.hasNotified(tp1Key))) {
+          activeTrade.tpEvents.push({ time: candle.time, level: 'TP1', text: 'TP1 (+2%) • +$10.06', isBuy });
+          if (window.TrendTraderAlerts) window.TrendTraderAlerts.markNotified(tp1Key);
           const p = {
             dedupeKey: tp1Key,
             type: 'TP1',
@@ -1177,7 +1226,10 @@ window.TrendTraderEngine = {
           if (window.TrendTraderAlerts) window.TrendTraderAlerts.sendNotification(p);
         }
 
-        if (highRoe >= 10.0 && (!window.TrendTraderAlerts || !window.TrendTraderAlerts.hasNotified(tp2Key))) {
+        // TP2 Hit (+10% ROE): Exactly once
+        if (highRoe >= 10.0 && !activeTrade.tpEvents.some(e => e.level === 'TP2') && (!window.TrendTraderAlerts || !window.TrendTraderAlerts.hasNotified(tp2Key))) {
+          activeTrade.tpEvents.push({ time: candle.time, level: 'TP2', text: 'TP2 (+10%) • +$30.30', isBuy });
+          if (window.TrendTraderAlerts) window.TrendTraderAlerts.markNotified(tp2Key);
           const p = {
             dedupeKey: tp2Key,
             type: 'TP2',
@@ -1191,7 +1243,12 @@ window.TrendTraderEngine = {
           if (window.TrendTraderAlerts) window.TrendTraderAlerts.sendNotification(p);
         }
 
-        if (lowRoe <= -5.0 && (!window.TrendTraderAlerts || !window.TrendTraderAlerts.hasNotified(slKey)) && (!window.TrendTraderAlerts || !window.TrendTraderAlerts.hasNotified(tp1Key))) {
+        // SL Hit (-5% ROE): Exactly once, and only if TP1 was NOT hit
+        if (lowRoe <= -5.0 && !activeTrade.tpEvents.some(e => e.level === 'SL') && !activeTrade.tpEvents.some(e => e.level === 'TP1') && (!window.TrendTraderAlerts || !window.TrendTraderAlerts.hasNotified(slKey))) {
+          activeTrade.tpEvents.push({ time: candle.time, level: 'SL', text: 'SL (-5%) • -$5.00', isBuy });
+          activeTrade.reason = 'Hit -5.00% SL';
+          activeTrade.outcome = 'loss';
+          if (window.TrendTraderAlerts) window.TrendTraderAlerts.markNotified(slKey);
           const p = {
             dedupeKey: slKey,
             type: 'SL',
@@ -1879,6 +1936,7 @@ window.TrendTraderEngine = {
 
     const perf = this.calculateDailySignalPerformance(analysis.candles, analysis.tags, analysis.psar);
     this.lastPerformance = perf;
+    this.seedHistoricalEvents(analysis);
 
     if (todayTagEl) {
       todayTagEl.innerText = `${perf.todayDayName || ''} (Today)`;
@@ -2549,33 +2607,17 @@ window.TrendTraderAlerts = {
     this.setAlertsEnabled(true);
 
     if (!('Notification' in window)) {
-      if (window.App) window.App.showToast('🔔 Signal Alerts Active with Sound & Vibration!');
-      this.playAlertSound('BUY');
-      this.vibrate();
+      if (window.App) window.App.showToast('🔔 Phone Signal Alerts Active');
       return true;
     }
 
     try {
       const permission = await Notification.requestPermission();
-      this.playAlertSound('BUY');
-      this.vibrate();
 
       if (permission === 'granted') {
         await this.subscribeToCloudPush();
+        if (window.App) window.App.showToast('🔔 Phone Signal Alerts Enabled');
       }
-
-      const pair = (window.TrendTraderEngine && window.TrendTraderEngine.currentPair) || (window.ScannerModule && window.ScannerModule.fullChartPair) || 'AAVE / USDT';
-      this.sendNotification({
-        type: 'BUY',
-        pair: pair,
-        price: 119.10,
-        timeframe: '5m',
-        tp1: 119.34,
-        tp2: 120.29,
-        tp3: 122.67,
-        sl: 118.50,
-        notes: 'AlphaChart Instant Signal Alerts activated on your device!'
-      });
       return true;
     } catch (e) {
       console.warn('Error requesting notification permission:', e);
@@ -2816,7 +2858,16 @@ window.TrendTraderAlerts = {
     // Pre-load candles so background signal evaluations have immediate historical context
     if (window.TrendTraderEngine && (!window.TrendTraderEngine.lastCandles || window.TrendTraderEngine.lastCandles.length < 30)) {
       window.TrendTraderEngine.fetchCandles(cleanSymbol, binanceInterval).then(candles => {
-        if (candles && candles.length) window.TrendTraderEngine.lastCandles = candles;
+        if (candles && candles.length) {
+          window.TrendTraderEngine.lastCandles = candles;
+          const analysis = window.TrendTraderEngine.analyzeCandles(candles);
+          if (analysis) {
+            window.TrendTraderEngine.lastAnalysis = analysis;
+            if (window.TrendTraderEngine.seedHistoricalEvents) {
+              window.TrendTraderEngine.seedHistoricalEvents(analysis);
+            }
+          }
+        }
       }).catch(() => { });
     }
 

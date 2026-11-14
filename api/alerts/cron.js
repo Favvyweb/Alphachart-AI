@@ -87,6 +87,8 @@ function evaluateSignals(candles) {
   const signals = [];
   let activeTrade = null;
   let entryPrice = 0;
+  let tp1Hit = false;
+  let tp2Hit = false;
 
   for (let i = 14; i < candles.length; i++) {
     const cur = candles[i];
@@ -95,6 +97,8 @@ function evaluateSignals(candles) {
     const prevDay = Math.floor(prev.time / 86400);
     if (curDay !== prevDay) {
       activeTrade = null;
+      tp1Hit = false;
+      tp2Hit = false;
     }
 
     const t = trend[i];
@@ -105,26 +109,30 @@ function evaluateSignals(candles) {
     if (activeTrade === 'BUY') {
       const roeHigh = ((cur.high - entryPrice) / entryPrice) * 1000;
       const roeLow = ((cur.low - entryPrice) / entryPrice) * 1000;
-      if (roeHigh >= 2.0) {
+      if (roeHigh >= 2.0 && !tp1Hit) {
+        tp1Hit = true;
         signals.push({ type: 'TP1', time: cur.time, price: cur.high, direction: 'BUY' });
       }
-      if (roeHigh >= 10.0) {
+      if (roeHigh >= 10.0 && !tp2Hit) {
+        tp2Hit = true;
         signals.push({ type: 'TP2', time: cur.time, price: cur.high, direction: 'BUY' });
       }
-      if (roeLow <= -5.0) {
+      if (roeLow <= -5.0 && !tp1Hit) {
         signals.push({ type: 'SL', time: cur.time, price: entryPrice * 0.995, direction: 'BUY' });
         activeTrade = null;
       }
     } else if (activeTrade === 'SELL') {
       const roeHigh = ((entryPrice - cur.low) / entryPrice) * 1000;
       const roeLow = ((entryPrice - cur.high) / entryPrice) * 1000;
-      if (roeHigh >= 2.0) {
+      if (roeHigh >= 2.0 && !tp1Hit) {
+        tp1Hit = true;
         signals.push({ type: 'TP1', time: cur.time, price: cur.low, direction: 'SELL' });
       }
-      if (roeHigh >= 10.0) {
+      if (roeHigh >= 10.0 && !tp2Hit) {
+        tp2Hit = true;
         signals.push({ type: 'TP2', time: cur.time, price: cur.low, direction: 'SELL' });
       }
-      if (roeLow <= -5.0) {
+      if (roeLow <= -5.0 && !tp1Hit) {
         signals.push({ type: 'SL', time: cur.time, price: entryPrice * 1.005, direction: 'SELL' });
         activeTrade = null;
       }
@@ -133,11 +141,15 @@ function evaluateSignals(candles) {
     if (isFlipBull && activeTrade !== 'BUY') {
       activeTrade = 'BUY';
       entryPrice = cur.close;
+      tp1Hit = false;
+      tp2Hit = false;
       signals.push({ type: 'BUY', time: cur.time, price: cur.close });
     } else if (isFlipBear && activeTrade !== 'SELL') {
       activeTrade = 'SELL';
       entryPrice = cur.close;
-      signals.push({ type: 'SELL', time: cur.close ? cur.close : cur.open });
+      tp1Hit = false;
+      tp2Hit = false;
+      signals.push({ type: 'SELL', time: cur.time, price: cur.close });
     }
   }
 
