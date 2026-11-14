@@ -1211,7 +1211,7 @@ window.TrendTraderEngine = {
 
         // TP1 Hit (+2% ROE): Exactly once
         if (highRoe >= 2.0 && !activeTrade.tpEvents.some(e => e.level === 'TP1') && (!window.TrendTraderAlerts || !window.TrendTraderAlerts.hasNotified(tp1Key))) {
-          activeTrade.tpEvents.push({ time: candle.time, level: 'TP1', text: 'TP1 (+2%) • +$10.00', isBuy });
+          activeTrade.tpEvents.push({ time: candle.time, level: 'TP1', text: 'TP1 (+2%) • +$10.06', isBuy });
           if (window.TrendTraderAlerts) window.TrendTraderAlerts.markNotified(tp1Key);
           const p = {
             dedupeKey: tp1Key,
@@ -1221,14 +1221,14 @@ window.TrendTraderEngine = {
             timeframe: this.currentTimeframe || '5m',
             direction: activeTrade.type,
             candleTime: tradeTime,
-            pnl: 10.00
+            pnl: 10.06
           };
           if (window.TrendTraderAlerts) window.TrendTraderAlerts.sendNotification(p);
         }
 
         // TP2 Hit (+10% ROE): Exactly once
         if (highRoe >= 10.0 && !activeTrade.tpEvents.some(e => e.level === 'TP2') && (!window.TrendTraderAlerts || !window.TrendTraderAlerts.hasNotified(tp2Key))) {
-          activeTrade.tpEvents.push({ time: candle.time, level: 'TP2', text: 'TP2 (+10%) • +$15.00', isBuy });
+          activeTrade.tpEvents.push({ time: candle.time, level: 'TP2', text: 'TP2 (+10%) • +$30.30', isBuy });
           if (window.TrendTraderAlerts) window.TrendTraderAlerts.markNotified(tp2Key);
           const p = {
             dedupeKey: tp2Key,
@@ -1238,7 +1238,7 @@ window.TrendTraderEngine = {
             timeframe: this.currentTimeframe || '5m',
             direction: activeTrade.type,
             candleTime: tradeTime,
-            pnl: 15.00
+            pnl: 30.30
           };
           if (window.TrendTraderAlerts) window.TrendTraderAlerts.sendNotification(p);
         }
@@ -1392,7 +1392,7 @@ window.TrendTraderEngine = {
                   direction: s.type,
                   entryPrice: s.entryPrice,
                   exitPrice: s.exitPrice,
-                  pnl: (ev.level === 'TP1' ? 10.00 : (ev.level === 'TP2' ? 15.00 : (ev.level === 'SL' ? -5.00 : s.pnl)))
+                  pnl: (ev.level === 'TP1' ? 10.06 : (ev.level === 'TP2' ? 30.30 : (ev.level === 'SL' ? -5.00 : s.pnl)))
                 };
 
                 if (window.TrendTraderAlerts) {
@@ -1470,7 +1470,7 @@ window.TrendTraderEngine = {
     if (isTp1 || isTp2 || isSl) {
       const pnlText = isSl
         ? `-$${Math.abs(signal.pnl || 5.00).toFixed(2)} (-5%)`
-        : `+$${(signal.pnl || (isTp1 ? 10.00 : 15.00)).toFixed(2)} (${isTp1 ? '+2%' : '+10%'})`;
+        : `+$${(signal.pnl || (isTp1 ? 10.06 : 30.30)).toFixed(2)} (${isTp1 ? '+2%' : '+10%'})`;
       const pnlBg = isSl ? 'bg-error/20 text-error border-error/30' : 'bg-primary-container/20 text-primary-container border-primary-container/30';
       bottomRowHtml = `
         <div class="flex items-center gap-2 mt-2 text-[10px] font-mono">
@@ -1545,12 +1545,12 @@ window.TrendTraderEngine = {
   },
 
   /**
-   * Clean Real-time Signal Evaluation on $10 investment mark (10x Leverage):
-   * - Capital: $10 entered per trade (10x leverage)
+   * Clean Real-time Signal Evaluation on $100 investment mark:
+   * - Capital: $100 entered per trade
    * - Signal candle closes to confirm entry price
-   * - TP1: +2.0% gain -> 1:2 Win (+$10.00)
-   * - TP2: +10.0% gain -> 1:3 Win (+$15.00)
-   * - TP3: +30.0%+ gain -> Super Runner (+$30.00)
+   * - TP1: +2.0% gain -> Base Win (+$10.06)
+   * - TP2: +10.0% gain -> Major Win (+$30.30)
+   * - TP3: +30.0%+ gain -> Super Runner (+$82.05+)
    * - SL: -5.0% loss -> Loss (-$5.00) if drops before TP1 or reverses before TP1
    * Strictly tracks ONLY the current day (12:00 AM to 11:59 PM)
    */
@@ -1639,25 +1639,25 @@ window.TrendTraderEngine = {
           maxDrawdownPct = curLowDrawdown;
         }
 
-        // Progressive TP milestone triggers ($10 Trade Structure with 10x Leverage: TP1 +$10, TP2 +$15, TP3 +$30):
-        // 1. TP1 at +2.0% ROE (1:2 Target -> +$10.00)
+        // Progressive TP milestone triggers (10x Leverage: TP1 +2%, TP2 +10%, TP3 +30%):
+        // 1. TP1 at +2.0% ROE (0.20% price move at 10x leverage)
         if (curHighRoe >= 2.0 && !hitTp1) {
           hitTp1 = true;
-          tpEvents.push({ time: nextC.time, level: 'TP1', text: 'TP1 (+2%) • +$10.00', isBuy });
+          tpEvents.push({ time: nextC.time, level: 'TP1', text: 'TP1 (+2%) • +$10.06', isBuy });
         }
-        // 2. TP2 at +10.0% ROE (1:3 Target -> +$15.00)
+        // 2. TP2 at +10.0% ROE (1.00% price move at 10x leverage)
         if (curHighRoe >= 10.0 && !hitTp2) {
           hitTp2 = true;
-          tpEvents.push({ time: nextC.time, level: 'TP2', text: 'TP2 (+10%) • +$15.00', isBuy });
+          tpEvents.push({ time: nextC.time, level: 'TP2', text: 'TP2 (+10%) • +$30.30', isBuy });
         }
-        // 3. TP3 at +30.0% ROE (Super Runner -> +$30.00)
+        // 3. TP3 at +30.0% ROE (3.00% price move at 10x leverage)
         if (curHighRoe >= 30.0 && !hitTp3) {
           hitTp3 = true;
-          tpEvents.push({ time: nextC.time, level: 'TP3', text: 'TP3 (+30%) • +$30.00', isBuy });
+          tpEvents.push({ time: nextC.time, level: 'TP3', text: 'TP3 (+30%) • +$82.05', isBuy });
         }
 
         // Stop Loss Check:
-        // When adverse move reaches -5.0% ROE (-$5.00 loss on $10 trade structure)
+        // When adverse move reaches -5.0% ROE (-$5.00 loss on $100 margin at 10x)
         if (curLowDrawdown <= -5.0 && !hitTp1 && !hitSL) {
           hitSL = true;
           tradeClosed = true;
@@ -1692,43 +1692,47 @@ window.TrendTraderEngine = {
         exitPrice = lastCandle.close;
       }
 
-      // Calculate real ROE % return from Entry to Exit Price (with 10x leverage on $10 margin)
+      // Calculate real ROE % return from Entry to Exit Price (with 10x leverage on $100)
       const finalReturnRoe = isBuy
         ? ((exitPrice - entryPrice) / entryPrice) * 1000
         : ((entryPrice - exitPrice) / entryPrice) * 1000;
 
-      // STRICT $10 TRADE STRUCTURE (1:2 & 1:3 RISK-TO-REWARD):
-      // - TP3 (+30%+ ROE): Super Runner (+$30.00)
-      // - TP2 (+10%+ ROE): 1:3 Target (+$15.00)
-      // - TP1 (+2%+ ROE): 1:2 Target (+$10.00)
-      // - Reversal before TP1 in profit: Proportional +$1.00 to +$5.00
-      // - Stop Loss / Loss before TP1: -$5.00
+      // DYNAMIC ACCURATE WIN/LOSS & PnL EVALUATION:
+      // - TP3 (+30%+ ROE): Super Runner
+      // - TP2 (+10%+ ROE): Major Win
+      // - TP1 (+2%+ ROE): Base Win (+$10.06 to +$23.75)
+      // - If positive return (> 0%): WIN!
+      // - If negative return (< 0%): LOSS!
       if (maxRoePct >= 30.0 || finalReturnRoe >= 30.0) {
         isWin = true;
         isLoss = false;
         tpTier = 'TP3 (+30%)';
         const effPct = Math.max(maxRoePct, finalReturnRoe);
-        pnl = 30.00;
+        pnl = Math.round((10.0616 + ((effPct - 2.0) * 2.5876)) * 100) / 100;
         reason = `Hit TP3 Super Runner (+${effPct.toFixed(1)}%) • Exit $${exitPrice.toFixed(2)}`;
       } else if (maxRoePct >= 10.0 || finalReturnRoe >= 10.0) {
         isWin = true;
         isLoss = false;
         tpTier = 'TP2 (+10%)';
         const effPct = Math.max(maxRoePct, finalReturnRoe);
-        pnl = 15.00;
+        pnl = Math.round((10.0616 + ((effPct - 2.0) * 2.5876)) * 100) / 100;
         reason = `Hit TP2 Runner (+${effPct.toFixed(1)}%) • Exit $${exitPrice.toFixed(2)}`;
       } else if (hitTp1 || maxRoePct >= 2.0) {
         isWin = true;
         isLoss = false;
         tpTier = 'TP1 (+2%)';
         const effPct = Math.max(maxRoePct, finalReturnRoe);
-        pnl = 10.00;
+        if (effPct > 2.5) {
+          pnl = Math.round((10.0616 + ((effPct - 2.18) * 2.5876)) * 100) / 100;
+        } else {
+          pnl = 10.06;
+        }
         reason = `Hit TP1 (+${effPct.toFixed(1)}%) • Exit $${exitPrice.toFixed(2)}`;
       } else if (finalReturnRoe > 0) {
         isWin = true;
         isLoss = false;
         tpTier = `+${finalReturnRoe.toFixed(1)}%`;
-        pnl = Math.min(5.00, Math.max(1.00, Math.round((finalReturnRoe / 2.0) * 5.0 * 100) / 100));
+        pnl = Math.max(0.50, Math.round(finalReturnRoe * 100) / 100);
         reason = !tradeClosed
           ? `Active In Profit (+${finalReturnRoe.toFixed(1)}%) • Current $${exitPrice.toFixed(2)}`
           : `Closed in Profit (+${finalReturnRoe.toFixed(1)}%) • Exit $${exitPrice.toFixed(2)}`;
@@ -1736,7 +1740,7 @@ window.TrendTraderEngine = {
         isWin = false;
         isLoss = true;
         tpTier = 'SL';
-        pnl = -5.00;
+        pnl = Math.max(-5.00, Math.round(finalReturnRoe * 100) / 100);
         reason = hitSL
           ? `Hit -5.00% SL ($${exitPrice.toFixed(2)})`
           : `Loss (${finalReturnRoe.toFixed(1)}%) • Exit $${exitPrice.toFixed(2)}`;
@@ -1796,14 +1800,13 @@ window.TrendTraderEngine = {
       };
     }
 
-    // Persist and lock completed past days using centralized server records and master v6 cache ($10 structure)
+    // Persist and lock completed past days using centralized server records and master v5 cache
     const symKey = (this.currentPair || 'BTCUSDT').replace(/[\s\-_/]/g, '').toUpperCase();
     const tfKey = this.currentTimeframe || '5m';
-    const masterDaysStorageKey = `alphachart_master_days_v6_${symKey}_${tfKey}`;
+    const masterDaysStorageKey = `alphachart_master_days_v5_${symKey}_${tfKey}`;
 
-    // Purge outdated v4 and v5 local cache
+    // Purge outdated v4 local cache that caused device desynchronization
     try {
-      localStorage.removeItem(`alphachart_master_days_v5_${symKey}_${tfKey}`);
       localStorage.removeItem(`alphachart_locked_days_v4_${symKey}_${tfKey}`);
     } catch (e) { }
 
@@ -1939,7 +1942,7 @@ window.TrendTraderEngine = {
       todayTagEl.innerText = `${perf.todayDayName || ''} (Today)`;
     }
 
-    // Format Net PnL (ONLY 1:2 ratio based on $10 mark)
+    // Format Net PnL (ONLY 1:2 ratio based on $100 mark)
     const pnlSign = perf.totalNet12 >= 0 ? '+' : '-';
     const pnlAbs = Math.abs(perf.totalNet12).toFixed(2);
     const pnlFormatted = `${pnlSign}$${pnlAbs}`;
@@ -2758,12 +2761,12 @@ window.TrendTraderAlerts = {
       body = `Trend Trader Stop flipped BEARISH! Entry: $${entryPrice.toFixed(2)} (${signal.timeframe || '5m'}).\n🎯 TP1: ${tp1Text} | TP2: ${tp2Text}\n🛑 SL: ${slText}\nCandle closed & verified!`;
       toastMsg = `🚨 SELL SIGNAL on ${signal.pair} at $${entryPrice.toFixed(2)}! Confirmed on candle close.`;
     } else if (signal.type === 'TP1') {
-      const profit = signal.pnl ? `+$${signal.pnl.toFixed(2)}` : '+$10.00';
+      const profit = signal.pnl ? `+$${signal.pnl.toFixed(2)}` : '+$10.06';
       title = `🎯 TP1 HIT (+2%): ${signal.pair}`;
       body = `Take Profit 1 achieved at $${entryPrice.toFixed(2)} (+2.0% gain)! Profit: ${profit}. First target secured!`;
       toastMsg = `🎯 TP1 HIT on ${signal.pair} at $${entryPrice.toFixed(2)}! Profit: ${profit} (+2%)`;
     } else if (signal.type === 'TP2') {
-      const profit = signal.pnl ? `+$${signal.pnl.toFixed(2)}` : '+$15.00';
+      const profit = signal.pnl ? `+$${signal.pnl.toFixed(2)}` : '+$30.30';
       title = `🎯🎯 TP2 HIT (+10%): ${signal.pair}`;
       body = `Take Profit 2 achieved at $${entryPrice.toFixed(2)} (+10.0% gain)! Profit: ${profit}. Super runner secured!`;
       toastMsg = `🎯🎯 TP2 HIT on ${signal.pair} at $${entryPrice.toFixed(2)}! Profit: ${profit} (+10%)`;
@@ -2942,10 +2945,10 @@ window.TrendTraderAlerts = {
     let pnl = 0;
     if (type === 'TP1') {
       testPrice = tp1;
-      pnl = 10.00;
+      pnl = 10.06;
     } else if (type === 'TP2') {
       testPrice = tp2;
-      pnl = 15.00;
+      pnl = 30.30;
     } else if (type === 'SL') {
       testPrice = sl;
       pnl = -5.00;
