@@ -845,25 +845,8 @@ window.MonthlyResultModule = {
       });
     });
 
-    // View mode: Mon-Fri vs 7 Days
-    const viewWeekdaysBtn = document.getElementById('monthly-view-weekdays');
-    const viewAll7Btn = document.getElementById('monthly-view-all7');
-    if (viewWeekdaysBtn) {
-      viewWeekdaysBtn.addEventListener('click', () => {
-        self.viewMode = 'weekdays';
-        viewWeekdaysBtn.className = 'px-2 py-0.5 rounded text-[10px] font-bold bg-white/10 text-white transition-all cursor-pointer';
-        if (viewAll7Btn) viewAll7Btn.className = 'px-2 py-0.5 rounded text-[10px] font-semibold text-white/40 hover:text-white transition-all cursor-pointer';
-        self.render();
-      });
-    }
-    if (viewAll7Btn) {
-      viewAll7Btn.addEventListener('click', () => {
-        self.viewMode = 'all7';
-        viewAll7Btn.className = 'px-2 py-0.5 rounded text-[10px] font-bold bg-white/10 text-white transition-all cursor-pointer';
-        if (viewWeekdaysBtn) viewWeekdaysBtn.className = 'px-2 py-0.5 rounded text-[10px] font-semibold text-white/40 hover:text-white transition-all cursor-pointer';
-        self.render();
-      });
-    }
+    // View mode: Permanent 7 Days (Mon-Sun)
+    self.viewMode = 'all7';
 
     // Goal edit modal
     const editGoalBtn = document.getElementById('btn-edit-monthly-goal');
@@ -992,23 +975,17 @@ window.MonthlyResultModule = {
   },
 
   render: function () {
-    // Sync view mode container visibility
-    const viewModeContainer = document.getElementById('monthly-view-mode-container');
-    const subbarLabel = document.getElementById('monthly-subbar-label');
+    // Sync subbar row visibility
+    const subbarRow = document.getElementById('monthly-subbar-row');
     const prevBtn = document.getElementById('monthly-nav-prev');
     const nextBtn = document.getElementById('monthly-nav-next');
 
     if (this.selectedPeriod === 'week' || this.selectedPeriod === 'month') {
-      if (viewModeContainer) viewModeContainer.style.display = 'flex';
-      if (subbarLabel) {
-        subbarLabel.innerText = 'Trading Calendar';
-        subbarLabel.style.display = 'inline';
-      }
+      if (subbarRow) subbarRow.style.display = 'flex';
       if (prevBtn) prevBtn.style.opacity = '1';
       if (nextBtn) nextBtn.style.opacity = '1';
     } else {
-      if (viewModeContainer) viewModeContainer.style.display = 'none';
-      if (subbarLabel) subbarLabel.style.display = 'none';
+      if (subbarRow) subbarRow.style.display = 'none';
       if (prevBtn) prevBtn.style.opacity = (this.selectedPeriod === 'all') ? '0.2' : '1';
       if (nextBtn) nextBtn.style.opacity = (this.selectedPeriod === 'all') ? '0.2' : '1';
     }
@@ -1043,8 +1020,7 @@ window.MonthlyResultModule = {
     }
 
     const dateMap = this.getUnifiedTradesMap();
-    const isWeekdaysOnly = (this.viewMode === 'weekdays');
-    const daysToRender = isWeekdaysOnly ? weekInfo.days.slice(0, 5) : weekInfo.days;
+    const daysToRender = weekInfo.days; // Always all 7 days (Mon-Sun)
 
     let weekTotalPnl = 0;
     let weekTotalTrades = 0;
@@ -1087,21 +1063,15 @@ window.MonthlyResultModule = {
       goalBarFill.style.width = `${pct.toFixed(1)}%`;
     }
 
-    // Headers & Grid
+    // Headers & Grid: Always 7 Days (MON to SUN)
     const headersEl = document.getElementById('monthly-calendar-headers');
     const gridEl = document.getElementById('monthly-calendar-grid');
     if (!headersEl || !gridEl) return;
 
     const dayNamesShort = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
-    if (isWeekdaysOnly) {
-      headersEl.className = 'grid grid-cols-5 gap-1.5 text-center text-[10px] font-bold text-white/60 uppercase tracking-wider py-1 font-mono';
-      headersEl.innerHTML = dayNamesShort.slice(0, 5).map(name => `<div>${name}</div>`).join('');
-      gridEl.className = 'grid grid-cols-5 gap-1.5';
-    } else {
-      headersEl.className = 'grid grid-cols-7 gap-1 text-center text-[9px] font-bold text-white/60 uppercase tracking-wider py-1 font-mono';
-      headersEl.innerHTML = dayNamesShort.map(name => `<div>${name}</div>`).join('');
-      gridEl.className = 'grid grid-cols-7 gap-1';
-    }
+    headersEl.className = 'grid grid-cols-7 gap-1 sm:gap-1.5 text-center text-[9px] sm:text-[10px] font-bold text-white/60 uppercase tracking-wider py-1 font-mono';
+    headersEl.innerHTML = dayNamesShort.map(name => `<div>${name}</div>`).join('');
+    gridEl.className = 'grid grid-cols-7 gap-1 sm:gap-1.5';
 
     let gridHtml = '';
     for (const d of daysToRender) {
@@ -1136,22 +1106,19 @@ window.MonthlyResultModule = {
         iconColor = 'text-white/20';
       }
 
-      const minHeightClass = isWeekdaysOnly ? 'min-h-[64px] sm:min-h-[74px] p-2 sm:p-2.5' : 'min-h-[58px] sm:min-h-[70px] p-1.5 sm:p-2';
-      const pnlFontClass = isWeekdaysOnly ? 'text-xs sm:text-[13px]' : 'text-[10px] sm:text-xs';
-
       gridHtml += `
         <div onclick="window.MonthlyResultModule.showDateDetails('${dKey}')"
-          class="relative rounded-xl sm:rounded-2xl flex flex-col justify-between transition-all cursor-pointer active:scale-95 ${minHeightClass} ${cardClass}">
-          <div class="flex items-center gap-1">
+          class="relative rounded-xl sm:rounded-2xl flex flex-col justify-between transition-all cursor-pointer active:scale-95 min-h-[66px] sm:min-h-[76px] p-1.5 sm:p-2.5 ${cardClass}">
+          <div class="flex items-center gap-0.5 sm:gap-1">
             <span class="material-symbols-outlined text-[11px] sm:text-[13px] ${iconColor}">event_note</span>
             <span class="text-[10px] sm:text-[11px] font-bold font-mono text-white/90">${dayShort} ${dayNum}</span>
           </div>
-          <div class="my-auto py-0.5">
-            <span class="font-mono ${pnlFontClass} font-black tracking-tight block ${hasTrades ? 'text-white' : 'text-white/30 text-center'}">
+          <div class="my-auto py-0.5 text-center">
+            <span class="font-mono text-xs sm:text-[13px] font-black tracking-tight block ${hasTrades ? 'text-white' : 'text-white/30'}">
               ${pnlText}
             </span>
           </div>
-          <div class="text-[8px] sm:text-[9px] text-white/60 font-sans truncate">
+          <div class="text-[8px] sm:text-[9.5px] text-white/60 font-sans truncate text-center">
             ${subText || '&nbsp;'}
           </div>
         </div>
@@ -1174,16 +1141,12 @@ window.MonthlyResultModule = {
 
     const dateMap = this.getUnifiedTradesMap();
     const daysInMonth = new Date(this.selectedYear, this.selectedMonth + 1, 0).getDate();
-    const isWeekdaysOnly = (this.viewMode === 'weekdays');
 
     let totalMonthPnl = 0;
     let totalMonthTrades = 0;
 
     for (let day = 1; day <= daysInMonth; day++) {
       const dObj = new Date(this.selectedYear, this.selectedMonth, day);
-      const dayOfWeek = dObj.getDay();
-      if (isWeekdaysOnly && (dayOfWeek === 0 || dayOfWeek === 6)) continue;
-
       const dKey = this.formatDateKey(dObj);
       const dayData = dateMap[dKey];
       if (dayData) {
@@ -1221,63 +1184,54 @@ window.MonthlyResultModule = {
       goalBarFill.style.width = `${pct.toFixed(1)}%`;
     }
 
-    // Headers & Grid
+    // Headers & Grid: Always 7 Days (MON to SUN)
     const headersEl = document.getElementById('monthly-calendar-headers');
     const gridEl = document.getElementById('monthly-calendar-grid');
     if (!headersEl || !gridEl) return;
 
-    const firstDayOfWeek = new Date(this.selectedYear, this.selectedMonth, 1).getDay(); // 0 = Sun, 1 = Mon ... 6 = Sat
-
-    if (isWeekdaysOnly) {
-      headersEl.className = 'grid grid-cols-5 gap-1.5 text-center text-[10px] font-bold text-white/60 uppercase tracking-wider py-1 font-mono';
-      headersEl.innerHTML = `
-        <div>MON</div>
-        <div>TUE</div>
-        <div>WED</div>
-        <div>THU</div>
-        <div>FRI</div>
-      `;
-      gridEl.className = 'grid grid-cols-5 gap-1.5';
-    } else {
-      headersEl.className = 'grid grid-cols-7 gap-1 text-center text-[9px] font-bold text-white/60 uppercase tracking-wider py-1 font-mono';
-      headersEl.innerHTML = `
-        <div>MON</div>
-        <div>TUE</div>
-        <div>WED</div>
-        <div>THU</div>
-        <div>FRI</div>
-        <div>SAT</div>
-        <div>SUN</div>
-      `;
-      gridEl.className = 'grid grid-cols-7 gap-1';
-    }
+    headersEl.className = 'grid grid-cols-7 gap-1 sm:gap-1.5 text-center text-[9px] sm:text-[10px] font-bold text-white/60 uppercase tracking-wider py-1 font-mono';
+    headersEl.innerHTML = `
+      <div>MON</div>
+      <div>TUE</div>
+      <div>WED</div>
+      <div>THU</div>
+      <div>FRI</div>
+      <div>SAT</div>
+      <div>SUN</div>
+    `;
+    gridEl.className = 'grid grid-cols-7 gap-1 sm:gap-1.5';
 
     let gridHtml = '';
 
-    // In 7-day mode, insert leading empty spacer cells before Day 1 so each day lands on its exact day of the week
-    if (!isWeekdaysOnly) {
-      // Monday = 0, Tuesday = 1, Wednesday = 2, Thursday = 3, Friday = 4, Saturday = 5, Sunday = 6
-      const paddingDays = (firstDayOfWeek === 0) ? 6 : (firstDayOfWeek - 1);
-      for (let p = 0; p < paddingDays; p++) {
-        gridHtml += `<div class="opacity-0 pointer-events-none min-h-[58px] sm:min-h-[70px]"></div>`;
-      }
-    } else {
-      if (firstDayOfWeek >= 2 && firstDayOfWeek <= 5) {
-        const paddingDays = firstDayOfWeek - 1;
-        for (let p = 0; p < paddingDays; p++) {
-          gridHtml += `<div class="opacity-0 pointer-events-none min-h-[64px] sm:min-h-[74px]"></div>`;
-        }
-      }
+    // Calculate leading padding days (Monday = 0 ... Sunday = 6)
+    const firstDayOfWeek = new Date(this.selectedYear, this.selectedMonth, 1).getDay(); // 0 = Sun, 1 = Mon ... 6 = Sat
+    const paddingDays = (firstDayOfWeek === 0) ? 6 : (firstDayOfWeek - 1);
+
+    // Previous month's trailing days
+    const prevMonthLastDate = new Date(this.selectedYear, this.selectedMonth, 0).getDate();
+
+    // Render leading previous-month boxes to fill the beginning of Row 1
+    for (let p = paddingDays; p >= 1; p--) {
+      const prevDay = prevMonthLastDate - p + 1;
+      gridHtml += `
+        <div onclick="window.MonthlyResultModule.changeMonth(-1)"
+          title="Previous month"
+          class="relative rounded-xl sm:rounded-2xl p-1.5 sm:p-2.5 flex flex-col justify-between min-h-[66px] sm:min-h-[76px] bg-[#101216]/50 border border-white/[0.03] opacity-25 hover:opacity-50 transition-all cursor-pointer select-none">
+          <div class="flex items-center gap-0.5 sm:gap-1">
+            <span class="material-symbols-outlined text-[11px] sm:text-[13px] text-white/20">event_note</span>
+            <span class="text-[10px] sm:text-[11px] font-bold font-mono text-white/40">${prevDay}</span>
+          </div>
+          <div class="my-auto py-0.5 text-center">
+            <span class="font-mono text-xs sm:text-[13px] font-black tracking-tight block text-white/20">—</span>
+          </div>
+          <div class="text-[8px] sm:text-[9.5px] text-white/20 font-sans truncate text-center">&nbsp;</div>
+        </div>
+      `;
     }
 
+    // Render all days of the current month
     for (let day = 1; day <= daysInMonth; day++) {
       const dObj = new Date(this.selectedYear, this.selectedMonth, day);
-      const dayOfWeek = dObj.getDay();
-
-      if (isWeekdaysOnly && (dayOfWeek === 0 || dayOfWeek === 6)) {
-        continue;
-      }
-
       const dKey = this.formatDateKey(dObj);
       const dayData = dateMap[dKey] || { pnl: 0, count: 0, trades: [] };
       const hasTrades = dayData.count > 0;
@@ -1306,24 +1260,42 @@ window.MonthlyResultModule = {
         iconColor = 'text-white/20';
       }
 
-      const minHeightClass = isWeekdaysOnly ? 'min-h-[64px] sm:min-h-[74px] p-2 sm:p-2.5' : 'min-h-[58px] sm:min-h-[70px] p-1.5 sm:p-2';
-      const pnlFontClass = isWeekdaysOnly ? 'text-xs sm:text-[13px]' : 'text-[10px] sm:text-xs';
-
       gridHtml += `
         <div onclick="window.MonthlyResultModule.showDateDetails('${dKey}')"
-          class="relative rounded-xl sm:rounded-2xl flex flex-col justify-between transition-all cursor-pointer active:scale-95 ${minHeightClass} ${cardClass}">
-          <div class="flex items-center gap-1">
+          class="relative rounded-xl sm:rounded-2xl flex flex-col justify-between transition-all cursor-pointer active:scale-95 min-h-[66px] sm:min-h-[76px] p-1.5 sm:p-2.5 ${cardClass}">
+          <div class="flex items-center gap-0.5 sm:gap-1">
             <span class="material-symbols-outlined text-[11px] sm:text-[13px] ${iconColor}">event_note</span>
             <span class="text-[10px] sm:text-[11px] font-bold font-mono text-white/90">${day}</span>
           </div>
-          <div class="my-auto py-0.5">
-            <span class="font-mono ${pnlFontClass} font-black tracking-tight block ${hasTrades ? 'text-white' : 'text-white/30 text-center'}">
+          <div class="my-auto py-0.5 text-center">
+            <span class="font-mono text-xs sm:text-[13px] font-black tracking-tight block ${hasTrades ? 'text-white' : 'text-white/30'}">
               ${pnlText}
             </span>
           </div>
-          <div class="text-[8px] sm:text-[9px] text-white/60 font-sans truncate">
+          <div class="text-[8px] sm:text-[9.5px] text-white/60 font-sans truncate text-center">
             ${subText || '&nbsp;'}
           </div>
+        </div>
+      `;
+    }
+
+    // Render trailing next-month boxes to complete the final row (up to full 7-day multiples: 35 or 42 cells)
+    const totalSlots = Math.ceil((paddingDays + daysInMonth) / 7) * 7;
+    const trailingDays = totalSlots - (paddingDays + daysInMonth);
+
+    for (let t = 1; t <= trailingDays; t++) {
+      gridHtml += `
+        <div onclick="window.MonthlyResultModule.changeMonth(1)"
+          title="Next month"
+          class="relative rounded-xl sm:rounded-2xl p-1.5 sm:p-2.5 flex flex-col justify-between min-h-[66px] sm:min-h-[76px] bg-[#101216]/50 border border-white/[0.03] opacity-25 hover:opacity-50 transition-all cursor-pointer select-none">
+          <div class="flex items-center gap-0.5 sm:gap-1">
+            <span class="material-symbols-outlined text-[11px] sm:text-[13px] text-white/20">event_note</span>
+            <span class="text-[10px] sm:text-[11px] font-bold font-mono text-white/40">${t}</span>
+          </div>
+          <div class="my-auto py-0.5 text-center">
+            <span class="font-mono text-xs sm:text-[13px] font-black tracking-tight block text-white/20">—</span>
+          </div>
+          <div class="text-[8px] sm:text-[9.5px] text-white/20 font-sans truncate text-center">&nbsp;</div>
         </div>
       `;
     }
