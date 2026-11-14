@@ -470,25 +470,39 @@
 
           <!-- Top Quick-Select Coin Switcher Bar -->
           <div class="flex items-center gap-1.5 overflow-x-auto hide-scrollbar px-3 sm:px-0 pb-1">
-            <span class="text-[10px] font-mono text-on-surface-variant uppercase tracking-wider shrink-0 mr-1 flex items-center gap-1">
+            <span
+              class="text-[10px] font-mono text-on-surface-variant uppercase tracking-wider shrink-0 mr-1 flex items-center gap-1">
               <span class="material-symbols-outlined text-[14px] text-primary-container">currency_exchange</span>
               Pairs:
             </span>
-            <button type="button" class="btn-chart-quick-coin px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-[#1c1c1e] hover:bg-[#2c2c2e] text-white border border-white/10 shrink-0 transition-all active:scale-95 cursor-pointer" data-pair="BTC / USDT">BTC</button>
-            <button type="button" class="btn-chart-quick-coin px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-[#1c1c1e] hover:bg-[#2c2c2e] text-white border border-white/10 shrink-0 transition-all active:scale-95 cursor-pointer" data-pair="ETH / USDT">ETH</button>
-            <button type="button" class="btn-chart-quick-coin px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-[#1c1c1e] hover:bg-[#2c2c2e] text-white border border-white/10 shrink-0 transition-all active:scale-95 cursor-pointer" data-pair="SOL / USDT">SOL</button>
-            <button type="button" class="btn-chart-quick-coin px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-[#1c1c1e] hover:bg-[#2c2c2e] text-white border border-white/10 shrink-0 transition-all active:scale-95 cursor-pointer" data-pair="AAVE / USDT">AAVE</button>
-            <button type="button" class="btn-chart-quick-coin px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-[#1c1c1e] hover:bg-[#2c2c2e] text-white border border-white/10 shrink-0 transition-all active:scale-95 cursor-pointer" data-pair="XRP / USDT">XRP</button>
-            <button type="button" class="btn-chart-quick-coin px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-[#1c1c1e] hover:bg-[#2c2c2e] text-white border border-white/10 shrink-0 transition-all active:scale-95 cursor-pointer" data-pair="DOGE / USDT">DOGE</button>
+            <button type="button"
+              class="btn-chart-quick-coin px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-[#1c1c1e] hover:bg-[#2c2c2e] text-white border border-white/10 shrink-0 transition-all active:scale-95 cursor-pointer"
+              data-pair="BTC / USDT">BTC</button>
+            <button type="button"
+              class="btn-chart-quick-coin px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-[#1c1c1e] hover:bg-[#2c2c2e] text-white border border-white/10 shrink-0 transition-all active:scale-95 cursor-pointer"
+              data-pair="ETH / USDT">ETH</button>
+            <button type="button"
+              class="btn-chart-quick-coin px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-[#1c1c1e] hover:bg-[#2c2c2e] text-white border border-white/10 shrink-0 transition-all active:scale-95 cursor-pointer"
+              data-pair="SOL / USDT">SOL</button>
+            <button type="button"
+              class="btn-chart-quick-coin px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-[#1c1c1e] hover:bg-[#2c2c2e] text-white border border-white/10 shrink-0 transition-all active:scale-95 cursor-pointer"
+              data-pair="AAVE / USDT">AAVE</button>
+            <button type="button"
+              class="btn-chart-quick-coin px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-[#1c1c1e] hover:bg-[#2c2c2e] text-white border border-white/10 shrink-0 transition-all active:scale-95 cursor-pointer"
+              data-pair="XRP / USDT">XRP</button>
+            <button type="button"
+              class="btn-chart-quick-coin px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-[#1c1c1e] hover:bg-[#2c2c2e] text-white border border-white/10 shrink-0 transition-all active:scale-95 cursor-pointer"
+              data-pair="DOGE / USDT">DOGE</button>
           </div>
 
           <!-- Main Real-time Chart Card Container (End-to-End on Mobile) -->
-          <div class="relative w-full bg-[#1c1c1e] border-y sm:border border-white/[0.08] rounded-none sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden text-white">
+          <div
+            class="relative w-full bg-[#1c1c1e] border-y sm:border border-white/[0.08] rounded-none sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden text-white">
 
             <!-- Chart Top Bar -->
             <div
               class="flex flex-wrap sm:flex-nowrap items-center justify-between px-3 sm:px-4 py-2 sm:py-2.5 border-b border-white/[0.08] bg-[#121214] shrink-0 gap-y-2 gap-x-2">
-              
+
               <!-- Coin info (Order 1 on mobile, Order 1 on desktop) -->
               <div class="order-1 flex items-center gap-2 min-w-0 max-w-[calc(100%-44px)] sm:max-w-none">
                 <div
@@ -497,11 +511,14 @@
                 </div>
                 <div class="min-w-0">
                   <div class="flex items-center gap-1.5">
-                    <h3 id="full-chart-coin-title" class="font-bold text-xs sm:text-sm text-white truncate">BTC / USDT</h3>
+                    <h3 id="full-chart-coin-title" class="font-bold text-xs sm:text-sm text-white truncate">BTC / USDT
+                    </h3>
                     <span class="w-1.5 h-1.5 rounded-full bg-primary-container animate-ping shrink-0"></span>
-                    <span class="text-[9px] font-mono font-bold text-primary-container uppercase hidden sm:inline">Live Engine</span>
+                    <span class="text-[9px] font-mono font-bold text-primary-container uppercase hidden sm:inline">Live
+                      Engine</span>
                   </div>
-                  <p id="full-chart-price-display" class="text-[10px] sm:text-[11px] font-mono text-[#38bdf8] font-semibold truncate">
+                  <p id="full-chart-price-display"
+                    class="text-[10px] sm:text-[11px] font-mono text-[#38bdf8] font-semibold truncate">
                     Real-time Candles & Signals</p>
                 </div>
               </div>
@@ -514,7 +531,8 @@
               </button>
 
               <!-- Mode Tabs + Timeframe Controls: Order 3 on mobile, Order 2 on desktop -->
-              <div class="order-3 sm:order-2 flex items-center justify-between sm:justify-end gap-1.5 w-full sm:w-auto shrink-0">
+              <div
+                class="order-3 sm:order-2 flex items-center justify-between sm:justify-end gap-1.5 w-full sm:w-auto shrink-0">
                 <!-- Engine View Tabs -->
                 <div class="flex items-center bg-[#000000] p-0.5 rounded-xl border border-white/[0.08] text-xs">
                   <button id="full-chart-tab-tv" type="button"
@@ -556,7 +574,8 @@
                   <span class="w-1.5 h-1.5 rounded-full bg-primary-container animate-pulse shrink-0"></span>
                   <span id="ttr-signal-status-text" class="truncate">Scanning Trend Trader Reversals...</span>
                 </span>
-                <span id="ttr-macd-status-text" class="text-[10px] font-mono text-on-surface-variant hidden sm:inline shrink-0">
+                <span id="ttr-macd-status-text"
+                  class="text-[10px] font-mono text-on-surface-variant hidden sm:inline shrink-0">
                   MACD: Calculating...
                 </span>
               </div>
@@ -620,7 +639,8 @@
                     <span class="font-bold text-white tracking-tight">Daily Record:</span>
                     <span id="ttr-compact-pill-pnl" class="font-mono font-bold text-primary-container">+$0.00</span>
                     <span id="ttr-compact-pill-rate" class="text-[10px] text-on-surface-variant font-mono">(0% W)</span>
-                    <span class="material-symbols-outlined text-[14px] text-on-surface-variant ml-0.5">expand_more</span>
+                    <span
+                      class="material-symbols-outlined text-[14px] text-on-surface-variant ml-0.5">expand_more</span>
                   </div>
 
                   <!-- Expanded Compact Glass Table Card -->
@@ -659,7 +679,8 @@
                           Signals Log (<span id="ttr-signals-count-badge">0</span>)
                         </button>
                       </div>
-                      <span class="text-[9px] text-primary-container/90 font-mono">TP1: +2% • TP2: +10%+ • TP3: +30%+ • SL:
+                      <span class="text-[9px] text-primary-container/90 font-mono">TP1: +2% • TP2: +10%+ • TP3: +30%+ •
+                        SL:
                         -5% (SMC)</span>
                     </div>
 
@@ -720,7 +741,8 @@
                 <span class="material-symbols-outlined text-[14px] text-primary-container shrink-0">insights</span>
                 <span class="truncate">Full TradingView Tools • Live Realtime Signals & Indicators</span>
               </div>
-              <span class="font-mono text-primary-container font-semibold hidden sm:inline shrink-0">AlphaChart Realtime</span>
+              <span class="font-mono text-primary-container font-semibold hidden sm:inline shrink-0">AlphaChart
+                Realtime</span>
             </div>
 
           </div>
@@ -809,14 +831,17 @@
                 <div class="min-w-0">
                   <div class="flex items-center gap-2">
                     <h3 class="font-bold text-xs sm:text-sm text-white truncate">view monthly result and target</h3>
-                    <span class="px-1.5 py-0.2 rounded text-[9px] font-mono font-semibold bg-primary-container/20 text-primary-container border border-primary-container/30">Target</span>
+                    <span
+                      class="px-1.5 py-0.2 rounded text-[9px] font-mono font-semibold bg-primary-container/20 text-primary-container border border-primary-container/30">Target</span>
                   </div>
-                  <p class="text-[11px] text-on-surface-variant truncate">Calendar view of daily P&L, trades & monthly goal.</p>
+                  <p class="text-[11px] text-on-surface-variant truncate">Calendar view of daily P&L, trades & monthly
+                    goal.</p>
                 </div>
               </div>
               <div class="flex items-center gap-1.5 shrink-0">
                 <span id="monthly-result-preview-pnl" class="text-xs font-mono font-bold text-primary-container"></span>
-                <span class="material-symbols-outlined text-[20px] text-on-surface-variant group-hover:text-primary-container transition-colors">chevron_right</span>
+                <span
+                  class="material-symbols-outlined text-[20px] text-on-surface-variant group-hover:text-primary-container transition-colors">chevron_right</span>
               </div>
             </div>
           </section>
@@ -1036,7 +1061,8 @@
           <button type="button" data-period="year"
             class="monthly-period-pill flex-1 py-1.5 rounded-lg text-xs font-semibold text-white/50 hover:text-white transition-all text-center">Year</button>
           <button type="button" data-period="all"
-            class="monthly-period-pill flex-1 py-1.5 rounded-lg text-xs font-semibold text-white/50 hover:text-white transition-all text-center">All time</button>
+            class="monthly-period-pill flex-1 py-1.5 rounded-lg text-xs font-semibold text-white/50 hover:text-white transition-all text-center">All
+            time</button>
         </div>
 
         <!-- 2. Month Navigator Bar (< December 2025 >) -->
@@ -1060,7 +1086,7 @@
         <div class="grid grid-cols-2 gap-3">
           <!-- Total P&L Card -->
           <div class="bg-[#14161b] border border-white/[0.08] rounded-2xl p-4 flex flex-col justify-between shadow-sm">
-            <span class="text-xs text-white/60 font-medium">Total P&L</span>
+            <span id="monthly-kpi-pnl-label" class="text-xs text-white/60 font-medium">Total P&L</span>
             <div class="mt-2">
               <span id="monthly-kpi-total-pnl" class="font-mono text-xl sm:text-2xl font-black text-primary-container">
                 +$1165.10
@@ -1072,7 +1098,7 @@
           <!-- Monthly Goal Card -->
           <div class="bg-[#14161b] border border-white/[0.08] rounded-2xl p-4 flex flex-col justify-between shadow-sm">
             <div class="flex items-center justify-between">
-              <span class="text-xs text-white/60 font-medium">Monthly goal</span>
+              <span id="monthly-kpi-goal-label" class="text-xs text-white/60 font-medium">Monthly goal</span>
               <button id="btn-edit-monthly-goal" type="button"
                 class="w-6 h-6 rounded flex items-center justify-center text-white/60 hover:text-primary-container hover:bg-white/10 transition-colors cursor-pointer"
                 title="Adjust Monthly Target">
@@ -1082,8 +1108,9 @@
             <div class="mt-2 flex flex-col gap-1.5">
               <!-- Goal Progress Bar -->
               <div class="w-full h-2 rounded-full bg-white/10 overflow-hidden">
-                <div id="monthly-goal-bar-fill" class="h-full bg-primary-container rounded-full transition-all duration-500"
-                  style="width: 38.8%;"></div>
+                <div id="monthly-goal-bar-fill"
+                  class="h-full bg-primary-container rounded-full transition-all duration-500" style="width: 38.8%;">
+                </div>
               </div>
               <div class="flex items-center justify-between text-[11px] font-mono font-semibold">
                 <span id="monthly-goal-cur-label" class="text-primary-container">$1165</span>
@@ -1095,12 +1122,13 @@
 
         <!-- View Mode: Mon-Fri vs 7 Days -->
         <div class="flex items-center justify-between px-1">
-          <span class="text-[10px] uppercase font-mono text-white/40 tracking-wider">Trading Calendar</span>
-          <div class="flex items-center gap-1 bg-[#15171c] p-0.5 rounded-lg border border-white/[0.06] text-[10px]">
+          <span id="monthly-subbar-label" class="text-[10px] uppercase font-mono text-white/40 tracking-wider">Trading Calendar</span>
+          <div id="monthly-view-mode-container" class="flex items-center gap-1 bg-[#15171c] p-0.5 rounded-lg border border-white/[0.06] text-[10px]">
             <button id="monthly-view-weekdays" type="button"
               class="px-2 py-0.5 rounded text-[10px] font-bold bg-white/10 text-white transition-all cursor-pointer">Mon-Fri</button>
             <button id="monthly-view-all7" type="button"
-              class="px-2 py-0.5 rounded text-[10px] font-semibold text-white/40 hover:text-white transition-all cursor-pointer">7 Days</button>
+              class="px-2 py-0.5 rounded text-[10px] font-semibold text-white/40 hover:text-white transition-all cursor-pointer">7
+              Days</button>
           </div>
         </div>
 
@@ -1169,7 +1197,8 @@
           <button id="monthly-goal-cancel-btn" type="button"
             class="px-3.5 py-1.5 rounded-xl bg-white/[0.06] hover:bg-white/10 text-xs font-semibold text-white/70 hover:text-white transition-all cursor-pointer">Cancel</button>
           <button id="monthly-goal-save-btn" type="button"
-            class="px-4 py-1.5 rounded-xl bg-primary-container text-black font-bold text-xs hover:brightness-105 active:scale-95 transition-all shadow-sm cursor-pointer">Save Target</button>
+            class="px-4 py-1.5 rounded-xl bg-primary-container text-black font-bold text-xs hover:brightness-105 active:scale-95 transition-all shadow-sm cursor-pointer">Save
+            Target</button>
         </div>
       </div>
     </div>
