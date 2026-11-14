@@ -1,5 +1,5 @@
 // AlphaChart AI - Institutional PWA Service Worker (Mobile & Desktop)
-const CACHE_NAME = 'alphachart-pwa-v24';
+const CACHE_NAME = 'alphachart-pwa-v25';
 const PRECACHE_ASSETS = [
   '/',
   '/index.html',
