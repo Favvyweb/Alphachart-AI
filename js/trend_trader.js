@@ -2342,6 +2342,9 @@ window.TrendTraderAlerts = {
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').then(reg => {
         console.log('[AlphaChart AI] Mobile push service worker registered');
+        if (this.isAlertsEnabled() && ('Notification' in window) && Notification.permission === 'granted') {
+          this.subscribeToCloudPush();
+        }
       }).catch(err => {
         console.warn('Service worker registration note:', err);
       });
@@ -2350,6 +2353,64 @@ window.TrendTraderAlerts = {
     if (this.isAlertsEnabled()) {
       const defaultPair = (window.TrendTraderEngine && window.TrendTraderEngine.currentPair) || 'AAVE / USDT';
       this.startBackgroundMonitor(defaultPair, '5m');
+    }
+  },
+
+  /**
+   * Registers device with 24/7 Cloud Web Push service (VAPID) so notifications arrive when app is closed
+   */
+  subscribeToCloudPush: async function () {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      return false;
+    }
+
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      let vapidKey = 'BHpqr3UT0lcUUPbk7x_9ndY66CIVM0ODI6H2ZgOcMfmARzS5yPn2fXcoY_7cYmph3M_8F81Egy-Nb2NswCYibAw';
+      try {
+        const keyRes = await fetch('/api/alerts/subscribe');
+        if (keyRes.ok) {
+          const keyData = await keyRes.json();
+          if (keyData && keyData.vapidPublicKey) vapidKey = keyData.vapidPublicKey;
+        }
+      } catch (e) { }
+
+      const padding = '='.repeat((4 - (vapidKey.length % 4)) % 4);
+      const base64 = (vapidKey + padding).replace(/-/g, '+').replace(/_/g, '/');
+      const rawData = window.atob(base64);
+      const outputArray = new Uint8Array(rawData.length);
+      for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+      }
+
+      let sub = await reg.pushManager.getSubscription();
+      if (!sub) {
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: outputArray
+        });
+      }
+
+      if (sub) {
+        const pair = (window.TrendTraderEngine && window.TrendTraderEngine.currentPair) || (window.ScannerModule && window.ScannerModule.fullChartPair) || 'AAVE / USDT';
+        const tf = (window.TrendTraderEngine && window.TrendTraderEngine.currentTimeframe) || '5m';
+
+        await fetch('/api/alerts/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            subscription: sub,
+            pair,
+            timeframe: tf
+          })
+        });
+
+        console.log('[AlphaChart AI] 24/7 Cloud Background Push Subscription Registered!');
+        return true;
+      }
+    } catch (err) {
+      console.warn('[AlphaChart AI] Cloud push subscription note:', err);
+      return false;
     }
   },
 
@@ -2396,6 +2457,10 @@ window.TrendTraderAlerts = {
       const permission = await Notification.requestPermission();
       this.playAlertSound('BUY');
       this.vibrate();
+
+      if (permission === 'granted') {
+        await this.subscribeToCloudPush();
+      }
 
       const pair = (window.TrendTraderEngine && window.TrendTraderEngine.currentPair) || (window.ScannerModule && window.ScannerModule.fullChartPair) || 'AAVE / USDT';
       this.sendNotification({
@@ -2746,6 +2811,15 @@ window.TrendTraderAlerts = {
       direction: isBuy ? 'BUY' : 'SELL',
       notes: `Test Instant Signal Alert: Confirmed ${type} demonstration!`
     });
+
+    // Also trigger cloud push notification for closed-app / lockscreen test
+    try {
+      fetch('/api/alerts/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: type, pair: pair, price: testPrice.toFixed(2) })
+      }).catch(() => { });
+    } catch (e) { }
   }
 };
 
