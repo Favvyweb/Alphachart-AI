@@ -1124,28 +1124,29 @@
         <div class="flex items-center justify-between px-1">
           <span id="monthly-subbar-label" class="text-[10px] uppercase font-mono text-white/40 tracking-wider">Trading Calendar</span>
           <div id="monthly-view-mode-container" class="flex items-center gap-1 bg-[#15171c] p-0.5 rounded-lg border border-white/[0.06] text-[10px]">
-            <button id="monthly-view-weekdays" type="button"
-              class="px-2 py-0.5 rounded text-[10px] font-bold bg-white/10 text-white transition-all cursor-pointer">Mon-Fri</button>
             <button id="monthly-view-all7" type="button"
-              class="px-2 py-0.5 rounded text-[10px] font-semibold text-white/40 hover:text-white transition-all cursor-pointer">7
-              Days</button>
+              class="px-2 py-0.5 rounded text-[10px] font-bold bg-white/10 text-white transition-all cursor-pointer">7 Days</button>
+            <button id="monthly-view-weekdays" type="button"
+              class="px-2 py-0.5 rounded text-[10px] font-semibold text-white/40 hover:text-white transition-all cursor-pointer">Mon-Fri</button>
           </div>
         </div>
 
         <!-- 4. Calendar Day of Week Headers & Days Grid -->
         <div class="flex flex-col gap-1.5">
-          <!-- Headers: MON, TUE, WED, THU, FRI -->
+          <!-- Headers: MON, TUE, WED, THU, FRI, SAT, SUN -->
           <div id="monthly-calendar-headers"
-            class="grid grid-cols-5 gap-1.5 text-center text-[10px] font-bold text-white/60 uppercase tracking-wider py-1 font-mono">
+            class="grid grid-cols-7 gap-1 text-center text-[9px] font-bold text-white/60 uppercase tracking-wider py-1 font-mono">
             <div>MON</div>
             <div>TUE</div>
             <div>WED</div>
             <div>THU</div>
             <div>FRI</div>
+            <div>SAT</div>
+            <div>SUN</div>
           </div>
 
           <!-- Calendar Days Grid -->
-          <div id="monthly-calendar-grid" class="grid grid-cols-5 gap-1.5">
+          <div id="monthly-calendar-grid" class="grid grid-cols-7 gap-1">
             <!-- Dynamic day cards rendered here -->
           </div>
         </div>

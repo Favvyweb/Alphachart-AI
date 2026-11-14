@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Trading Journal Module
  * Strictly Manual Trade Logging:
  * Trades are NEVER automatically logged. They only appear when the user
@@ -587,7 +587,7 @@ window.MonthlyResultModule = {
   selectedMonth: new Date().getMonth(), // 0-indexed: 10 = November
   selectedWeekOffset: 0,
   selectedPeriod: 'month', // 'week', 'month', 'year', 'all'
-  viewMode: 'weekdays', // 'weekdays' (Mon-Fri) or 'all7'
+  viewMode: 'all7', // 'all7' (Mon-Sun, 7 Days default) or 'weekdays' (Mon-Fri)
 
   init: function () {
     this.bindEvents();
@@ -1107,6 +1107,8 @@ window.MonthlyResultModule = {
     for (const d of daysToRender) {
       const dKey = this.formatDateKey(d);
       const dayNum = d.getDate();
+      const dayOfWeekIdx = (d.getDay() === 0 ? 6 : d.getDay() - 1);
+      const dayShort = dayNamesShort[dayOfWeekIdx];
       const dayData = dateMap[dKey] || { pnl: 0, count: 0, trades: [] };
       const hasTrades = dayData.count > 0;
       const isProfit = dayData.pnl >= 0;
@@ -1134,19 +1136,22 @@ window.MonthlyResultModule = {
         iconColor = 'text-white/20';
       }
 
+      const minHeightClass = isWeekdaysOnly ? 'min-h-[64px] sm:min-h-[74px] p-2 sm:p-2.5' : 'min-h-[58px] sm:min-h-[70px] p-1.5 sm:p-2';
+      const pnlFontClass = isWeekdaysOnly ? 'text-xs sm:text-[13px]' : 'text-[10px] sm:text-xs';
+
       gridHtml += `
         <div onclick="window.MonthlyResultModule.showDateDetails('${dKey}')"
-          class="relative rounded-xl sm:rounded-2xl p-2 sm:p-2.5 flex flex-col justify-between min-h-[64px] sm:min-h-[74px] transition-all cursor-pointer active:scale-95 ${cardClass}">
+          class="relative rounded-xl sm:rounded-2xl flex flex-col justify-between transition-all cursor-pointer active:scale-95 ${minHeightClass} ${cardClass}">
           <div class="flex items-center gap-1">
-            <span class="material-symbols-outlined text-[13px] ${iconColor}">event_note</span>
-            <span class="text-[11px] font-bold font-mono text-white/90">${dayNum}</span>
+            <span class="material-symbols-outlined text-[11px] sm:text-[13px] ${iconColor}">event_note</span>
+            <span class="text-[10px] sm:text-[11px] font-bold font-mono text-white/90">${dayShort} ${dayNum}</span>
           </div>
           <div class="my-auto py-0.5">
-            <span class="font-mono text-xs sm:text-[13px] font-black tracking-tight block ${hasTrades ? 'text-white' : 'text-white/30 text-center'}">
+            <span class="font-mono ${pnlFontClass} font-black tracking-tight block ${hasTrades ? 'text-white' : 'text-white/30 text-center'}">
               ${pnlText}
             </span>
           </div>
-          <div class="text-[9px] sm:text-[10px] text-white/60 font-sans truncate">
+          <div class="text-[8px] sm:text-[9px] text-white/60 font-sans truncate">
             ${subText || '&nbsp;'}
           </div>
         </div>
@@ -1221,6 +1226,8 @@ window.MonthlyResultModule = {
     const gridEl = document.getElementById('monthly-calendar-grid');
     if (!headersEl || !gridEl) return;
 
+    const firstDayOfWeek = new Date(this.selectedYear, this.selectedMonth, 1).getDay(); // 0 = Sun, 1 = Mon ... 6 = Sat
+
     if (isWeekdaysOnly) {
       headersEl.className = 'grid grid-cols-5 gap-1.5 text-center text-[10px] font-bold text-white/60 uppercase tracking-wider py-1 font-mono';
       headersEl.innerHTML = `
@@ -1246,6 +1253,22 @@ window.MonthlyResultModule = {
     }
 
     let gridHtml = '';
+
+    // In 7-day mode, insert leading empty spacer cells before Day 1 so each day lands on its exact day of the week
+    if (!isWeekdaysOnly) {
+      // Monday = 0, Tuesday = 1, Wednesday = 2, Thursday = 3, Friday = 4, Saturday = 5, Sunday = 6
+      const paddingDays = (firstDayOfWeek === 0) ? 6 : (firstDayOfWeek - 1);
+      for (let p = 0; p < paddingDays; p++) {
+        gridHtml += `<div class="opacity-0 pointer-events-none min-h-[58px] sm:min-h-[70px]"></div>`;
+      }
+    } else {
+      if (firstDayOfWeek >= 2 && firstDayOfWeek <= 5) {
+        const paddingDays = firstDayOfWeek - 1;
+        for (let p = 0; p < paddingDays; p++) {
+          gridHtml += `<div class="opacity-0 pointer-events-none min-h-[64px] sm:min-h-[74px]"></div>`;
+        }
+      }
+    }
 
     for (let day = 1; day <= daysInMonth; day++) {
       const dObj = new Date(this.selectedYear, this.selectedMonth, day);
@@ -1283,19 +1306,22 @@ window.MonthlyResultModule = {
         iconColor = 'text-white/20';
       }
 
+      const minHeightClass = isWeekdaysOnly ? 'min-h-[64px] sm:min-h-[74px] p-2 sm:p-2.5' : 'min-h-[58px] sm:min-h-[70px] p-1.5 sm:p-2';
+      const pnlFontClass = isWeekdaysOnly ? 'text-xs sm:text-[13px]' : 'text-[10px] sm:text-xs';
+
       gridHtml += `
         <div onclick="window.MonthlyResultModule.showDateDetails('${dKey}')"
-          class="relative rounded-xl sm:rounded-2xl p-2 sm:p-2.5 flex flex-col justify-between min-h-[64px] sm:min-h-[74px] transition-all cursor-pointer active:scale-95 ${cardClass}">
+          class="relative rounded-xl sm:rounded-2xl flex flex-col justify-between transition-all cursor-pointer active:scale-95 ${minHeightClass} ${cardClass}">
           <div class="flex items-center gap-1">
-            <span class="material-symbols-outlined text-[13px] ${iconColor}">event_note</span>
-            <span class="text-[11px] font-bold font-mono text-white/90">${day}</span>
+            <span class="material-symbols-outlined text-[11px] sm:text-[13px] ${iconColor}">event_note</span>
+            <span class="text-[10px] sm:text-[11px] font-bold font-mono text-white/90">${day}</span>
           </div>
           <div class="my-auto py-0.5">
-            <span class="font-mono text-xs sm:text-[13px] font-black tracking-tight block ${hasTrades ? 'text-white' : 'text-white/30 text-center'}">
+            <span class="font-mono ${pnlFontClass} font-black tracking-tight block ${hasTrades ? 'text-white' : 'text-white/30 text-center'}">
               ${pnlText}
             </span>
           </div>
-          <div class="text-[9px] sm:text-[10px] text-white/60 font-sans truncate">
+          <div class="text-[8px] sm:text-[9px] text-white/60 font-sans truncate">
             ${subText || '&nbsp;'}
           </div>
         </div>
