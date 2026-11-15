@@ -19,11 +19,15 @@ global._sentSignalKeys = global._sentSignalKeys || new Set();
 
 function getDatabaseUrl() {
   return process.env.DATABASE_URL
-    || process.env.DATABASE_URI
+    || process.env.ALPHACHART_DATABASE_URL
+    || process.env.ALPHACHART_POSTGRES_URL
+    || process.env.ALPHACHART_POSTGRES_PRISMA_URL
+    || process.env.ALPHACHART_DATABASE_URL_UNPOOLED
     || process.env.POSTGRES_URL
-    || process.env.POSTGRES_URI
     || process.env.POSTGRES_PRISMA_URL
     || process.env.POSTGRES_URL_NON_POOLING
+    || process.env.DATABASE_URI
+    || process.env.POSTGRES_URI
     || process.env.NEON_DATABASE_URL
     || process.env.NEON_URL
     || process.env.SUPABASE_DB_URL
