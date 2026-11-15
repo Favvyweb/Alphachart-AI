@@ -21,6 +21,11 @@ module.exports = async function handler(req, res) {
     const type = (body && body.type) || (req.query && req.query.type) || 'BUY';
     const pair = (body && body.pair) || (req.query && req.query.pair) || 'AAVE / USDT';
     const price = (body && body.price) || '112.50';
+    const delay = parseInt((body && body.delay) || (req.query && req.query.delay) || 0);
+
+    if (delay > 0) {
+      await new Promise(r => setTimeout(r, Math.min(delay, 10) * 1000));
+    }
 
     const subscriptions = await getSubscriptions();
 

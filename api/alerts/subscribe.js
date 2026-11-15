@@ -1,7 +1,7 @@
 // Serverless Endpoint: /api/alerts/subscribe
 // Handles registration of mobile/desktop Web Push subscriptions for 24/7 background alerts
 
-const { saveSubscription, VAPID_PUBLIC_KEY } = require('./_config');
+const { saveSubscription, VAPID_PUBLIC_KEY, getDatabaseUrl } = require('./_config');
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -36,10 +36,12 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: 'Valid PushSubscription required.' });
     }
 
+    const isDbConnected = Boolean(getDatabaseUrl());
     await saveSubscription(subscription, pair || 'AAVE / USDT', timeframe || '5m');
 
     return res.status(200).json({
       success: true,
+      isDatabaseConnected: isDbConnected,
       message: '24/7 background push notifications registered successfully! You will receive lockscreen alerts even when closed.'
     });
   } catch (err) {

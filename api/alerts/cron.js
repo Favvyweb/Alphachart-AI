@@ -2,7 +2,7 @@
 // Monitors Binance markets continuously, detects confirmed BUY, SELL, TP1, TP2, and SL signals on candle close,
 // and sends native Web Push notifications directly to users' phones even when the app is completely closed.
 
-const { webpush, getSubscriptions, removeSubscription } = require('./_config');
+const { webpush, getSubscriptions, removeSubscription, hasSentEvent, markSentEvent } = require('./_config');
 
 // Deduplication map to ensure each candle's signal is notified exactly ONCE
 global._sentSignalKeys = global._sentSignalKeys || new Set();
@@ -186,8 +186,9 @@ module.exports = async function handler(req, res) {
 
       for (const sig of latestSignals) {
         const dedupeKey = `${sym}_5m_${sig.time}_${sig.type}`;
-        if (!global._sentSignalKeys.has(dedupeKey)) {
-          global._sentSignalKeys.add(dedupeKey);
+        const alreadySent = await hasSentEvent(dedupeKey);
+        if (!alreadySent) {
+          await markSentEvent(dedupeKey);
           newTriggers.push({
             symbol: sym,
             pairFormatted: sym.replace('USDT', ' / USDT'),

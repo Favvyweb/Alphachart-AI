@@ -15,7 +15,11 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const dbUrl = process.env.DATABASE_URL;
+    const dbUrl = process.env.DATABASE_URL
+      || process.env.POSTGRES_URL
+      || process.env.POSTGRES_PRISMA_URL
+      || process.env.SUPABASE_DB_URL
+      || process.env.NEON_DATABASE_URL;
 
     if (!dbUrl) {
       return res.status(200).json({

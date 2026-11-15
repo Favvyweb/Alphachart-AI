@@ -15,9 +15,20 @@ webpush.setVapidDetails(
 global._pushSubscriptionsMemory = global._pushSubscriptionsMemory || new Map();
 global._lastProcessedSignals = global._lastProcessedSignals || new Map();
 global._dailyRecordsMemory = global._dailyRecordsMemory || new Map();
+global._sentSignalKeys = global._sentSignalKeys || new Set();
+
+function getDatabaseUrl() {
+  return process.env.DATABASE_URL
+    || process.env.POSTGRES_URL
+    || process.env.POSTGRES_PRISMA_URL
+    || process.env.POSTGRES_URL_NON_POOLING
+    || process.env.SUPABASE_DB_URL
+    || process.env.NEON_DATABASE_URL
+    || null;
+}
 
 async function getDbClient() {
-  const dbUrl = process.env.DATABASE_URL;
+  const dbUrl = getDatabaseUrl();
   if (!dbUrl) return null;
 
   try {
@@ -47,6 +58,14 @@ async function getDbClient() {
         timeframe TEXT DEFAULT '5m',
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         last_notified_at TIMESTAMP WITH TIME ZONE DEFAULT NULL
+      );
+    `);
+
+    // Ensure alert_sent_events table exists to guarantee strict 1-shot alerts
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS alert_sent_events (
+        dedupe_key TEXT PRIMARY KEY,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
     `);
 
@@ -187,13 +206,50 @@ async function getDailySignalRecord(pair, timeframe, dateKey) {
   return global._dailyRecordsMemory.get(memKey) || null;
 }
 
+async function hasSentEvent(key) {
+  if (!key) return false;
+  const client = await getDbClient();
+  if (client) {
+    try {
+      const res = await client.query('SELECT 1 FROM alert_sent_events WHERE dedupe_key = $1', [key]);
+      return res.rows && res.rows.length > 0;
+    } catch (e) {
+      console.warn('Error checking sent event in DB:', e.message);
+    } finally {
+      await client.end().catch(() => {});
+    }
+  }
+  return global._sentSignalKeys.has(key);
+}
+
+async function markSentEvent(key) {
+  if (!key) return;
+  global._sentSignalKeys.add(key);
+  const client = await getDbClient();
+  if (client) {
+    try {
+      await client.query(`
+        INSERT INTO alert_sent_events (dedupe_key) VALUES ($1)
+        ON CONFLICT (dedupe_key) DO NOTHING;
+      `, [key]);
+    } catch (e) {
+      console.warn('Error marking sent event in DB:', e.message);
+    } finally {
+      await client.end().catch(() => {});
+    }
+  }
+}
+
 module.exports = {
   webpush,
   VAPID_PUBLIC_KEY,
+  getDatabaseUrl,
   saveSubscription,
   getSubscriptions,
   removeSubscription,
   saveDailySignalRecord,
-  getDailySignalRecord
+  getDailySignalRecord,
+  hasSentEvent,
+  markSentEvent
 };
 
