@@ -31,10 +31,14 @@ module.exports = async function handler(req, res) {
       || process.env.POSTGRESQL_URL;
 
     if (!dbUrl) {
+      const publicKeys = Object.keys(process.env).filter(k =>
+        !k.includes('KEY') && !k.includes('SECRET') && !k.includes('AUTH') && !k.includes('TOKEN')
+      );
       return res.status(200).json({
         success: true,
         count: 0,
         subscribers: [],
+        availableEnvKeys: publicKeys,
         notice: 'DATABASE_URL is not set yet. Configure DATABASE_URL in your hosting environment (Vercel/Supabase/Neon).'
       });
     }
