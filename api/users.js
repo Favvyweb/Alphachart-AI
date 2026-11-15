@@ -16,10 +16,19 @@ module.exports = async function handler(req, res) {
 
   try {
     const dbUrl = process.env.DATABASE_URL
+      || process.env.DATABASE_URI
       || process.env.POSTGRES_URL
+      || process.env.POSTGRES_URI
       || process.env.POSTGRES_PRISMA_URL
+      || process.env.POSTGRES_URL_NON_POOLING
+      || process.env.NEON_DATABASE_URL
+      || process.env.NEON_URL
       || process.env.SUPABASE_DB_URL
-      || process.env.NEON_DATABASE_URL;
+      || process.env.SUPABASE_DATABASE_URL
+      || process.env.SUPABASE_URL
+      || process.env.DB_URL
+      || process.env.DB_URI
+      || process.env.POSTGRESQL_URL;
 
     if (!dbUrl) {
       return res.status(200).json({

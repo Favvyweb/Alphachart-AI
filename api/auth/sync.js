@@ -39,10 +39,19 @@ module.exports = async function handler(req, res) {
     const ip = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '127.0.0.1';
 
     const dbUrl = process.env.DATABASE_URL
+      || process.env.DATABASE_URI
       || process.env.POSTGRES_URL
+      || process.env.POSTGRES_URI
       || process.env.POSTGRES_PRISMA_URL
+      || process.env.POSTGRES_URL_NON_POOLING
+      || process.env.NEON_DATABASE_URL
+      || process.env.NEON_URL
       || process.env.SUPABASE_DB_URL
-      || process.env.NEON_DATABASE_URL;
+      || process.env.SUPABASE_DATABASE_URL
+      || process.env.SUPABASE_URL
+      || process.env.DB_URL
+      || process.env.DB_URI
+      || process.env.POSTGRESQL_URL;
 
     // If DATABASE_URL is configured (e.g. Supabase, Neon, Vercel Postgres)
     if (dbUrl) {
