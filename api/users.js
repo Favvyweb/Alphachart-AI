@@ -63,6 +63,20 @@ module.exports = async function handler(req, res) {
 
     await client.connect();
 
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        display_name VARCHAR(150),
+        subscription_tier VARCHAR(50) DEFAULT 'PRO_TRIAL',
+        login_count INT DEFAULT 1,
+        device_platform VARCHAR(100),
+        pwa_installed BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+        last_login_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
     const result = await client.query(`
       SELECT 
         id,
