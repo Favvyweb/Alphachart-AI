@@ -121,7 +121,7 @@ async function saveSubscription(sub, pair = 'AAVE / USDT', timeframe = '5m') {
           last_notified_at = CURRENT_TIMESTAMP;
       `, [sub.endpoint, sub.keys.p256dh, sub.keys.auth, pair, timeframe]);
     } finally {
-      await client.end().catch(() => {});
+      await client.end().catch(() => { });
     }
   } else {
     // Memory fallback
@@ -148,7 +148,7 @@ async function getSubscriptions() {
         timeframe: r.timeframe
       }));
     } finally {
-      await client.end().catch(() => {});
+      await client.end().catch(() => { });
     }
   }
 
@@ -162,7 +162,7 @@ async function removeSubscription(endpoint) {
     try {
       await client.query(`DELETE FROM push_subscriptions WHERE endpoint = $1`, [endpoint]);
     } finally {
-      await client.end().catch(() => {});
+      await client.end().catch(() => { });
     }
   }
   global._pushSubscriptionsMemory.delete(endpoint);
@@ -187,7 +187,7 @@ async function saveDailySignalRecord(pair, timeframe, dateKey, dayName, data) {
     } catch (e) {
       console.warn('Error saving daily signal record to DB:', e.message);
     } finally {
-      await client.end().catch(() => {});
+      await client.end().catch(() => { });
     }
   }
 }
@@ -211,7 +211,7 @@ async function getDailySignalRecord(pair, timeframe, dateKey) {
     } catch (e) {
       console.warn('Error querying daily signal record from DB:', e.message);
     } finally {
-      await client.end().catch(() => {});
+      await client.end().catch(() => { });
     }
   }
 
@@ -228,7 +228,7 @@ async function hasSentEvent(key) {
     } catch (e) {
       console.warn('Error checking sent event in DB:', e.message);
     } finally {
-      await client.end().catch(() => {});
+      await client.end().catch(() => { });
     }
   }
   return global._sentSignalKeys.has(key);
@@ -247,7 +247,7 @@ async function markSentEvent(key) {
     } catch (e) {
       console.warn('Error marking sent event in DB:', e.message);
     } finally {
-      await client.end().catch(() => {});
+      await client.end().catch(() => { });
     }
   }
 }

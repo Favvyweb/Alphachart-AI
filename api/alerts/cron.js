@@ -178,11 +178,12 @@ module.exports = async function handler(req, res) {
       const candles = await fetchBinanceCandles(sym, '5m', 80);
       const signals = evaluateSignals(candles);
 
-      // Check the latest closed candle signal
+      // Inspect confirmed closed candles (safely covers last 2 closed candles so no jitter misses an event)
       const lastCandle = candles[candles.length - 2]; // Last closed candle
       if (!lastCandle) continue;
 
-      const latestSignals = signals.filter(s => s.time >= lastCandle.time);
+      const checkCutoff = candles[candles.length - 3] ? candles[candles.length - 3].time : lastCandle.time;
+      const latestSignals = signals.filter(s => s.time >= checkCutoff);
 
       for (const sig of latestSignals) {
         const dedupeKey = `${sym}_5m_${sig.time}_${sig.type}`;

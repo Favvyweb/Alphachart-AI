@@ -500,34 +500,16 @@ window.TrendTraderEngine = {
       let canSell = false;
 
       // ========================================================
-      // 1. PRIMARY ENGINE: TREND TRADER TRAILING LINE FLIPS
+      // 1. PRIMARY ENGINE: TREND TRADER TRAILING LINE FLIPS (100% NON-REPAINTING)
       // ========================================================
       // Whenever the trailing line steps in that direction, signal is guaranteed to print!
       // - Line steps to UPSIDE below candles (isFlipBull) -> 🟢 BUY SIGNAL
       // - Line steps to DOWNSIDE above candles (isFlipBear) -> 🔴 SELL SIGNAL
+      // Signals are 100% deterministic and immutable upon candle close (NEVER repaint or disappear)
       if (isFlipBull) {
         canBuy = true;
       } else if (isFlipBear) {
         canSell = true;
-      }
-
-      // ========================================================
-      // 2. SECONDARY SMC SNIPER REVERSALS (At Extremes)
-      // ========================================================
-      if (!canBuy && !canSell && canSignalAgain) {
-        // At Premium Zone with clear rejection pinbar while line is bearish
-        const isAtPremium = (cur.high >= premLow || prev.high >= premLow);
-        const hasUpperRejection = (upperWickRatio >= 0.28) || (prevUpperWickRatio >= 0.28 && isBearCandle);
-        if (isAtPremium && hasUpperRejection && isBearCandle && activeTrade !== 'SELL' && ttTrend === -1) {
-          canSell = true;
-        }
-
-        // At Discount Zone with clear absorption pinbar while line is bullish
-        const isAtDiscount = (cur.low <= discHigh || prev.low <= discHigh);
-        const hasLowerRejection = (lowerWickRatio >= 0.28) || (prevLowerWickRatio >= 0.28 && isBullCandle);
-        if (isAtDiscount && hasLowerRejection && isBullCandle && activeTrade !== 'BUY' && ttTrend === 1) {
-          canBuy = true;
-        }
       }
 
       let tag = null;
@@ -988,17 +970,22 @@ window.TrendTraderEngine = {
   updateMarkersAndPerformance: function (analysis) {
     this.renderSignalMarkers(analysis);
     this.renderDailyPerformanceTable(analysis);
-    this.seedHistoricalEvents(analysis);
   },
 
   /**
    * Pre-marks all historical candle signals and completed TP/SL events as notified.
    * Guarantees ZERO historical alert spam when the app or chart is opened!
+   * Runs strictly ONCE on startup and NEVER silences live real-time candle close events!
    */
   seedHistoricalEvents: function (analysis) {
+    if (this._hasSeededHistory) return;
     if (!analysis || !analysis.candles || !window.TrendTraderAlerts) return;
+    this._hasSeededHistory = true;
+
     const cleanSymbol = (this.currentPair || analysis.pair || 'BTCUSDT').replace(/[\s\-_/]/g, '').toUpperCase();
     this._initialLoadTime = this._initialLoadTime || Math.floor(Date.now() / 1000);
+    // Cutoff time: only mark signals that closed before this initial session load
+    const cutoffTime = this._initialLoadTime - 60;
 
     // 1. Mark all historical BUY / SELL candle signals as notified
     if (analysis.tags) {
@@ -1006,25 +993,31 @@ window.TrendTraderEngine = {
         const tag = analysis.tags[i];
         if (tag === 'BUY' || tag === 'SELL') {
           const cTime = analysis.candles[i].time;
-          window.TrendTraderAlerts.markNotified(`${cleanSymbol}_${cTime}_${tag}`);
+          if (cTime <= cutoffTime) {
+            window.TrendTraderAlerts.markNotified(`${cleanSymbol}_${cTime}_${tag}`);
+          }
         }
       }
     }
 
-    // 2. Mark all historical TP1, TP2, TP3, SL events as notified
+    // 2. Mark completed historical TP1, TP2, TP3, SL events as notified
     const perf = this.lastPerformance || (this.calculateDailySignalPerformance && this.calculateDailySignalPerformance(analysis.candles, analysis.tags, analysis.psar));
     if (perf && perf.evaluatedSignals) {
       for (const s of perf.evaluatedSignals) {
-        if (s.tpEvents && s.tpEvents.length > 0) {
-          for (const ev of s.tpEvents) {
-            window.TrendTraderAlerts.markNotified(`${cleanSymbol}_${s.time}_${ev.level}`);
+        if (s.time <= cutoffTime) {
+          if (s.tpEvents && s.tpEvents.length > 0) {
+            for (const ev of s.tpEvents) {
+              if (ev.time <= cutoffTime) {
+                window.TrendTraderAlerts.markNotified(`${cleanSymbol}_${s.time}_${ev.level}`);
+              }
+            }
           }
-        }
-        // If trade is already completed / closed, ensure all possible events are marked
-        if (s.outcome === 'win' || s.outcome === 'loss' || s.reason !== 'In Play') {
-          window.TrendTraderAlerts.markNotified(`${cleanSymbol}_${s.time}_TP1`);
-          window.TrendTraderAlerts.markNotified(`${cleanSymbol}_${s.time}_TP2`);
-          window.TrendTraderAlerts.markNotified(`${cleanSymbol}_${s.time}_SL`);
+          // If trade was already completed / closed before app load, ensure all historical milestones are marked
+          if (s.outcome === 'win' || s.outcome === 'loss' || s.reason !== 'In Play') {
+            window.TrendTraderAlerts.markNotified(`${cleanSymbol}_${s.time}_TP1`);
+            window.TrendTraderAlerts.markNotified(`${cleanSymbol}_${s.time}_TP2`);
+            window.TrendTraderAlerts.markNotified(`${cleanSymbol}_${s.time}_SL`);
+          }
         }
       }
     }
@@ -1936,7 +1929,6 @@ window.TrendTraderEngine = {
 
     const perf = this.calculateDailySignalPerformance(analysis.candles, analysis.tags, analysis.psar);
     this.lastPerformance = perf;
-    this.seedHistoricalEvents(analysis);
 
     if (todayTagEl) {
       todayTagEl.innerText = `${perf.todayDayName || ''} (Today)`;
