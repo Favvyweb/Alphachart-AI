@@ -7,13 +7,16 @@
 
 window.JournalModule = {
   STORAGE_KEY: 'alphachart_journal_manual_trades_v1',
+  DELETED_KEY: 'alphachart_journal_deleted_ids_v1',
   trades: [],
   pendingAnalysisData: null,
   expandedTradeIds: new Set(),
+  _isSyncing: false,
 
   init: function () {
     this.loadFromStorage();
     this.bindEvents();
+    this.bindAutoSyncEvents();
     this.renderTrades();
     this.updateStats();
     if (window.MonthlyResultModule) {
@@ -23,67 +26,126 @@ window.JournalModule = {
     this.syncWithBackend();
   },
 
+  bindAutoSyncEvents: function () {
+    const self = this;
+    // Automatically re-sync when switching between tabs or apps
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        self.syncWithBackend();
+      }
+    });
+    window.addEventListener('focus', () => {
+      self.syncWithBackend();
+    });
+  },
+
   getAuthEmail: function () {
     try {
       const email = localStorage.getItem('alphachart_auth_email');
       if (email && typeof email === 'string' && email.includes('@')) {
         return email.trim().toLowerCase();
       }
-    } catch (e) {}
+    } catch (e) { }
     return null;
+  },
+
+  getDeletedIds: function () {
+    try {
+      const raw = localStorage.getItem(this.DELETED_KEY);
+      if (raw) {
+        const arr = JSON.parse(raw);
+        if (Array.isArray(arr)) return new Set(arr.map(Number));
+      }
+    } catch (e) { }
+    return new Set();
+  },
+
+  markTradeDeleted: function (tradeId) {
+    if (!tradeId) return;
+    try {
+      const set = this.getDeletedIds();
+      set.add(Number(tradeId));
+      localStorage.setItem(this.DELETED_KEY, JSON.stringify(Array.from(set)));
+    } catch (e) { }
+  },
+
+  unmarkTradeDeleted: function (tradeId) {
+    if (!tradeId) return;
+    try {
+      const set = this.getDeletedIds();
+      set.delete(Number(tradeId));
+      localStorage.setItem(this.DELETED_KEY, JSON.stringify(Array.from(set)));
+    } catch (e) { }
   },
 
   syncWithBackend: async function () {
     const email = this.getAuthEmail();
-    if (!email) return;
+    if (!email || this._isSyncing) return;
+    this._isSyncing = true;
 
     try {
-      const res = await fetch(`/api/journal/trades?email=${encodeURIComponent(email)}`);
+      const res = await fetch(`/api/journal/trades?email=${encodeURIComponent(email)}&_t=${Date.now()}`);
       if (!res.ok) return;
       const data = await res.json();
       if (!data.success || !Array.isArray(data.trades)) return;
 
       const cloudTrades = data.trades;
+      const deletedIds = this.getDeletedIds();
       const localTrades = Array.isArray(this.trades) ? this.trades : [];
 
-      const mergedMap = new Map();
-      const tradesToPushToCloud = [];
+      // Clean up server if any locally deleted trades still exist in cloud
+      for (const t of cloudTrades) {
+        if (deletedIds.has(Number(t.id))) {
+          this.deleteTradeFromCloud(t.id);
+        }
+      }
 
-      // Add cloud trades first
-      cloudTrades.forEach(t => {
-        if (t && t.id) mergedMap.set(Number(t.id), t);
-      });
+      // Filter out deleted items from cloud trades
+      const activeCloudTrades = cloudTrades.filter(t => !deletedIds.has(Number(t.id)));
+      const cloudIds = new Set(activeCloudTrades.map(t => Number(t.id)));
 
-      // Merge local trades safely without losing any local entries (e.g. from mobile)
-      localTrades.forEach(localT => {
-        if (!localT || !localT.id) return;
-        const tid = Number(localT.id);
-        if (!mergedMap.has(tid)) {
-          mergedMap.set(tid, localT);
-          tradesToPushToCloud.push(localT);
-        } else {
-          const cloudT = mergedMap.get(tid);
-          if (localT.feedbackSaved && !cloudT.feedbackSaved) {
-            mergedMap.set(tid, localT);
-            tradesToPushToCloud.push(localT);
+      // Check local trades: only push trades that were genuinely never synced before (synced !== true)
+      // and not in deletedIds
+      const newLocalTradesToPush = [];
+      localTrades.forEach(lt => {
+        if (!lt || !lt.id) return;
+        const tid = Number(lt.id);
+        if (deletedIds.has(tid)) return; // Already deleted! Never push
+
+        if (!cloudIds.has(tid)) {
+          // If not in cloud, only upload if it is a new unsynced entry created on this device
+          if (lt.synced !== true) {
+            newLocalTradesToPush.push(lt);
           }
         }
       });
 
+      // Unified active dataset: cloud trades take precedence
+      const unifiedMap = new Map();
+      activeCloudTrades.forEach(ct => {
+        ct.synced = true;
+        unifiedMap.set(Number(ct.id), ct);
+      });
+      newLocalTradesToPush.forEach(nlt => {
+        unifiedMap.set(Number(nlt.id), nlt);
+      });
+
       // Sort descending by timestamp/id
-      const mergedList = Array.from(mergedMap.values()).sort((a, b) => {
+      const finalTrades = Array.from(unifiedMap.values()).sort((a, b) => {
         const tA = Number(a.timestamp || a.id || 0);
         const tB = Number(b.timestamp || b.id || 0);
         return tB - tA;
       });
 
-      const localIds = new Set(localTrades.map(t => Number(t.id)));
-      const hasNewFromCloud = cloudTrades.some(ct => !localIds.has(Number(ct.id)));
+      // Update state and UI if list changed
+      const oldKeys = this.trades.map(t => `${t.id}_${t.pnl}_${t.notes}`).join('|');
+      const newKeys = finalTrades.map(t => `${t.id}_${t.pnl}_${t.notes}`).join('|');
+      const hasChanged = oldKeys !== newKeys || finalTrades.length !== this.trades.length;
 
-      this.trades = mergedList;
+      this.trades = finalTrades;
       this.saveToStorage();
 
-      if (hasNewFromCloud || tradesToPushToCloud.length > 0) {
+      if (hasChanged) {
         this.renderTrades();
         this.updateStats();
         if (window.MonthlyResultModule) {
@@ -94,27 +156,35 @@ window.JournalModule = {
         }
       }
 
-      // Automatically push local trades to cloud database
-      if (tradesToPushToCloud.length > 0) {
-        this.pushTradesToCloud(tradesToPushToCloud);
+      // Push any unsynced local trades to cloud
+      if (newLocalTradesToPush.length > 0) {
+        const pushed = await this.pushTradesToCloud(newLocalTradesToPush);
+        if (pushed) {
+          newLocalTradesToPush.forEach(t => { t.synced = true; });
+          this.saveToStorage();
+        }
       }
     } catch (err) {
-      console.warn('[AlphaChart Journal] Sync warning:', err);
+      console.warn('[AlphaChart Journal] Sync error:', err);
+    } finally {
+      this._isSyncing = false;
     }
   },
 
   pushTradesToCloud: async function (trades) {
     const email = this.getAuthEmail();
-    if (!email || !trades || trades.length === 0) return;
+    if (!email || !trades || trades.length === 0) return false;
 
     try {
-      await fetch('/api/journal/trades', {
+      const res = await fetch('/api/journal/trades', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, trades })
       });
+      return res.ok;
     } catch (err) {
-      console.warn('[AlphaChart Journal] Push to cloud warning:', err);
+      console.warn('[AlphaChart Journal] Push warning:', err);
+      return false;
     }
   },
 
@@ -123,13 +193,14 @@ window.JournalModule = {
     if (!email || !tradeId) return;
 
     try {
-      await fetch('/api/journal/trades', {
+      const idNum = Number(tradeId);
+      await fetch(`/api/journal/trades?email=${encodeURIComponent(email)}&id=${idNum}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, id: Number(tradeId) })
+        body: JSON.stringify({ email, id: idNum })
       });
     } catch (err) {
-      console.warn('[AlphaChart Journal] Delete from cloud warning:', err);
+      console.warn('[AlphaChart Journal] Delete warning:', err);
     }
   },
 
@@ -138,7 +209,7 @@ window.JournalModule = {
     if (!email) return;
 
     try {
-      await fetch('/api/journal/trades', {
+      await fetch(`/api/journal/trades?email=${encodeURIComponent(email)}&all=true`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, all: true })
@@ -354,8 +425,12 @@ window.JournalModule = {
       notes: observation,
       userOutcomePnl: pnl,
       userObservation: observation,
-      feedbackSaved: true
+      feedbackSaved: true,
+      synced: false
     };
+
+    // Ensure this trade ID is not in deleted set
+    this.unmarkTradeDeleted(newTrade.id);
 
     // Add to journal list
     this.trades.unshift(newTrade);
@@ -363,7 +438,21 @@ window.JournalModule = {
     this.renderTrades();
     this.updateStats();
     this.closeManualLogModal();
-    this.pushTradesToCloud([newTrade]);
+
+    if (window.MonthlyResultModule) {
+      window.MonthlyResultModule.updatePreviewPill();
+      if (typeof window.MonthlyResultModule.renderCalendar === 'function') {
+        window.MonthlyResultModule.renderCalendar();
+      }
+    }
+
+    const self = this;
+    this.pushTradesToCloud([newTrade]).then(ok => {
+      if (ok) {
+        newTrade.synced = true;
+        self.saveToStorage();
+      }
+    });
 
     // Navigate to trading journal so user sees it reflected immediately
     if (window.App) {
@@ -405,15 +494,33 @@ window.JournalModule = {
       notes: notes,
       userOutcomePnl: pnlFormatted,
       userObservation: notes,
-      feedbackSaved: true
+      feedbackSaved: true,
+      synced: false
     };
+
+    // Ensure this trade ID is not in deleted set
+    this.unmarkTradeDeleted(newTrade.id);
 
     // Add directly to journal list
     this.trades.unshift(newTrade);
     this.saveToStorage();
     this.renderTrades();
     this.updateStats();
-    this.pushTradesToCloud([newTrade]);
+
+    if (window.MonthlyResultModule) {
+      window.MonthlyResultModule.updatePreviewPill();
+      if (typeof window.MonthlyResultModule.renderCalendar === 'function') {
+        window.MonthlyResultModule.renderCalendar();
+      }
+    }
+
+    const self = this;
+    this.pushTradesToCloud([newTrade]).then(ok => {
+      if (ok) {
+        newTrade.synced = true;
+        self.saveToStorage();
+      }
+    });
 
     if (window.App && typeof window.App.showToast === 'function') {
       window.App.showToast(`Saved ${pair} (${type}) to Journal! (${pnlFormatted})`);
@@ -469,24 +576,51 @@ window.JournalModule = {
   },
 
   deleteTrade: function (tradeId) {
-    this.trades = this.trades.filter(t => t.id !== tradeId);
+    if (!tradeId) return;
+    const tid = Number(tradeId);
+
+    // 1. Immediately mark this trade ID as deleted so it can NEVER be resurrected
+    this.markTradeDeleted(tid);
+
+    // 2. Remove immediately from local state & storage
+    this.trades = this.trades.filter(t => Number(t.id) !== tid);
     this.saveToStorage();
     this.renderTrades();
     this.updateStats();
-    this.deleteTradeFromCloud(tradeId);
-    if (window.App) {
+
+    if (window.MonthlyResultModule) {
+      window.MonthlyResultModule.updatePreviewPill();
+      if (typeof window.MonthlyResultModule.renderCalendar === 'function') {
+        window.MonthlyResultModule.renderCalendar();
+      }
+    }
+
+    // 3. Delete from cloud database
+    this.deleteTradeFromCloud(tid);
+
+    if (window.App && typeof window.App.showToast === 'function') {
       window.App.showToast('Trade removed from Journal');
     }
   },
 
   clearAllTrades: function () {
     if (confirm('Are you sure you want to clear all trades in your journal?')) {
+      // Mark all current trades as deleted
+      this.trades.forEach(t => { if (t && t.id) this.markTradeDeleted(t.id); });
       this.trades = [];
       this.saveToStorage();
       this.renderTrades();
       this.updateStats();
+
+      if (window.MonthlyResultModule) {
+        window.MonthlyResultModule.updatePreviewPill();
+        if (typeof window.MonthlyResultModule.renderCalendar === 'function') {
+          window.MonthlyResultModule.renderCalendar();
+        }
+      }
+
       this.deleteAllTradesFromCloud();
-      if (window.App) {
+      if (window.App && typeof window.App.showToast === 'function') {
         window.App.showToast('Journal reset to empty');
       }
     }
@@ -736,7 +870,7 @@ window.MonthlyResultModule = {
         this.dailySignalsCache = data.records;
         try {
           localStorage.setItem('alphachart_daily_signals_cache_v1', JSON.stringify(data.records));
-        } catch (e) {}
+        } catch (e) { }
         this.updatePreviewPill();
         if (typeof this.renderCalendar === 'function') {
           this.renderCalendar();

@@ -49,6 +49,7 @@ module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
@@ -130,7 +131,7 @@ module.exports = async function handler(req, res) {
     if (req.method === 'POST') {
       let body = req.body;
       if (typeof body === 'string') {
-        try { body = JSON.parse(body); } catch (e) {}
+        try { body = JSON.parse(body); } catch (e) { }
       }
 
       const { email, trades, trade } = body || {};
@@ -192,7 +193,7 @@ module.exports = async function handler(req, res) {
     if (req.method === 'DELETE') {
       let body = req.body;
       if (typeof body === 'string') {
-        try { body = JSON.parse(body); } catch (e) {}
+        try { body = JSON.parse(body); } catch (e) { }
       }
 
       const email = ((body && body.email) || req.query.email || '').trim().toLowerCase();
@@ -220,7 +221,7 @@ module.exports = async function handler(req, res) {
     return res.status(500).json({ error: err.message });
   } finally {
     if (client) {
-      await client.end().catch(() => {});
+      await client.end().catch(() => { });
     }
   }
 };
