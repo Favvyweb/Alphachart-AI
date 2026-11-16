@@ -17,13 +17,6 @@ window.App = {
     this.bindTopEarnersModal();
     if (window.ScannerModule) window.ScannerModule.init();
     if (window.JournalModule) window.JournalModule.init();
-
-    // Check for and install service worker updates immediately
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistration().then(reg => {
-        if (reg) reg.update();
-      }).catch(() => {});
-    }
   },
 
   bindTopEarnersModal: function () {
@@ -114,16 +107,6 @@ window.App = {
       setTimeout(() => {
         window.ScannerModule.renderFullChart(window.ScannerModule.fullChartPair || 'BTC / USDT', window.ScannerModule.fullChartInterval || '5');
       }, 50);
-    }
-
-    // Trigger cloud synchronization and signal hydration when navigating to Trading Journal
-    if (path === 'trading-journal' && window.JournalModule) {
-      if (typeof window.JournalModule.syncWithCloud === 'function') {
-        window.JournalModule.syncWithCloud();
-      }
-      if (typeof window.JournalModule.hydrateTodaySignals === 'function') {
-        window.JournalModule.hydrateTodaySignals();
-      }
     }
 
     window.scrollTo(0, 0);

@@ -76,24 +76,6 @@ module.exports = async function handler(req, res) {
 
       await client.connect();
 
-      await client.query(`
-        CREATE TABLE IF NOT EXISTS users (
-          id SERIAL PRIMARY KEY,
-          email VARCHAR(255) UNIQUE NOT NULL,
-          display_name VARCHAR(150),
-          subscription_tier VARCHAR(50) DEFAULT 'PRO_TRIAL',
-          login_count INT DEFAULT 1,
-          device_platform VARCHAR(100),
-          pwa_installed BOOLEAN DEFAULT FALSE,
-          user_agent TEXT,
-          ip_address TEXT,
-          created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-          last_login_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-        );
-        ALTER TABLE users ADD COLUMN IF NOT EXISTS user_agent TEXT;
-        ALTER TABLE users ADD COLUMN IF NOT EXISTS ip_address TEXT;
-      `);
-
       // Upsert user in PostgreSQL (inserts new user, or updates login count and timestamps on returning user)
       const upsertQuery = `
         INSERT INTO users (

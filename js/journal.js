@@ -19,26 +19,6 @@ window.JournalModule = {
     if (window.MonthlyResultModule) {
       window.MonthlyResultModule.init();
     }
-    // Cross-device cloud sync and automated today's signal hydration
-    this.syncWithCloud();
-    this.hydrateTodaySignals();
-
-    // Auto-sync immediately when tab gains focus or user returns to app
-    window.addEventListener('focus', () => {
-      this.syncWithCloud();
-    });
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') {
-        this.syncWithCloud();
-      }
-    });
-
-    // Periodic lightweight background sync every 20 seconds while active
-    setInterval(() => {
-      if (document.visibilityState === 'visible') {
-        this.syncWithCloud();
-      }
-    }, 20000);
   },
 
   toggleTradeFeedback: function (tradeId) {
@@ -132,231 +112,6 @@ window.JournalModule = {
     } catch (e) {
       console.warn('Error saving trades to storage:', e);
     }
-    // Asynchronously synchronize with PostgreSQL cloud database across devices
-    this.pushToCloud(this.trades);
-  },
-
-  /**
-   * Synchronizes user's journal trades between local storage and PostgreSQL cloud account
-   */
-  syncWithCloud: async function (forcedEmail) {
-    const email = forcedEmail
-      || (window.AuthModule && typeof window.AuthModule.getCurrentEmail === 'function' ? window.AuthModule.getCurrentEmail() : null)
-      || localStorage.getItem('alphachart_auth_email')
-      || sessionStorage.getItem('alphachart_auth_email');
-
-    if (!email || !email.includes('@')) {
-      this.updateCloudSyncBadge('idle');
-      return;
-    }
-
-    if (this._isSyncing) return;
-    this._isSyncing = true;
-    this.updateCloudSyncBadge('syncing');
-
-    try {
-      const res = await fetch(`/api/journal/sync?email=${encodeURIComponent(email.trim().toLowerCase())}&_t=${Date.now()}`, {
-        cache: 'no-store'
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data && Array.isArray(data.trades)) {
-          const remoteTrades = data.trades;
-          const localTrades = this.trades || [];
-
-          // Merge local and remote trades by trade ID (deduplicating and taking the freshest entry)
-          const tradeMap = new Map();
-
-          // 1. Populate remote trades first
-          for (const rt of remoteTrades) {
-            const tid = String(rt.id || rt.tradeId || rt.timestamp);
-            tradeMap.set(tid, rt);
-          }
-
-          // 2. Merge local trades
-          let hasUnsyncedLocalTrades = false;
-          for (const lt of localTrades) {
-            const tid = String(lt.id || lt.tradeId || lt.timestamp);
-            if (!tradeMap.has(tid)) {
-              tradeMap.set(tid, lt);
-              hasUnsyncedLocalTrades = true;
-            } else {
-              const existing = tradeMap.get(tid);
-              const ltTime = lt.timestamp || lt.id || 0;
-              const rtTime = existing.timestamp || existing.id || 0;
-              if (ltTime >= rtTime || lt.feedbackSaved) {
-                tradeMap.set(tid, { ...existing, ...lt });
-              }
-            }
-          }
-
-          const merged = Array.from(tradeMap.values());
-          merged.sort((a, b) => (b.timestamp || b.id || 0) - (a.timestamp || a.id || 0));
-
-          this.trades = merged;
-          try {
-            localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.trades));
-          } catch (e) { }
-
-          this.renderTrades();
-          this.updateStats();
-
-          if (window.MonthlyResultModule && typeof window.MonthlyResultModule.render === 'function') {
-            window.MonthlyResultModule.render();
-          }
-          if (window.MonthlyResultModule && typeof window.MonthlyResultModule.updatePreviewPill === 'function') {
-            window.MonthlyResultModule.updatePreviewPill();
-          }
-          if (window.AICoachModule && typeof window.AICoachModule.renderAudit === 'function') {
-            window.AICoachModule.renderAudit();
-          }
-
-          // If local device had trades not yet in the cloud, upload the consolidated set
-          if (hasUnsyncedLocalTrades && merged.length > 0) {
-            this.pushToCloud(merged);
-          }
-
-          this.updateCloudSyncBadge('synced', merged.length);
-        }
-      } else {
-        this.updateCloudSyncBadge('idle');
-      }
-    } catch (err) {
-      console.warn('[Journal Cloud Sync Note]:', err.message);
-      this.updateCloudSyncBadge('idle');
-    } finally {
-      this._isSyncing = false;
-    }
-  },
-
-  updateCloudSyncBadge: function (state, count) {
-    const badge = document.getElementById('journal-cloud-badge');
-    if (!badge) return;
-    if (state === 'syncing') {
-      badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-[#38bdf8] animate-ping"></span><span class="text-white/60">Syncing...</span>`;
-    } else if (state === 'synced') {
-      badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-primary-container"></span><span>Cloud Synced${typeof count === 'number' ? ` (${count})` : ''}</span>`;
-      badge.className = "inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-primary-container/10 border border-primary-container/20 text-[9px] font-mono text-primary-container cursor-pointer transition-all";
-    } else {
-      badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-white/40"></span><span>Cloud Sync</span>`;
-    }
-  },
-
-  /**
-   * Pushes trade list to PostgreSQL cloud account
-   */
-  pushToCloud: async function (trades) {
-    const email = (window.AuthModule && typeof window.AuthModule.getCurrentEmail === 'function' ? window.AuthModule.getCurrentEmail() : null)
-      || localStorage.getItem('alphachart_auth_email')
-      || sessionStorage.getItem('alphachart_auth_email');
-
-    if (!email || !email.includes('@') || !Array.isArray(trades) || trades.length === 0) return;
-
-    try {
-      await fetch('/api/journal/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim().toLowerCase(), trades })
-      });
-      this.updateCloudSyncBadge('synced', trades.length);
-    } catch (err) {
-      console.warn('[Journal Cloud Push Note]:', err.message);
-    }
-  },
-
-    try {
-      await fetch('/api/journal/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim().toLowerCase(), trades })
-      });
-    } catch (err) {
-      console.warn('[Journal Cloud Push Note]:', err.message);
-    }
-  },
-
-  /**
-   * Removes deleted trade from PostgreSQL cloud account
-   */
-  deleteFromCloud: async function (tradeId) {
-    const email = (window.AuthModule && typeof window.AuthModule.getCurrentEmail === 'function' ? window.AuthModule.getCurrentEmail() : null)
-      || localStorage.getItem('alphachart_auth_email');
-
-    if (!email || !email.includes('@') || !tradeId) return;
-
-    try {
-      await fetch('/api/journal/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: email.trim().toLowerCase(),
-          action: 'delete',
-          deletedTradeId: String(tradeId)
-        })
-      });
-    } catch (err) {
-      console.warn('[Journal Cloud Delete Note]:', err.message);
-    }
-  },
-
-  /**
-   * Clears all trades from PostgreSQL cloud account
-   */
-  clearCloudAll: async function () {
-    const email = (window.AuthModule && typeof window.AuthModule.getCurrentEmail === 'function' ? window.AuthModule.getCurrentEmail() : null)
-      || localStorage.getItem('alphachart_auth_email');
-
-    if (!email || !email.includes('@')) return;
-
-    try {
-      await fetch('/api/journal/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: email.trim().toLowerCase(),
-          action: 'clear_all'
-        })
-      });
-    } catch (err) {
-      console.warn('[Journal Cloud Clear Note]:', err.message);
-    }
-  },
-
-  /**
-   * Automatically hydrates today's live signal performance from Binance stream in the background
-   * Guarantees today's results appear in the journal even before opening the Charts tab!
-   */
-  hydrateTodaySignals: async function () {
-    if (this._isHydratingSignals) return;
-    if (window.TrendTraderEngine) {
-      const perf = window.TrendTraderEngine.lastPerformance;
-      if (perf && Array.isArray(perf.evaluatedSignals) && perf.evaluatedSignals.length > 0) {
-        return; // Already hydrated
-      }
-      this._isHydratingSignals = true;
-      try {
-        const pair = window.TrendTraderEngine.currentPair || 'BTC / USDT';
-        const tf = window.TrendTraderEngine.currentTimeframe || '5m';
-        const candles = await window.TrendTraderEngine.fetchCandles(pair, tf);
-        if (candles && candles.length >= 20) {
-          const analysis = window.TrendTraderEngine.analyzeCandles(candles);
-          if (analysis) {
-            const calculatedPerf = window.TrendTraderEngine.calculateDailySignalPerformance(candles, analysis.tags, analysis.psar);
-            window.TrendTraderEngine.lastPerformance = calculatedPerf;
-            window.TrendTraderEngine.lastAnalysis = analysis;
-
-            if (window.MonthlyResultModule && typeof window.MonthlyResultModule.render === 'function') {
-              window.MonthlyResultModule.render();
-            }
-            this.updateStats();
-          }
-        }
-      } catch (err) {
-        console.warn('Signal hydration note:', err);
-      } finally {
-        this._isHydratingSignals = false;
-      }
-    }
   },
 
   bindEvents: function () {
@@ -387,17 +142,6 @@ window.JournalModule = {
     const coachBtn = document.getElementById('ai-coach-chat-btn');
     if (coachBtn) {
       coachBtn.addEventListener('click', () => self.openCoachChat());
-    }
-
-    // Cloud Sync Badge click for instant on-demand sync
-    const cloudBadge = document.getElementById('journal-cloud-badge');
-    if (cloudBadge) {
-      cloudBadge.addEventListener('click', () => {
-        self.syncWithCloud();
-        if (window.App && typeof window.App.showToast === 'function') {
-          window.App.showToast('Checking cloud sync for trades...');
-        }
-      });
     }
   },
 
@@ -597,7 +341,6 @@ window.JournalModule = {
   deleteTrade: function (tradeId) {
     this.trades = this.trades.filter(t => t.id !== tradeId);
     this.saveToStorage();
-    this.deleteFromCloud(tradeId);
     this.renderTrades();
     this.updateStats();
     if (window.App) {
@@ -609,7 +352,6 @@ window.JournalModule = {
     if (confirm('Are you sure you want to clear all trades in your journal?')) {
       this.trades = [];
       this.saveToStorage();
-      this.clearCloudAll();
       this.renderTrades();
       this.updateStats();
       if (window.App) {
@@ -817,9 +559,16 @@ window.JournalModule = {
   },
 
   openCoachChat: function () {
-    if (window.AICoachModule && typeof window.AICoachModule.openModal === 'function') {
-      window.AICoachModule.openModal();
+    const totalTrades = this.trades.length;
+    let coachMsg = '';
+
+    if (totalTrades === 0) {
+      coachMsg = '🤖 AI Discipline Coach: "You have not logged any trades yet. Whenever you take a trade, click Log Trade to record your outcome and observation!"';
+    } else {
+      coachMsg = `🤖 AI Discipline Coach: "You have ${totalTrades} manually logged trades in your journal. Continue reviewing your observations after every session!"`;
     }
+
+    alert(coachMsg);
   }
 };
 
@@ -1136,9 +885,6 @@ window.MonthlyResultModule = {
       modal.classList.remove('hidden');
       modal.classList.add('flex');
       this.render();
-      if (window.JournalModule && typeof window.JournalModule.syncWithCloud === 'function') {
-        window.JournalModule.syncWithCloud();
-      }
     }
   },
 
@@ -1323,9 +1069,9 @@ window.MonthlyResultModule = {
     if (!headersEl || !gridEl) return;
 
     const dayNamesShort = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
-    headersEl.className = 'grid grid-cols-7 gap-1 sm:gap-1.5 text-center text-[9px] sm:text-[11px] font-bold text-white/60 uppercase tracking-wider py-1 font-mono';
+    headersEl.className = 'grid grid-cols-7 gap-1.5 text-center text-[10px] sm:text-[11px] font-bold text-white/60 uppercase tracking-wider py-1 font-mono';
     headersEl.innerHTML = dayNamesShort.map(name => `<div>${name}</div>`).join('');
-    gridEl.className = 'grid grid-cols-7 gap-1 sm:gap-1.5';
+    gridEl.className = 'grid grid-cols-7 gap-1.5';
 
     let gridHtml = '';
     for (const d of daysToRender) {
@@ -1352,7 +1098,7 @@ window.MonthlyResultModule = {
           pnlText = `-${Math.abs(dayData.pnl).toFixed(2)}`;
           iconColor = 'text-[#ff3366]';
         }
-        subText = window.innerWidth < 640 ? `${dayData.count} tr` : `${dayData.count} trade${dayData.count === 1 ? '' : 's'}`;
+        subText = `${dayData.count} trade${dayData.count === 1 ? '' : 's'}`;
       } else {
         cardClass = 'bg-[#15171d] border border-white/[0.04] text-white/40';
         pnlText = '—';
@@ -1362,17 +1108,17 @@ window.MonthlyResultModule = {
 
       gridHtml += `
         <div onclick="window.MonthlyResultModule.showDateDetails('${dKey}')"
-          class="relative rounded-xl sm:rounded-2xl flex flex-col justify-between transition-all cursor-pointer active:scale-95 min-h-[58px] sm:min-h-[76px] p-1 sm:p-2.5 ${cardClass}">
-          <div class="flex items-center gap-0.5 sm:gap-1">
-            <span class="material-symbols-outlined text-[10px] sm:text-[13px] ${iconColor}">event_note</span>
-            <span class="text-[9.5px] sm:text-[11px] font-bold font-mono text-white/90">${dayShort} ${dayNum}</span>
+          class="relative rounded-2xl flex flex-col justify-between transition-all cursor-pointer active:scale-95 min-h-[72px] sm:min-h-[78px] p-2 sm:p-2.5 ${cardClass}">
+          <div class="flex items-center gap-1">
+            <span class="material-symbols-outlined text-[13px] ${iconColor}">event_note</span>
+            <span class="text-[11px] font-bold font-mono text-white/90">${dayShort} ${dayNum}</span>
           </div>
           <div class="my-auto py-0.5 text-center">
-            <span class="font-mono text-[9px] xs:text-[10px] sm:text-[12.5px] font-black tracking-tight block truncate ${hasTrades ? 'text-white' : 'text-white/30'}">
+            <span class="font-mono text-xs sm:text-[13px] font-black tracking-tight block ${hasTrades ? 'text-white' : 'text-white/30'}">
               ${pnlText}
             </span>
           </div>
-          <div class="text-[7.5px] sm:text-[9.5px] text-white/60 font-sans truncate text-center leading-tight">
+          <div class="text-[9px] sm:text-[10px] text-white/60 font-sans truncate text-center">
             ${subText || '&nbsp;'}
           </div>
         </div>
@@ -1443,7 +1189,7 @@ window.MonthlyResultModule = {
     const gridEl = document.getElementById('monthly-calendar-grid');
     if (!headersEl || !gridEl) return;
 
-    headersEl.className = 'grid grid-cols-7 gap-1 sm:gap-1.5 text-center text-[9px] sm:text-[11px] font-bold text-white/60 uppercase tracking-wider py-1 font-mono';
+    headersEl.className = 'grid grid-cols-7 gap-1.5 text-center text-[10px] sm:text-[11px] font-bold text-white/60 uppercase tracking-wider py-1 font-mono';
     headersEl.innerHTML = `
       <div>MON</div>
       <div>TUE</div>
@@ -1453,7 +1199,7 @@ window.MonthlyResultModule = {
       <div>SAT</div>
       <div>SUN</div>
     `;
-    gridEl.className = 'grid grid-cols-7 gap-1 sm:gap-1.5';
+    gridEl.className = 'grid grid-cols-7 gap-1.5';
 
     let gridHtml = '';
 
@@ -1470,15 +1216,15 @@ window.MonthlyResultModule = {
       gridHtml += `
         <div onclick="window.MonthlyResultModule.changeMonth(-1)"
           title="Previous month"
-          class="relative rounded-xl sm:rounded-2xl p-1 sm:p-2.5 flex flex-col justify-between min-h-[58px] sm:min-h-[76px] bg-[#101216]/50 border border-white/[0.03] opacity-25 hover:opacity-50 transition-all cursor-pointer select-none">
-          <div class="flex items-center gap-0.5 sm:gap-1">
-            <span class="material-symbols-outlined text-[10px] sm:text-[13px] text-white/20">event_note</span>
-            <span class="text-[9.5px] sm:text-[11px] font-bold font-mono text-white/40">${prevDay}</span>
+          class="relative rounded-2xl p-2 sm:p-2.5 flex flex-col justify-between min-h-[72px] sm:min-h-[78px] bg-[#101216]/50 border border-white/[0.03] opacity-25 hover:opacity-50 transition-all cursor-pointer select-none">
+          <div class="flex items-center gap-1">
+            <span class="material-symbols-outlined text-[13px] text-white/20">event_note</span>
+            <span class="text-[11px] font-bold font-mono text-white/40">${prevDay}</span>
           </div>
           <div class="my-auto py-0.5 text-center">
-            <span class="font-mono text-[9px] xs:text-[10px] sm:text-[12.5px] font-black tracking-tight block text-white/20">—</span>
+            <span class="font-mono text-xs sm:text-[13px] font-black tracking-tight block text-white/20">—</span>
           </div>
-          <div class="text-[7.5px] sm:text-[9.5px] text-white/20 font-sans truncate text-center leading-tight">&nbsp;</div>
+          <div class="text-[9px] sm:text-[10px] text-white/20 font-sans truncate text-center">&nbsp;</div>
         </div>
       `;
     }
@@ -1493,6 +1239,7 @@ window.MonthlyResultModule = {
 
       let cardClass = '';
       let pnlText = '';
+      let subText = '';
       let iconColor = '';
 
       if (hasTrades) {
@@ -1505,27 +1252,27 @@ window.MonthlyResultModule = {
           pnlText = `-${Math.abs(dayData.pnl).toFixed(2)}`;
           iconColor = 'text-[#ff3366]';
         }
+        subText = `${dayData.count} trade${dayData.count === 1 ? '' : 's'}`;
       } else {
         cardClass = 'bg-[#15171d] border border-white/[0.04] text-white/40';
         pnlText = '—';
+        subText = '';
         iconColor = 'text-white/20';
       }
 
-      const subText = hasTrades ? (window.innerWidth < 640 ? `${dayData.count} tr` : `${dayData.count} trade${dayData.count === 1 ? '' : 's'}`) : '';
-
       gridHtml += `
         <div onclick="window.MonthlyResultModule.showDateDetails('${dKey}')"
-          class="relative rounded-xl sm:rounded-2xl flex flex-col justify-between transition-all cursor-pointer active:scale-95 min-h-[58px] sm:min-h-[76px] p-1 sm:p-2.5 ${cardClass}">
-          <div class="flex items-center gap-0.5 sm:gap-1">
-            <span class="material-symbols-outlined text-[10px] sm:text-[13px] ${iconColor}">event_note</span>
-            <span class="text-[9.5px] sm:text-[11px] font-bold font-mono text-white/90">${day}</span>
+          class="relative rounded-2xl flex flex-col justify-between transition-all cursor-pointer active:scale-95 min-h-[72px] sm:min-h-[78px] p-2 sm:p-2.5 ${cardClass}">
+          <div class="flex items-center gap-1">
+            <span class="material-symbols-outlined text-[13px] ${iconColor}">event_note</span>
+            <span class="text-[11px] font-bold font-mono text-white/90">${day}</span>
           </div>
           <div class="my-auto py-0.5 text-center">
-            <span class="font-mono text-[9px] xs:text-[10px] sm:text-[12.5px] font-black tracking-tight block truncate ${hasTrades ? 'text-white' : 'text-white/30'}">
+            <span class="font-mono text-xs sm:text-[13px] font-black tracking-tight block ${hasTrades ? 'text-white' : 'text-white/30'}">
               ${pnlText}
             </span>
           </div>
-          <div class="text-[7.5px] sm:text-[9.5px] text-white/60 font-sans truncate text-center leading-tight">
+          <div class="text-[9px] sm:text-[10px] text-white/60 font-sans truncate text-center">
             ${subText || '&nbsp;'}
           </div>
         </div>
@@ -1540,15 +1287,15 @@ window.MonthlyResultModule = {
       gridHtml += `
         <div onclick="window.MonthlyResultModule.changeMonth(1)"
           title="Next month"
-          class="relative rounded-xl sm:rounded-2xl p-1 sm:p-2.5 flex flex-col justify-between min-h-[58px] sm:min-h-[76px] bg-[#101216]/50 border border-white/[0.03] opacity-25 hover:opacity-50 transition-all cursor-pointer select-none">
-          <div class="flex items-center gap-0.5 sm:gap-1">
-            <span class="material-symbols-outlined text-[10px] sm:text-[13px] text-white/20">event_note</span>
-            <span class="text-[9.5px] sm:text-[11px] font-bold font-mono text-white/40">${t}</span>
+          class="relative rounded-2xl p-2 sm:p-2.5 flex flex-col justify-between min-h-[72px] sm:min-h-[78px] bg-[#101216]/50 border border-white/[0.03] opacity-25 hover:opacity-50 transition-all cursor-pointer select-none">
+          <div class="flex items-center gap-1">
+            <span class="material-symbols-outlined text-[13px] text-white/20">event_note</span>
+            <span class="text-[11px] font-bold font-mono text-white/40">${t}</span>
           </div>
           <div class="my-auto py-0.5 text-center">
-            <span class="font-mono text-[9px] xs:text-[10px] sm:text-[12.5px] font-black tracking-tight block text-white/20">—</span>
+            <span class="font-mono text-xs sm:text-[13px] font-black tracking-tight block text-white/20">—</span>
           </div>
-          <div class="text-[7.5px] sm:text-[9.5px] text-white/20 font-sans truncate text-center leading-tight">&nbsp;</div>
+          <div class="text-[9px] sm:text-[10px] text-white/20 font-sans truncate text-center">&nbsp;</div>
         </div>
       `;
     }

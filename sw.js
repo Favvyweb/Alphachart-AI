@@ -1,5 +1,5 @@
 // AlphaChart AI - Institutional PWA Service Worker (Mobile & Desktop)
-const CACHE_NAME = 'alphachart-pwa-v33';
+const CACHE_NAME = 'alphachart-pwa-v34';
 const PRECACHE_ASSETS = [
   '/',
   '/index.html',
@@ -10,7 +10,6 @@ const PRECACHE_ASSETS = [
   '/js/trend_trader.js',
   '/js/scanner.js',
   '/js/journal.js',
-  '/js/coach.js',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
   '/icons/icon-maskable-192.png',
@@ -48,19 +47,13 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// 3. FETCH: Network-First with Cache Fallback (Bypasses external live streaming and all /api/ endpoints)
+// 3. FETCH: Network-First with Cache Fallback (Bypasses external live streaming)
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   const url = new URL(req.url);
 
   // Skip WebSocket connections and external high-frequency Binance streaming
   if (url.protocol === 'ws:' || url.protocol === 'wss:' || url.hostname.includes('binance.com') || url.hostname.includes('binance.vision')) {
-    return;
-  }
-
-  // CRITICAL: Always bypass Service Worker cache for backend APIs (/api/...)
-  // Guarantees real-time cross-device cloud synchronization
-  if (url.pathname.startsWith('/api/')) {
     return;
   }
 
