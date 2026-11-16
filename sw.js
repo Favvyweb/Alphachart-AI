@@ -1,5 +1,5 @@
 // AlphaChart AI - Institutional PWA Service Worker (Mobile & Desktop)
-const CACHE_NAME = 'alphachart-pwa-v34';
+const CACHE_NAME = 'alphachart-pwa-v35';
 const PRECACHE_ASSETS = [
   '/',
   '/index.html',
@@ -54,6 +54,11 @@ self.addEventListener('fetch', (event) => {
 
   // Skip WebSocket connections and external high-frequency Binance streaming
   if (url.protocol === 'ws:' || url.protocol === 'wss:' || url.hostname.includes('binance.com') || url.hostname.includes('binance.vision')) {
+    return;
+  }
+
+  // Never cache dynamic API endpoints or serverless backend requests
+  if (url.pathname.startsWith('/api/')) {
     return;
   }
 

@@ -2051,6 +2051,17 @@ window.TrendTraderEngine = {
 
     const perf = this.calculateDailySignalPerformance(analysis.candles, analysis.tags, analysis.psar);
     this.lastPerformance = perf;
+    try {
+      localStorage.setItem('alphachart_trend_trader_cached_perf_v1', JSON.stringify({
+        pair: this.currentPair,
+        timestamp: Date.now(),
+        perf: perf
+      }));
+    } catch (e) {}
+
+    if (window.MonthlyResultModule && typeof window.MonthlyResultModule.updatePreviewPill === 'function') {
+      window.MonthlyResultModule.updatePreviewPill();
+    }
 
     if (todayTagEl) {
       todayTagEl.innerText = `${perf.todayDayName || ''} (Today)`;

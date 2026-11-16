@@ -33,6 +33,9 @@ window.AuthModule = {
       this.updateProfileUI(email);
       // Background heartbeat to PostgreSQL backend (updates last_login_at timestamp)
       this.syncWithBackend(email);
+      if (window.JournalModule && typeof window.JournalModule.syncWithBackend === 'function') {
+        window.JournalModule.syncWithBackend();
+      }
       return true;
     } else {
       // User has not logged in yet on this phone: display sign-in gate
@@ -89,6 +92,10 @@ window.AuthModule = {
 
     // Asynchronously synchronize user with PostgreSQL backend
     this.syncWithBackend(email);
+
+    if (window.JournalModule && typeof window.JournalModule.syncWithBackend === 'function') {
+      window.JournalModule.syncWithBackend();
+    }
 
     if (window.App && window.App.showToast) {
       window.App.showToast(`Signed in as ${email} • Access Granted! 🚀`);

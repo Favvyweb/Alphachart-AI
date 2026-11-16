@@ -19,6 +19,133 @@ window.JournalModule = {
     if (window.MonthlyResultModule) {
       window.MonthlyResultModule.init();
     }
+    // Asynchronously synchronize manual trades with PostgreSQL cloud database
+    this.syncWithBackend();
+  },
+
+  getAuthEmail: function () {
+    try {
+      const email = localStorage.getItem('alphachart_auth_email');
+      if (email && typeof email === 'string' && email.includes('@')) {
+        return email.trim().toLowerCase();
+      }
+    } catch (e) {}
+    return null;
+  },
+
+  syncWithBackend: async function () {
+    const email = this.getAuthEmail();
+    if (!email) return;
+
+    try {
+      const res = await fetch(`/api/journal/trades?email=${encodeURIComponent(email)}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data.success || !Array.isArray(data.trades)) return;
+
+      const cloudTrades = data.trades;
+      const localTrades = Array.isArray(this.trades) ? this.trades : [];
+
+      const mergedMap = new Map();
+      const tradesToPushToCloud = [];
+
+      // Add cloud trades first
+      cloudTrades.forEach(t => {
+        if (t && t.id) mergedMap.set(Number(t.id), t);
+      });
+
+      // Merge local trades safely without losing any local entries (e.g. from mobile)
+      localTrades.forEach(localT => {
+        if (!localT || !localT.id) return;
+        const tid = Number(localT.id);
+        if (!mergedMap.has(tid)) {
+          mergedMap.set(tid, localT);
+          tradesToPushToCloud.push(localT);
+        } else {
+          const cloudT = mergedMap.get(tid);
+          if (localT.feedbackSaved && !cloudT.feedbackSaved) {
+            mergedMap.set(tid, localT);
+            tradesToPushToCloud.push(localT);
+          }
+        }
+      });
+
+      // Sort descending by timestamp/id
+      const mergedList = Array.from(mergedMap.values()).sort((a, b) => {
+        const tA = Number(a.timestamp || a.id || 0);
+        const tB = Number(b.timestamp || b.id || 0);
+        return tB - tA;
+      });
+
+      const localIds = new Set(localTrades.map(t => Number(t.id)));
+      const hasNewFromCloud = cloudTrades.some(ct => !localIds.has(Number(ct.id)));
+
+      this.trades = mergedList;
+      this.saveToStorage();
+
+      if (hasNewFromCloud || tradesToPushToCloud.length > 0) {
+        this.renderTrades();
+        this.updateStats();
+        if (window.MonthlyResultModule) {
+          window.MonthlyResultModule.updatePreviewPill();
+          if (typeof window.MonthlyResultModule.renderCalendar === 'function') {
+            window.MonthlyResultModule.renderCalendar();
+          }
+        }
+      }
+
+      // Automatically push local trades to cloud database
+      if (tradesToPushToCloud.length > 0) {
+        this.pushTradesToCloud(tradesToPushToCloud);
+      }
+    } catch (err) {
+      console.warn('[AlphaChart Journal] Sync warning:', err);
+    }
+  },
+
+  pushTradesToCloud: async function (trades) {
+    const email = this.getAuthEmail();
+    if (!email || !trades || trades.length === 0) return;
+
+    try {
+      await fetch('/api/journal/trades', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, trades })
+      });
+    } catch (err) {
+      console.warn('[AlphaChart Journal] Push to cloud warning:', err);
+    }
+  },
+
+  deleteTradeFromCloud: async function (tradeId) {
+    const email = this.getAuthEmail();
+    if (!email || !tradeId) return;
+
+    try {
+      await fetch('/api/journal/trades', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, id: Number(tradeId) })
+      });
+    } catch (err) {
+      console.warn('[AlphaChart Journal] Delete from cloud warning:', err);
+    }
+  },
+
+  deleteAllTradesFromCloud: async function () {
+    const email = this.getAuthEmail();
+    if (!email) return;
+
+    try {
+      await fetch('/api/journal/trades', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, all: true })
+      });
+    } catch (err) {
+      console.warn('[AlphaChart Journal] Delete all from cloud warning:', err);
+    }
   },
 
   toggleTradeFeedback: function (tradeId) {
@@ -236,6 +363,7 @@ window.JournalModule = {
     this.renderTrades();
     this.updateStats();
     this.closeManualLogModal();
+    this.pushTradesToCloud([newTrade]);
 
     // Navigate to trading journal so user sees it reflected immediately
     if (window.App) {
@@ -285,6 +413,7 @@ window.JournalModule = {
     this.saveToStorage();
     this.renderTrades();
     this.updateStats();
+    this.pushTradesToCloud([newTrade]);
 
     if (window.App && typeof window.App.showToast === 'function') {
       window.App.showToast(`Saved ${pair} (${type}) to Journal! (${pnlFormatted})`);
@@ -332,6 +461,7 @@ window.JournalModule = {
     this.saveToStorage();
     this.renderTrades();
     this.updateStats();
+    this.pushTradesToCloud([trade]);
 
     if (window.App) {
       window.App.showToast(`Feedback & time updated for ${trade.pair}!`);
@@ -343,6 +473,7 @@ window.JournalModule = {
     this.saveToStorage();
     this.renderTrades();
     this.updateStats();
+    this.deleteTradeFromCloud(tradeId);
     if (window.App) {
       window.App.showToast('Trade removed from Journal');
     }
@@ -354,6 +485,7 @@ window.JournalModule = {
       this.saveToStorage();
       this.renderTrades();
       this.updateStats();
+      this.deleteAllTradesFromCloud();
       if (window.App) {
         window.App.showToast('Journal reset to empty');
       }
@@ -592,6 +724,27 @@ window.MonthlyResultModule = {
   init: function () {
     this.bindEvents();
     this.updatePreviewPill();
+    this.fetchDailySignals();
+  },
+
+  fetchDailySignals: async function () {
+    try {
+      const res = await fetch('/api/signals/daily?pair=BTC/USDT&timeframe=5m');
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data && data.success && data.records) {
+        this.dailySignalsCache = data.records;
+        try {
+          localStorage.setItem('alphachart_daily_signals_cache_v1', JSON.stringify(data.records));
+        } catch (e) {}
+        this.updatePreviewPill();
+        if (typeof this.renderCalendar === 'function') {
+          this.renderCalendar();
+        }
+      }
+    } catch (e) {
+      // Non-blocking fallback
+    }
   },
 
   getTargetGoal: function (period) {
@@ -756,6 +909,43 @@ window.MonthlyResultModule = {
               pnl: Math.round(sumPnl * 100) / 100,
               count: liveByDate[dKey].length,
               trades: liveByDate[dKey]
+            };
+          }
+        }
+      } else {
+        // Fallback: check cached daily signals from API if live engine has not run yet in this browser session
+        const cachedRecords = this.dailySignalsCache || (() => {
+          try {
+            const raw = localStorage.getItem('alphachart_daily_signals_cache_v1');
+            return raw ? JSON.parse(raw) : null;
+          } catch (e) { return null; }
+        })();
+
+        if (cachedRecords && typeof cachedRecords === 'object') {
+          for (const dKey of Object.keys(cachedRecords)) {
+            if (dateMap[dKey] && dateMap[dKey].count > 0) continue;
+            const rec = cachedRecords[dKey];
+            if (!rec) continue;
+            const [y, m, d] = dKey.split('-').map(Number);
+            const evalList = Array.isArray(rec.evaluatedSignals) ? rec.evaluatedSignals : [];
+            const tradesList = evalList.map(s => {
+              const pVal = typeof s.pnl === 'number' ? s.pnl : parseFloat(s.pnl || 0);
+              return {
+                time: s.timeFormatted || (s.time ? new Date(s.time * 1000).toTimeString().slice(0, 5) : '--:--'),
+                pair: rec.pair || 'BTC / USDT',
+                type: s.type || 'BUY',
+                pnl: pVal >= 0 ? `+$${pVal.toFixed(2)}` : `-$${Math.abs(pVal).toFixed(2)}`,
+                isWin: s.outcome === 'win' || pVal >= 0
+              };
+            });
+            dateMap[dKey] = {
+              dateKey: dKey,
+              year: y,
+              month: m - 1,
+              dayNum: d,
+              pnl: Math.round((rec.netPnl || 0) * 100) / 100,
+              count: tradesList.length,
+              trades: tradesList
             };
           }
         }
