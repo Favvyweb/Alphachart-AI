@@ -356,3 +356,4 @@ document.addEventListener('DOMContentLoaded', () => {
     window.AICoachModule.init();
   }
 });
+

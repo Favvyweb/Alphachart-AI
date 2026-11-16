@@ -382,3 +382,4 @@ Format your response in clean markdown with bullet points, bold highlights, and 
     });
   }
 };
+

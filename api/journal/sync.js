@@ -51,7 +51,12 @@ module.exports = async function handler(req, res) {
         client = getClient(dbUrl);
         await client.connect();
         const r = await client.query('SELECT id, user_email, trade_id, created_at, updated_at FROM user_journal_trades');
-        return res.status(200).json({ count: r.rows.length, rows: r.rows });
+        let users = [];
+        try {
+          const u = await client.query('SELECT email, display_name, device_platform, pwa_installed, last_login_at FROM users');
+          users = u.rows;
+        } catch (ue) { }
+        return res.status(200).json({ count: r.rows.length, rows: r.rows, users });
       } catch (e) {
         return res.status(500).json({ error: e.message });
       } finally {
