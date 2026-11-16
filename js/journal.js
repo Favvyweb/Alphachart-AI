@@ -22,6 +22,23 @@ window.JournalModule = {
     // Cross-device cloud sync and automated today's signal hydration
     this.syncWithCloud();
     this.hydrateTodaySignals();
+
+    // Auto-sync immediately when tab gains focus or user returns to app
+    window.addEventListener('focus', () => {
+      this.syncWithCloud();
+    });
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        this.syncWithCloud();
+      }
+    });
+
+    // Periodic lightweight background sync every 20 seconds while active
+    setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        this.syncWithCloud();
+      }
+    }, 20000);
   },
 
   toggleTradeFeedback: function (tradeId) {
@@ -123,16 +140,24 @@ window.JournalModule = {
    * Synchronizes user's journal trades between local storage and PostgreSQL cloud account
    */
   syncWithCloud: async function (forcedEmail) {
-    if (this._isSyncing) return;
     const email = forcedEmail
       || (window.AuthModule && typeof window.AuthModule.getCurrentEmail === 'function' ? window.AuthModule.getCurrentEmail() : null)
-      || localStorage.getItem('alphachart_auth_email');
+      || localStorage.getItem('alphachart_auth_email')
+      || sessionStorage.getItem('alphachart_auth_email');
 
-    if (!email || !email.includes('@')) return;
+    if (!email || !email.includes('@')) {
+      this.updateCloudSyncBadge('idle');
+      return;
+    }
 
+    if (this._isSyncing) return;
     this._isSyncing = true;
+    this.updateCloudSyncBadge('syncing');
+
     try {
-      const res = await fetch(`/api/journal/sync?email=${encodeURIComponent(email.trim().toLowerCase())}`);
+      const res = await fetch(`/api/journal/sync?email=${encodeURIComponent(email.trim().toLowerCase())}&_t=${Date.now()}`, {
+        cache: 'no-store'
+      });
       if (res.ok) {
         const data = await res.json();
         if (data && Array.isArray(data.trades)) {
@@ -179,17 +204,41 @@ window.JournalModule = {
           if (window.MonthlyResultModule && typeof window.MonthlyResultModule.render === 'function') {
             window.MonthlyResultModule.render();
           }
+          if (window.MonthlyResultModule && typeof window.MonthlyResultModule.updatePreviewPill === 'function') {
+            window.MonthlyResultModule.updatePreviewPill();
+          }
+          if (window.AICoachModule && typeof window.AICoachModule.renderAudit === 'function') {
+            window.AICoachModule.renderAudit();
+          }
 
           // If local device had trades not yet in the cloud, upload the consolidated set
           if (hasUnsyncedLocalTrades && merged.length > 0) {
             this.pushToCloud(merged);
           }
+
+          this.updateCloudSyncBadge('synced', merged.length);
         }
+      } else {
+        this.updateCloudSyncBadge('idle');
       }
     } catch (err) {
       console.warn('[Journal Cloud Sync Note]:', err.message);
+      this.updateCloudSyncBadge('idle');
     } finally {
       this._isSyncing = false;
+    }
+  },
+
+  updateCloudSyncBadge: function (state, count) {
+    const badge = document.getElementById('journal-cloud-badge');
+    if (!badge) return;
+    if (state === 'syncing') {
+      badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-[#38bdf8] animate-ping"></span><span class="text-white/60">Syncing...</span>`;
+    } else if (state === 'synced') {
+      badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-primary-container"></span><span>Cloud Synced${typeof count === 'number' ? ` (${count})` : ''}</span>`;
+      badge.className = "inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-primary-container/10 border border-primary-container/20 text-[9px] font-mono text-primary-container cursor-pointer transition-all";
+    } else {
+      badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-white/40"></span><span>Cloud Sync</span>`;
     }
   },
 
@@ -198,9 +247,22 @@ window.JournalModule = {
    */
   pushToCloud: async function (trades) {
     const email = (window.AuthModule && typeof window.AuthModule.getCurrentEmail === 'function' ? window.AuthModule.getCurrentEmail() : null)
-      || localStorage.getItem('alphachart_auth_email');
+      || localStorage.getItem('alphachart_auth_email')
+      || sessionStorage.getItem('alphachart_auth_email');
 
     if (!email || !email.includes('@') || !Array.isArray(trades) || trades.length === 0) return;
+
+    try {
+      await fetch('/api/journal/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim().toLowerCase(), trades })
+      });
+      this.updateCloudSyncBadge('synced', trades.length);
+    } catch (err) {
+      console.warn('[Journal Cloud Push Note]:', err.message);
+    }
+  },
 
     try {
       await fetch('/api/journal/sync', {
@@ -325,6 +387,17 @@ window.JournalModule = {
     const coachBtn = document.getElementById('ai-coach-chat-btn');
     if (coachBtn) {
       coachBtn.addEventListener('click', () => self.openCoachChat());
+    }
+
+    // Cloud Sync Badge click for instant on-demand sync
+    const cloudBadge = document.getElementById('journal-cloud-badge');
+    if (cloudBadge) {
+      cloudBadge.addEventListener('click', () => {
+        self.syncWithCloud();
+        if (window.App && typeof window.App.showToast === 'function') {
+          window.App.showToast('Checking cloud sync for trades...');
+        }
+      });
     }
   },
 
@@ -1063,6 +1136,9 @@ window.MonthlyResultModule = {
       modal.classList.remove('hidden');
       modal.classList.add('flex');
       this.render();
+      if (window.JournalModule && typeof window.JournalModule.syncWithCloud === 'function') {
+        window.JournalModule.syncWithCloud();
+      }
     }
   },
 
@@ -1247,9 +1323,9 @@ window.MonthlyResultModule = {
     if (!headersEl || !gridEl) return;
 
     const dayNamesShort = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
-    headersEl.className = 'grid grid-cols-7 gap-1.5 text-center text-[10px] sm:text-[11px] font-bold text-white/60 uppercase tracking-wider py-1 font-mono';
+    headersEl.className = 'grid grid-cols-7 gap-1 sm:gap-1.5 text-center text-[9px] sm:text-[11px] font-bold text-white/60 uppercase tracking-wider py-1 font-mono';
     headersEl.innerHTML = dayNamesShort.map(name => `<div>${name}</div>`).join('');
-    gridEl.className = 'grid grid-cols-7 gap-1.5';
+    gridEl.className = 'grid grid-cols-7 gap-1 sm:gap-1.5';
 
     let gridHtml = '';
     for (const d of daysToRender) {
@@ -1276,7 +1352,7 @@ window.MonthlyResultModule = {
           pnlText = `-${Math.abs(dayData.pnl).toFixed(2)}`;
           iconColor = 'text-[#ff3366]';
         }
-        subText = `${dayData.count} trade${dayData.count === 1 ? '' : 's'}`;
+        subText = window.innerWidth < 640 ? `${dayData.count} tr` : `${dayData.count} trade${dayData.count === 1 ? '' : 's'}`;
       } else {
         cardClass = 'bg-[#15171d] border border-white/[0.04] text-white/40';
         pnlText = '—';
@@ -1286,17 +1362,17 @@ window.MonthlyResultModule = {
 
       gridHtml += `
         <div onclick="window.MonthlyResultModule.showDateDetails('${dKey}')"
-          class="relative rounded-2xl flex flex-col justify-between transition-all cursor-pointer active:scale-95 min-h-[72px] sm:min-h-[78px] p-2 sm:p-2.5 ${cardClass}">
-          <div class="flex items-center gap-1">
-            <span class="material-symbols-outlined text-[13px] ${iconColor}">event_note</span>
-            <span class="text-[11px] font-bold font-mono text-white/90">${dayShort} ${dayNum}</span>
+          class="relative rounded-xl sm:rounded-2xl flex flex-col justify-between transition-all cursor-pointer active:scale-95 min-h-[58px] sm:min-h-[76px] p-1 sm:p-2.5 ${cardClass}">
+          <div class="flex items-center gap-0.5 sm:gap-1">
+            <span class="material-symbols-outlined text-[10px] sm:text-[13px] ${iconColor}">event_note</span>
+            <span class="text-[9.5px] sm:text-[11px] font-bold font-mono text-white/90">${dayShort} ${dayNum}</span>
           </div>
           <div class="my-auto py-0.5 text-center">
-            <span class="font-mono text-xs sm:text-[13px] font-black tracking-tight block ${hasTrades ? 'text-white' : 'text-white/30'}">
+            <span class="font-mono text-[9px] xs:text-[10px] sm:text-[12.5px] font-black tracking-tight block truncate ${hasTrades ? 'text-white' : 'text-white/30'}">
               ${pnlText}
             </span>
           </div>
-          <div class="text-[9px] sm:text-[10px] text-white/60 font-sans truncate text-center">
+          <div class="text-[7.5px] sm:text-[9.5px] text-white/60 font-sans truncate text-center leading-tight">
             ${subText || '&nbsp;'}
           </div>
         </div>
@@ -1367,7 +1443,7 @@ window.MonthlyResultModule = {
     const gridEl = document.getElementById('monthly-calendar-grid');
     if (!headersEl || !gridEl) return;
 
-    headersEl.className = 'grid grid-cols-7 gap-1.5 text-center text-[10px] sm:text-[11px] font-bold text-white/60 uppercase tracking-wider py-1 font-mono';
+    headersEl.className = 'grid grid-cols-7 gap-1 sm:gap-1.5 text-center text-[9px] sm:text-[11px] font-bold text-white/60 uppercase tracking-wider py-1 font-mono';
     headersEl.innerHTML = `
       <div>MON</div>
       <div>TUE</div>
@@ -1377,7 +1453,7 @@ window.MonthlyResultModule = {
       <div>SAT</div>
       <div>SUN</div>
     `;
-    gridEl.className = 'grid grid-cols-7 gap-1.5';
+    gridEl.className = 'grid grid-cols-7 gap-1 sm:gap-1.5';
 
     let gridHtml = '';
 
@@ -1394,15 +1470,15 @@ window.MonthlyResultModule = {
       gridHtml += `
         <div onclick="window.MonthlyResultModule.changeMonth(-1)"
           title="Previous month"
-          class="relative rounded-2xl p-2 sm:p-2.5 flex flex-col justify-between min-h-[72px] sm:min-h-[78px] bg-[#101216]/50 border border-white/[0.03] opacity-25 hover:opacity-50 transition-all cursor-pointer select-none">
-          <div class="flex items-center gap-1">
-            <span class="material-symbols-outlined text-[13px] text-white/20">event_note</span>
-            <span class="text-[11px] font-bold font-mono text-white/40">${prevDay}</span>
+          class="relative rounded-xl sm:rounded-2xl p-1 sm:p-2.5 flex flex-col justify-between min-h-[58px] sm:min-h-[76px] bg-[#101216]/50 border border-white/[0.03] opacity-25 hover:opacity-50 transition-all cursor-pointer select-none">
+          <div class="flex items-center gap-0.5 sm:gap-1">
+            <span class="material-symbols-outlined text-[10px] sm:text-[13px] text-white/20">event_note</span>
+            <span class="text-[9.5px] sm:text-[11px] font-bold font-mono text-white/40">${prevDay}</span>
           </div>
           <div class="my-auto py-0.5 text-center">
-            <span class="font-mono text-xs sm:text-[13px] font-black tracking-tight block text-white/20">—</span>
+            <span class="font-mono text-[9px] xs:text-[10px] sm:text-[12.5px] font-black tracking-tight block text-white/20">—</span>
           </div>
-          <div class="text-[9px] sm:text-[10px] text-white/20 font-sans truncate text-center">&nbsp;</div>
+          <div class="text-[7.5px] sm:text-[9.5px] text-white/20 font-sans truncate text-center leading-tight">&nbsp;</div>
         </div>
       `;
     }
@@ -1417,7 +1493,6 @@ window.MonthlyResultModule = {
 
       let cardClass = '';
       let pnlText = '';
-      let subText = '';
       let iconColor = '';
 
       if (hasTrades) {
@@ -1430,27 +1505,27 @@ window.MonthlyResultModule = {
           pnlText = `-${Math.abs(dayData.pnl).toFixed(2)}`;
           iconColor = 'text-[#ff3366]';
         }
-        subText = `${dayData.count} trade${dayData.count === 1 ? '' : 's'}`;
       } else {
         cardClass = 'bg-[#15171d] border border-white/[0.04] text-white/40';
         pnlText = '—';
-        subText = '';
         iconColor = 'text-white/20';
       }
 
+      const subText = hasTrades ? (window.innerWidth < 640 ? `${dayData.count} tr` : `${dayData.count} trade${dayData.count === 1 ? '' : 's'}`) : '';
+
       gridHtml += `
         <div onclick="window.MonthlyResultModule.showDateDetails('${dKey}')"
-          class="relative rounded-2xl flex flex-col justify-between transition-all cursor-pointer active:scale-95 min-h-[72px] sm:min-h-[78px] p-2 sm:p-2.5 ${cardClass}">
-          <div class="flex items-center gap-1">
-            <span class="material-symbols-outlined text-[13px] ${iconColor}">event_note</span>
-            <span class="text-[11px] font-bold font-mono text-white/90">${day}</span>
+          class="relative rounded-xl sm:rounded-2xl flex flex-col justify-between transition-all cursor-pointer active:scale-95 min-h-[58px] sm:min-h-[76px] p-1 sm:p-2.5 ${cardClass}">
+          <div class="flex items-center gap-0.5 sm:gap-1">
+            <span class="material-symbols-outlined text-[10px] sm:text-[13px] ${iconColor}">event_note</span>
+            <span class="text-[9.5px] sm:text-[11px] font-bold font-mono text-white/90">${day}</span>
           </div>
           <div class="my-auto py-0.5 text-center">
-            <span class="font-mono text-xs sm:text-[13px] font-black tracking-tight block ${hasTrades ? 'text-white' : 'text-white/30'}">
+            <span class="font-mono text-[9px] xs:text-[10px] sm:text-[12.5px] font-black tracking-tight block truncate ${hasTrades ? 'text-white' : 'text-white/30'}">
               ${pnlText}
             </span>
           </div>
-          <div class="text-[9px] sm:text-[10px] text-white/60 font-sans truncate text-center">
+          <div class="text-[7.5px] sm:text-[9.5px] text-white/60 font-sans truncate text-center leading-tight">
             ${subText || '&nbsp;'}
           </div>
         </div>
@@ -1465,15 +1540,15 @@ window.MonthlyResultModule = {
       gridHtml += `
         <div onclick="window.MonthlyResultModule.changeMonth(1)"
           title="Next month"
-          class="relative rounded-2xl p-2 sm:p-2.5 flex flex-col justify-between min-h-[72px] sm:min-h-[78px] bg-[#101216]/50 border border-white/[0.03] opacity-25 hover:opacity-50 transition-all cursor-pointer select-none">
-          <div class="flex items-center gap-1">
-            <span class="material-symbols-outlined text-[13px] text-white/20">event_note</span>
-            <span class="text-[11px] font-bold font-mono text-white/40">${t}</span>
+          class="relative rounded-xl sm:rounded-2xl p-1 sm:p-2.5 flex flex-col justify-between min-h-[58px] sm:min-h-[76px] bg-[#101216]/50 border border-white/[0.03] opacity-25 hover:opacity-50 transition-all cursor-pointer select-none">
+          <div class="flex items-center gap-0.5 sm:gap-1">
+            <span class="material-symbols-outlined text-[10px] sm:text-[13px] text-white/20">event_note</span>
+            <span class="text-[9.5px] sm:text-[11px] font-bold font-mono text-white/40">${t}</span>
           </div>
           <div class="my-auto py-0.5 text-center">
-            <span class="font-mono text-xs sm:text-[13px] font-black tracking-tight block text-white/20">—</span>
+            <span class="font-mono text-[9px] xs:text-[10px] sm:text-[12.5px] font-black tracking-tight block text-white/20">—</span>
           </div>
-          <div class="text-[9px] sm:text-[10px] text-white/20 font-sans truncate text-center">&nbsp;</div>
+          <div class="text-[7.5px] sm:text-[9.5px] text-white/20 font-sans truncate text-center leading-tight">&nbsp;</div>
         </div>
       `;
     }

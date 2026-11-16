@@ -44,26 +44,6 @@ module.exports = async function handler(req, res) {
 
   // 1. GET: Retrieve user's trades across all devices
   if (req.method === 'GET') {
-    if (req.query.inspect === 'all') {
-      if (!dbUrl) return res.status(200).json({ empty: true });
-      let client = null;
-      try {
-        client = getClient(dbUrl);
-        await client.connect();
-        const r = await client.query('SELECT id, user_email, trade_id, created_at, updated_at FROM user_journal_trades');
-        let users = [];
-        try {
-          const u = await client.query('SELECT email, display_name, device_platform, pwa_installed, last_login_at FROM users');
-          users = u.rows;
-        } catch (ue) { }
-        return res.status(200).json({ count: r.rows.length, rows: r.rows, users });
-      } catch (e) {
-        return res.status(500).json({ error: e.message });
-      } finally {
-        if (client) await client.end().catch(() => {});
-      }
-    }
-
     const email = (req.query.email || '').trim().toLowerCase();
     if (!email || !email.includes('@')) {
       return res.status(400).json({ success: false, error: 'Valid user email is required.' });

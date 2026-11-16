@@ -17,6 +17,13 @@ window.App = {
     this.bindTopEarnersModal();
     if (window.ScannerModule) window.ScannerModule.init();
     if (window.JournalModule) window.JournalModule.init();
+
+    // Check for and install service worker updates immediately
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistration().then(reg => {
+        if (reg) reg.update();
+      }).catch(() => {});
+    }
   },
 
   bindTopEarnersModal: function () {

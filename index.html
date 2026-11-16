@@ -758,8 +758,13 @@
             <div class="bg-[#1c1c1e] border border-white/[0.08] rounded-2xl p-5 shadow-sm">
               <div class="flex justify-between items-start">
                 <div>
-                  <p class="text-[11px] font-medium text-on-surface-variant uppercase tracking-wider mb-1">Total
-                    Portfolio PnL</p>
+                  <div class="flex items-center gap-2 mb-1">
+                    <p class="text-[11px] font-medium text-on-surface-variant uppercase tracking-wider">Total Portfolio PnL</p>
+                    <span id="journal-cloud-badge" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-primary-container/10 border border-primary-container/20 text-[9px] font-mono text-primary-container cursor-pointer transition-all" title="Cloud Synced - Tap to refresh">
+                      <span class="w-1.5 h-1.5 rounded-full bg-primary-container animate-pulse"></span>
+                      <span>Cloud Sync</span>
+                    </span>
+                  </div>
                   <h2 id="journal-total-pnl-val" class="font-mono text-3xl font-bold text-primary-container">
                     $0.00</h2>
                 </div>
@@ -1216,12 +1221,12 @@
           <span class="text-[10px] font-mono text-primary-container bg-primary-container/10 px-2.5 py-0.5 rounded-full border border-primary-container/20 font-bold">7 Days &bull; Mon–Sun</span>
         </div>
 
-        <!-- 4. Calendar Day of Week Headers & Days Grid (Horizontally scrollable on mobile to guarantee large box size) -->
-        <div class="overflow-x-auto pb-1.5 -mx-1 px-1 scrollbar-thin scrollbar-thumb-white/10">
-          <div class="min-w-[490px] sm:min-w-0 flex flex-col gap-1.5">
+        <!-- 4. Calendar Day of Week Headers & Days Grid (Fluid 7-Day Responsive Layout: MON-SUN all visible) -->
+        <div class="w-full pb-1.5">
+          <div class="w-full flex flex-col gap-1 sm:gap-1.5">
             <!-- Headers: MON, TUE, WED, THU, FRI, SAT, SUN -->
             <div id="monthly-calendar-headers"
-              class="grid grid-cols-7 gap-1.5 text-center text-[10px] sm:text-[11px] font-bold text-white/60 uppercase tracking-wider py-1 font-mono">
+              class="grid grid-cols-7 gap-1 sm:gap-1.5 text-center text-[9px] sm:text-[11px] font-bold text-white/60 uppercase tracking-wider py-1 font-mono">
               <div>MON</div>
               <div>TUE</div>
               <div>WED</div>
@@ -1232,7 +1237,7 @@
             </div>
 
             <!-- Calendar Days Grid -->
-            <div id="monthly-calendar-grid" class="grid grid-cols-7 gap-1.5">
+            <div id="monthly-calendar-grid" class="grid grid-cols-7 gap-1 sm:gap-1.5">
               <!-- Dynamic day cards rendered here -->
             </div>
           </div>
@@ -1611,15 +1616,15 @@
 
   </div>
 
-  <script src="js/chart_overlay.js"></script>
-  <script src="js/ai_engine.js"></script>
+  <script src="js/chart_overlay.js?v=33"></script>
+  <script src="js/ai_engine.js?v=33"></script>
   <script src="js/lightweight-charts.standalone.production.js"></script>
-  <script src="js/trend_trader.js"></script>
-  <script src="js/scanner.js"></script>
-  <script src="js/journal.js"></script>
-  <script src="js/auth.js"></script>
-  <script src="js/coach.js"></script>
-  <script src="js/app.js"></script>
+  <script src="js/trend_trader.js?v=33"></script>
+  <script src="js/scanner.js?v=33"></script>
+  <script src="js/journal.js?v=33"></script>
+  <script src="js/auth.js?v=33"></script>
+  <script src="js/coach.js?v=33"></script>
+  <script src="js/app.js?v=33"></script>
 </body>
 
 </html>

@@ -12,7 +12,9 @@ window.AuthModule = {
   STORAGE_TIME: 'alphachart_auth_timestamp',
 
   getCurrentEmail: function () {
-    return localStorage.getItem(this.STORAGE_EMAIL) || '';
+    return localStorage.getItem(this.STORAGE_EMAIL)
+      || sessionStorage.getItem(this.STORAGE_EMAIL)
+      || '';
   },
 
   init: function () {
@@ -24,12 +26,21 @@ window.AuthModule = {
    * Check if user is already authenticated on this phone/browser
    */
   checkSession: function () {
-    const email = localStorage.getItem(this.STORAGE_EMAIL);
-    const isActive = localStorage.getItem(this.STORAGE_ACTIVE) === 'true';
+    let email = localStorage.getItem(this.STORAGE_EMAIL) || sessionStorage.getItem(this.STORAGE_EMAIL);
+    let isActive = (localStorage.getItem(this.STORAGE_ACTIVE) === 'true') || (sessionStorage.getItem(this.STORAGE_ACTIVE) === 'true');
     const gateScreen = document.getElementById('auth-gate-screen');
 
+    // Auto-heal active state if valid email is present
+    if (email && email.includes('@')) {
+      isActive = true;
+      try {
+        localStorage.setItem(this.STORAGE_ACTIVE, 'true');
+        sessionStorage.setItem(this.STORAGE_ACTIVE, 'true');
+      } catch (e) { }
+    }
+
     if (isActive && email && email.includes('@')) {
-      // User is already logged in on this phone!
+      // User is already logged in on this phone/browser!
       if (gateScreen) {
         gateScreen.classList.add('hidden');
         gateScreen.style.display = 'none';
@@ -76,6 +87,8 @@ window.AuthModule = {
       localStorage.setItem(this.STORAGE_EMAIL, email);
       localStorage.setItem(this.STORAGE_ACTIVE, 'true');
       localStorage.setItem(this.STORAGE_TIME, Date.now().toString());
+      sessionStorage.setItem(this.STORAGE_EMAIL, email);
+      sessionStorage.setItem(this.STORAGE_ACTIVE, 'true');
     } catch (e) {
       console.warn('Storage error:', e);
     }
@@ -160,6 +173,8 @@ window.AuthModule = {
       localStorage.removeItem(this.STORAGE_EMAIL);
       localStorage.removeItem(this.STORAGE_ACTIVE);
       localStorage.removeItem(this.STORAGE_TIME);
+      sessionStorage.removeItem(this.STORAGE_EMAIL);
+      sessionStorage.removeItem(this.STORAGE_ACTIVE);
     } catch (e) {
       console.warn('Storage error:', e);
     }
@@ -240,7 +255,7 @@ window.AuthModule = {
         }
 
         // Quick 1-tap Google Sign-in prompt
-        const userEntered = prompt('Enter your Gmail address to sign in with Google:', 'trader@gmail.com');
+        const userEntered = prompt('Enter your Gmail address to sign in with Google:', 'godsfavourobi@gmail.com');
         if (userEntered) {
           this.login(userEntered);
         }
