@@ -67,9 +67,9 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // Ensure user_journal_trades table exists
+    // Ensure clean user_trading_journal_entries table exists
     await client.query(`
-      CREATE TABLE IF NOT EXISTS user_journal_trades (
+      CREATE TABLE IF NOT EXISTS user_trading_journal_entries (
         id BIGINT NOT NULL,
         email VARCHAR(255) NOT NULL,
         pair VARCHAR(50),
@@ -88,7 +88,7 @@ module.exports = async function handler(req, res) {
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (email, id)
       );
-      CREATE INDEX IF NOT EXISTS idx_journal_trades_email ON user_journal_trades(email);
+      CREATE INDEX IF NOT EXISTS idx_trading_journal_email ON user_trading_journal_entries(email);
     `);
 
     // GET /api/journal/trades?email=user@example.com
@@ -99,7 +99,7 @@ module.exports = async function handler(req, res) {
       }
 
       const result = await client.query(
-        `SELECT * FROM user_journal_trades WHERE email = $1 ORDER BY trade_timestamp DESC, id DESC`,
+        `SELECT * FROM user_trading_journal_entries WHERE email = $1 ORDER BY trade_timestamp DESC, id DESC`,
         [email]
       );
 
@@ -161,7 +161,7 @@ module.exports = async function handler(req, res) {
         const feedbackSaved = Boolean(t.feedbackSaved !== false);
 
         await client.query(`
-          INSERT INTO user_journal_trades (
+          INSERT INTO user_trading_journal_entries (
             id, email, pair, market, type, trade_timestamp, trade_time, entry_price, pnl, is_profit, notes, user_outcome_pnl, user_observation, feedback_saved, updated_at
           ) VALUES (
             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, CURRENT_TIMESTAMP
@@ -204,10 +204,10 @@ module.exports = async function handler(req, res) {
       }
 
       if (clearAll) {
-        await client.query(`DELETE FROM user_journal_trades WHERE email = $1`, [email]);
+        await client.query(`DELETE FROM user_trading_journal_entries WHERE email = $1`, [email]);
         return res.status(200).json({ success: true, message: 'All trades cleared' });
       } else if (id) {
-        await client.query(`DELETE FROM user_journal_trades WHERE email = $1 AND id = $2`, [email, Number(id)]);
+        await client.query(`DELETE FROM user_trading_journal_entries WHERE email = $1 AND id = $2`, [email, Number(id)]);
         return res.status(200).json({ success: true, message: 'Trade deleted' });
       } else {
         return res.status(400).json({ error: 'Trade ID or all=true required' });
