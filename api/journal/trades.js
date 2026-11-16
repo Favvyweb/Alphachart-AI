@@ -1,7 +1,49 @@
 // Vercel / Node.js Serverless API: /api/journal/trades
 // Synchronizes user's manual trading journal across devices using PostgreSQL
 
-const { getDbClient } = require('../alerts/_config');
+function getDatabaseUrl() {
+  return process.env.DATABASE_URL
+    || process.env.ALPHACHART_DATABASE_URL
+    || process.env.ALPHACHART_POSTGRES_URL
+    || process.env.ALPHACHART_POSTGRES_PRISMA_URL
+    || process.env.ALPHACHART_DATABASE_URL_UNPOOLED
+    || process.env.POSTGRES_URL
+    || process.env.POSTGRES_PRISMA_URL
+    || process.env.POSTGRES_URL_NON_POOLING
+    || process.env.DATABASE_URI
+    || process.env.POSTGRES_URI
+    || process.env.NEON_DATABASE_URL
+    || process.env.NEON_URL
+    || process.env.SUPABASE_DB_URL
+    || process.env.SUPABASE_DATABASE_URL
+    || process.env.SUPABASE_URL
+    || process.env.DB_URL
+    || process.env.DB_URI
+    || process.env.POSTGRESQL_URL
+    || null;
+}
+
+async function getDbClient() {
+  const dbUrl = getDatabaseUrl();
+  if (!dbUrl) return null;
+
+  let Client;
+  try {
+    const pg = require('pg');
+    Client = pg.Client;
+  } catch (err) {
+    const neon = require('@neondatabase/serverless');
+    Client = neon.Client;
+  }
+
+  const client = new Client({
+    connectionString: dbUrl,
+    ssl: { rejectUnauthorized: false }
+  });
+
+  await client.connect();
+  return client;
+}
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');

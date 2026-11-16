@@ -256,6 +256,7 @@ module.exports = {
   webpush,
   VAPID_PUBLIC_KEY,
   getDatabaseUrl,
+  getDbClient,
   saveSubscription,
   getSubscriptions,
   removeSubscription,
