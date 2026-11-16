@@ -109,6 +109,16 @@ window.App = {
       }, 50);
     }
 
+    // Trigger cloud synchronization and signal hydration when navigating to Trading Journal
+    if (path === 'trading-journal' && window.JournalModule) {
+      if (typeof window.JournalModule.syncWithCloud === 'function') {
+        window.JournalModule.syncWithCloud();
+      }
+      if (typeof window.JournalModule.hydrateTodaySignals === 'function') {
+        window.JournalModule.hydrateTodaySignals();
+      }
+    }
+
     window.scrollTo(0, 0);
   },
 

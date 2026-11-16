@@ -11,6 +11,10 @@ window.AuthModule = {
   STORAGE_ACTIVE: 'alphachart_auth_active',
   STORAGE_TIME: 'alphachart_auth_timestamp',
 
+  getCurrentEmail: function () {
+    return localStorage.getItem(this.STORAGE_EMAIL) || '';
+  },
+
   init: function () {
     this.bindEvents();
     this.checkSession();
@@ -33,6 +37,10 @@ window.AuthModule = {
       this.updateProfileUI(email);
       // Background heartbeat to PostgreSQL backend (updates last_login_at timestamp)
       this.syncWithBackend(email);
+      // Synchronize user's journal trades from cloud account
+      if (window.JournalModule && typeof window.JournalModule.syncWithCloud === 'function') {
+        window.JournalModule.syncWithCloud(email);
+      }
       return true;
     } else {
       // User has not logged in yet on this phone: display sign-in gate
@@ -89,6 +97,11 @@ window.AuthModule = {
 
     // Asynchronously synchronize user with PostgreSQL backend
     this.syncWithBackend(email);
+
+    // Synchronize user's journal trades from cloud account
+    if (window.JournalModule && typeof window.JournalModule.syncWithCloud === 'function') {
+      window.JournalModule.syncWithCloud(email);
+    }
 
     if (window.App && window.App.showToast) {
       window.App.showToast(`Signed in as ${email} • Access Granted! 🚀`);

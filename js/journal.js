@@ -19,6 +19,9 @@ window.JournalModule = {
     if (window.MonthlyResultModule) {
       window.MonthlyResultModule.init();
     }
+    // Cross-device cloud sync and automated today's signal hydration
+    this.syncWithCloud();
+    this.hydrateTodaySignals();
   },
 
   toggleTradeFeedback: function (tradeId) {
@@ -111,6 +114,186 @@ window.JournalModule = {
       localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.trades));
     } catch (e) {
       console.warn('Error saving trades to storage:', e);
+    }
+    // Asynchronously synchronize with PostgreSQL cloud database across devices
+    this.pushToCloud(this.trades);
+  },
+
+  /**
+   * Synchronizes user's journal trades between local storage and PostgreSQL cloud account
+   */
+  syncWithCloud: async function (forcedEmail) {
+    if (this._isSyncing) return;
+    const email = forcedEmail
+      || (window.AuthModule && typeof window.AuthModule.getCurrentEmail === 'function' ? window.AuthModule.getCurrentEmail() : null)
+      || localStorage.getItem('alphachart_auth_email');
+
+    if (!email || !email.includes('@')) return;
+
+    this._isSyncing = true;
+    try {
+      const res = await fetch(`/api/journal/sync?email=${encodeURIComponent(email.trim().toLowerCase())}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.trades)) {
+          const remoteTrades = data.trades;
+          const localTrades = this.trades || [];
+
+          // Merge local and remote trades by trade ID (deduplicating and taking the freshest entry)
+          const tradeMap = new Map();
+
+          // 1. Populate remote trades first
+          for (const rt of remoteTrades) {
+            const tid = String(rt.id || rt.tradeId || rt.timestamp);
+            tradeMap.set(tid, rt);
+          }
+
+          // 2. Merge local trades
+          let hasUnsyncedLocalTrades = false;
+          for (const lt of localTrades) {
+            const tid = String(lt.id || lt.tradeId || lt.timestamp);
+            if (!tradeMap.has(tid)) {
+              tradeMap.set(tid, lt);
+              hasUnsyncedLocalTrades = true;
+            } else {
+              const existing = tradeMap.get(tid);
+              const ltTime = lt.timestamp || lt.id || 0;
+              const rtTime = existing.timestamp || existing.id || 0;
+              if (ltTime >= rtTime || lt.feedbackSaved) {
+                tradeMap.set(tid, { ...existing, ...lt });
+              }
+            }
+          }
+
+          const merged = Array.from(tradeMap.values());
+          merged.sort((a, b) => (b.timestamp || b.id || 0) - (a.timestamp || a.id || 0));
+
+          this.trades = merged;
+          try {
+            localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.trades));
+          } catch (e) { }
+
+          this.renderTrades();
+          this.updateStats();
+
+          if (window.MonthlyResultModule && typeof window.MonthlyResultModule.render === 'function') {
+            window.MonthlyResultModule.render();
+          }
+
+          // If local device had trades not yet in the cloud, upload the consolidated set
+          if (hasUnsyncedLocalTrades && merged.length > 0) {
+            this.pushToCloud(merged);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[Journal Cloud Sync Note]:', err.message);
+    } finally {
+      this._isSyncing = false;
+    }
+  },
+
+  /**
+   * Pushes trade list to PostgreSQL cloud account
+   */
+  pushToCloud: async function (trades) {
+    const email = (window.AuthModule && typeof window.AuthModule.getCurrentEmail === 'function' ? window.AuthModule.getCurrentEmail() : null)
+      || localStorage.getItem('alphachart_auth_email');
+
+    if (!email || !email.includes('@') || !Array.isArray(trades) || trades.length === 0) return;
+
+    try {
+      await fetch('/api/journal/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim().toLowerCase(), trades })
+      });
+    } catch (err) {
+      console.warn('[Journal Cloud Push Note]:', err.message);
+    }
+  },
+
+  /**
+   * Removes deleted trade from PostgreSQL cloud account
+   */
+  deleteFromCloud: async function (tradeId) {
+    const email = (window.AuthModule && typeof window.AuthModule.getCurrentEmail === 'function' ? window.AuthModule.getCurrentEmail() : null)
+      || localStorage.getItem('alphachart_auth_email');
+
+    if (!email || !email.includes('@') || !tradeId) return;
+
+    try {
+      await fetch('/api/journal/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: email.trim().toLowerCase(),
+          action: 'delete',
+          deletedTradeId: String(tradeId)
+        })
+      });
+    } catch (err) {
+      console.warn('[Journal Cloud Delete Note]:', err.message);
+    }
+  },
+
+  /**
+   * Clears all trades from PostgreSQL cloud account
+   */
+  clearCloudAll: async function () {
+    const email = (window.AuthModule && typeof window.AuthModule.getCurrentEmail === 'function' ? window.AuthModule.getCurrentEmail() : null)
+      || localStorage.getItem('alphachart_auth_email');
+
+    if (!email || !email.includes('@')) return;
+
+    try {
+      await fetch('/api/journal/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: email.trim().toLowerCase(),
+          action: 'clear_all'
+        })
+      });
+    } catch (err) {
+      console.warn('[Journal Cloud Clear Note]:', err.message);
+    }
+  },
+
+  /**
+   * Automatically hydrates today's live signal performance from Binance stream in the background
+   * Guarantees today's results appear in the journal even before opening the Charts tab!
+   */
+  hydrateTodaySignals: async function () {
+    if (this._isHydratingSignals) return;
+    if (window.TrendTraderEngine) {
+      const perf = window.TrendTraderEngine.lastPerformance;
+      if (perf && Array.isArray(perf.evaluatedSignals) && perf.evaluatedSignals.length > 0) {
+        return; // Already hydrated
+      }
+      this._isHydratingSignals = true;
+      try {
+        const pair = window.TrendTraderEngine.currentPair || 'BTC / USDT';
+        const tf = window.TrendTraderEngine.currentTimeframe || '5m';
+        const candles = await window.TrendTraderEngine.fetchCandles(pair, tf);
+        if (candles && candles.length >= 20) {
+          const analysis = window.TrendTraderEngine.analyzeCandles(candles);
+          if (analysis) {
+            const calculatedPerf = window.TrendTraderEngine.calculateDailySignalPerformance(candles, analysis.tags, analysis.psar);
+            window.TrendTraderEngine.lastPerformance = calculatedPerf;
+            window.TrendTraderEngine.lastAnalysis = analysis;
+
+            if (window.MonthlyResultModule && typeof window.MonthlyResultModule.render === 'function') {
+              window.MonthlyResultModule.render();
+            }
+            this.updateStats();
+          }
+        }
+      } catch (err) {
+        console.warn('Signal hydration note:', err);
+      } finally {
+        this._isHydratingSignals = false;
+      }
     }
   },
 
@@ -341,6 +524,7 @@ window.JournalModule = {
   deleteTrade: function (tradeId) {
     this.trades = this.trades.filter(t => t.id !== tradeId);
     this.saveToStorage();
+    this.deleteFromCloud(tradeId);
     this.renderTrades();
     this.updateStats();
     if (window.App) {
@@ -352,6 +536,7 @@ window.JournalModule = {
     if (confirm('Are you sure you want to clear all trades in your journal?')) {
       this.trades = [];
       this.saveToStorage();
+      this.clearCloudAll();
       this.renderTrades();
       this.updateStats();
       if (window.App) {
