@@ -592,17 +592,20 @@ window.TrendTraderEngine = {
       },
       rightPriceScale: {
         borderColor: 'rgba(255, 255, 255, 0.1)',
+        autoScale: true,
         scaleMargins: {
-          top: 0.1,
-          bottom: 0.2,
+          top: 0.12,
+          bottom: 0.20,
         },
       },
       timeScale: {
         borderColor: 'rgba(255, 255, 255, 0.1)',
         timeVisible: true,
         secondsVisible: false,
-        rightOffset: 35,
-        barSpacing: 6,
+        rightOffset: 12,
+        barSpacing: 9,
+        minBarSpacing: 3,
+        shiftVisibleRangeOnNewBar: true,
       },
     });
 
@@ -631,19 +634,30 @@ window.TrendTraderEngine = {
     });
     this.candleSeries.setData(candles);
 
-    // Add Volume Series (overlay at bottom)
+    // Add Volume Series (isolated overlay scale at bottom so it NEVER distorts candlestick price scale)
     this.volumeSeries = addHistSeries(this.mainChart, {
       priceFormat: { type: 'volume' },
-      priceScaleId: '', // overlay
+      priceScaleId: 'volume_overlay',
     });
     try {
-      this.volumeSeries.priceScale().applyOptions({
+      this.mainChart.priceScale('volume_overlay').applyOptions({
         scaleMargins: {
           top: 0.82,
           bottom: 0,
         },
+        visible: false,
       });
-    } catch (e) { }
+    } catch (e) {
+      try {
+        this.volumeSeries.priceScale().applyOptions({
+          scaleMargins: {
+            top: 0.82,
+            bottom: 0,
+          },
+          visible: false,
+        });
+      } catch (e2) { }
+    }
 
     const volumeData = candles.map(c => ({
       time: c.time,
@@ -774,6 +788,7 @@ window.TrendTraderEngine = {
       },
       rightPriceScale: {
         borderColor: 'rgba(255, 255, 255, 0.08)',
+        autoScale: true,
         scaleMargins: {
           top: 0.15,
           bottom: 0.15,
@@ -783,8 +798,10 @@ window.TrendTraderEngine = {
         borderColor: 'rgba(255, 255, 255, 0.08)',
         timeVisible: true,
         secondsVisible: false,
-        rightOffset: 35,
-        barSpacing: 6,
+        rightOffset: 12,
+        barSpacing: 9,
+        minBarSpacing: 3,
+        shiftVisibleRangeOnNewBar: true,
       },
     });
 
@@ -845,28 +862,25 @@ window.TrendTraderEngine = {
       isSyncing = false;
     });
 
-    // Display active trading session centered on recent candles (with smooth pan/zoom)
+    // Display active trading session centered on recent candles with clean future whitespace (TradingView style)
     setTimeout(() => {
       try {
-        const lookbackBars = Math.min(candles.length - 1, 95);
-        const fromTime = candles[candles.length - 1 - lookbackBars].time;
-        const toTime = candles[candles.length - 1].time + (20 * 300);
+        const totalBars = candles.length;
+        const barsToShow = Math.min(totalBars, 65);
+        const logicalRange = {
+          from: totalBars - barsToShow,
+          to: totalBars + 12 // Exactly 12 bars into future reading the next hour!
+        };
         if (this.mainChart && this.mainChart.timeScale) {
-          this.mainChart.timeScale().setVisibleRange({
-            from: fromTime,
-            to: toTime
-          });
+          this.mainChart.timeScale().setVisibleLogicalRange(logicalRange);
         }
         if (this.macdChart && this.macdChart.timeScale) {
-          this.macdChart.timeScale().setVisibleRange({
-            from: fromTime,
-            to: toTime
-          });
+          this.macdChart.timeScale().setVisibleLogicalRange(logicalRange);
         }
         this.updateSMCZonesOverlay();
       } catch (e) {
-        if (this.mainChart) this.mainChart.timeScale().fitContent();
-        if (this.macdChart) this.macdChart.timeScale().fitContent();
+        if (this.mainChart) this.mainChart.timeScale().scrollToRealTime();
+        if (this.macdChart) this.macdChart.timeScale().scrollToRealTime();
         this.updateSMCZonesOverlay();
       }
     }, 60);
@@ -1104,16 +1118,20 @@ window.TrendTraderEngine = {
     else if (interval === '15' || interval === '15m') binanceInterval = '15m';
 
     this.isLiveStreamActive = true;
+    this._liveStreamSymbol = cleanSymbol;
     const wsUrl = `wss://data-stream.binance.vision/ws/${cleanSymbol}@kline_${binanceInterval}`;
 
     try {
-      this.liveWs = new WebSocket(wsUrl);
+      const ws = new WebSocket(wsUrl);
+      this.liveWs = ws;
 
-      this.liveWs.onopen = () => {
+      ws.onopen = () => {
+        if (this.liveWs !== ws) { try { ws.close(); } catch (e) { } return; }
         console.log(`[AlphaChart AI] Live kline stream active: ${cleanSymbol}@${binanceInterval}`);
       };
 
-      this.liveWs.onmessage = (event) => {
+      ws.onmessage = (event) => {
+        if (this.liveWs !== ws) return; // Discard messages from previous or replaced stream
         try {
           const msg = JSON.parse(event.data);
           if (msg && msg.e === 'kline' && msg.k) {
@@ -1122,14 +1140,18 @@ window.TrendTraderEngine = {
         } catch (e) { }
       };
 
-      this.liveWs.onerror = (err) => {
+      ws.onerror = (err) => {
+        if (this.liveWs !== ws) return;
         console.warn('[AlphaChart AI] WebSocket stream note:', err);
       };
 
-      this.liveWs.onclose = () => {
-        if (this.isLiveStreamActive) {
+      ws.onclose = () => {
+        if (this.liveWs !== ws) return;
+        if (this.isLiveStreamActive && this._liveStreamSymbol === cleanSymbol) {
           this.liveWsRetryTimer = setTimeout(() => {
-            if (this.isLiveStreamActive) this.startLiveStream(pairName, interval);
+            if (this.isLiveStreamActive && this._liveStreamSymbol === cleanSymbol) {
+              this.startLiveStream(pairName, interval);
+            }
           }, 3500);
         }
       };
@@ -1140,6 +1162,7 @@ window.TrendTraderEngine = {
 
   stopLiveStream: function () {
     this.isLiveStreamActive = false;
+    this._liveStreamSymbol = null;
     if (this.liveWsRetryTimer) {
       clearTimeout(this.liveWsRetryTimer);
       this.liveWsRetryTimer = null;
@@ -1156,6 +1179,14 @@ window.TrendTraderEngine = {
   handleLiveKline: function (symbol, interval, k) {
     if (!k) return;
 
+    // Strict Cross-Pair Isolation Gate:
+    // Reject any tick that does NOT match the currently active chart pair
+    const activeSym = (this.currentPair || 'BTCUSDT').toUpperCase().replace(/[\s\-_/]/g, '');
+    const incomingSym = (symbol || '').toUpperCase().replace(/[\s\-_/]/g, '');
+    if (incomingSym && activeSym && !incomingSym.includes(activeSym) && !activeSym.includes(incomingSym)) {
+      return;
+    }
+
     const candle = {
       time: Math.floor(k.t / 1000),
       open: parseFloat(k.o),
@@ -1164,6 +1195,19 @@ window.TrendTraderEngine = {
       close: parseFloat(k.c),
       volume: parseFloat(k.v)
     };
+
+    // Extreme Price Anomaly Filter:
+    // Protect chart scale against contaminated or cross-pair spikes
+    if (this.lastCandles && this.lastCandles.length > 0) {
+      const prevClose = this.lastCandles[this.lastCandles.length - 1].close;
+      if (prevClose > 0) {
+        const ratio = candle.close / prevClose;
+        if (ratio > 3.0 || ratio < 0.33) {
+          console.warn(`[TrendTraderEngine] Rejected anomalous price tick: $${candle.close} vs expected ~$${prevClose}`);
+          return;
+        }
+      }
+    }
 
     // 1. Smooth real-time candlestick update on chart
     if (this.candleSeries) {
@@ -1268,6 +1312,27 @@ window.TrendTraderEngine = {
    */
   onCandleClosed: async function (symbol, interval, candle) {
     if (!candle) return;
+
+    // Strict Cross-Pair Isolation Gate:
+    // Reject any closed candle that does NOT match the currently active chart pair
+    const activeSym = (this.currentPair || 'BTCUSDT').toUpperCase().replace(/[\s\-_/]/g, '');
+    const incomingSym = (symbol || '').toUpperCase().replace(/[\s\-_/]/g, '');
+    if (incomingSym && activeSym && !incomingSym.includes(activeSym) && !activeSym.includes(incomingSym)) {
+      return;
+    }
+
+    // Extreme Price Anomaly Filter:
+    // Protect chart scale against contaminated or cross-pair price spikes
+    if (this.lastCandles && this.lastCandles.length > 0) {
+      const prevClose = this.lastCandles[this.lastCandles.length - 1].close;
+      if (prevClose > 0) {
+        const ratio = candle.close / prevClose;
+        if (ratio > 3.0 || ratio < 0.33) {
+          console.warn(`[TrendTraderEngine] Blocked cross-pair closed candle: $${candle.close} vs expected ~$${prevClose}`);
+          return;
+        }
+      }
+    }
 
     // Ensure we have sufficient historical candles for indicator calculations
     if (!this.lastCandles || this.lastCandles.length < 30) {
@@ -2847,20 +2912,21 @@ window.TrendTraderAlerts = {
     this._bgInterval = interval;
     this._bgMonitorActive = true;
 
-    // Pre-load candles so background signal evaluations have immediate historical context
-    if (window.TrendTraderEngine && (!window.TrendTraderEngine.lastCandles || window.TrendTraderEngine.lastCandles.length < 30)) {
-      window.TrendTraderEngine.fetchCandles(cleanSymbol, binanceInterval).then(candles => {
-        if (candles && candles.length) {
-          window.TrendTraderEngine.lastCandles = candles;
-          const analysis = window.TrendTraderEngine.analyzeCandles(candles);
-          if (analysis) {
-            window.TrendTraderEngine.lastAnalysis = analysis;
-            if (window.TrendTraderEngine.seedHistoricalEvents) {
-              window.TrendTraderEngine.seedHistoricalEvents(analysis);
+    // Pre-load candles ONLY if TrendTraderEngine matches this pair and is empty
+    if (window.TrendTraderEngine) {
+      const activeEngPair = (window.TrendTraderEngine.currentPair || '').toUpperCase().replace(/[\s\-_/]/g, '');
+      const bgSym = cleanSymbol.toUpperCase();
+      if ((!activeEngPair || activeEngPair === bgSym) && (!window.TrendTraderEngine.lastCandles || window.TrendTraderEngine.lastCandles.length < 30)) {
+        window.TrendTraderEngine.fetchCandles(cleanSymbol, binanceInterval).then(candles => {
+          if (candles && candles.length) {
+            window.TrendTraderEngine.lastCandles = candles;
+            const analysis = window.TrendTraderEngine.analyzeCandles(candles);
+            if (analysis) {
+              window.TrendTraderEngine.lastAnalysis = analysis;
             }
           }
-        }
-      }).catch(() => { });
+        }).catch(() => { });
+      }
     }
 
     // Connect to WebSocket stream for candle close events
@@ -2883,9 +2949,13 @@ window.TrendTraderAlerts = {
               volume: parseFloat(k.v)
             };
 
-            // Evaluate signal via TrendTraderEngine
+            // Evaluate signal via TrendTraderEngine ONLY if it matches the current active chart pair!
             if (window.TrendTraderEngine) {
-              window.TrendTraderEngine.onCandleClosed(cleanSymbol, binanceInterval, closedCandle);
+              const curEngineSym = (window.TrendTraderEngine.currentPair || '').toUpperCase().replace(/[\s\-_/]/g, '');
+              const incomingClean = cleanSymbol.toUpperCase();
+              if (curEngineSym === incomingClean || curEngineSym.includes(incomingClean) || incomingClean.includes(curEngineSym)) {
+                window.TrendTraderEngine.onCandleClosed(cleanSymbol, binanceInterval, closedCandle);
+              }
             }
           }
         } catch (e) { }
