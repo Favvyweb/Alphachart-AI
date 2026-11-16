@@ -1023,6 +1023,101 @@
 
     <!-- ================= MODALS ================= -->
 
+    <!-- ================= AI DISCIPLINE COACH MODAL ================= -->
+    <div id="ai-coach-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4">
+      <div id="ai-coach-backdrop" class="absolute inset-0 bg-black/85 backdrop-blur-md"></div>
+      <div
+        class="relative w-full max-w-[500px] h-[92vh] max-h-[760px] bg-[#0c0e14] border border-white/[0.08] rounded-3xl p-4 sm:p-5 shadow-2xl z-10 flex flex-col gap-3 text-white overflow-hidden">
+
+        <!-- Top Header Bar -->
+        <div class="flex items-center justify-between border-b border-white/[0.06] pb-3 shrink-0">
+          <div class="flex items-center gap-2.5">
+            <div class="w-9 h-9 rounded-xl bg-primary-container/15 border border-primary-container/30 flex items-center justify-center text-primary-container">
+              <span class="material-symbols-outlined text-[20px]">smart_toy</span>
+            </div>
+            <div>
+              <div class="flex items-center gap-1.5">
+                <h3 class="font-bold text-sm text-white">AI Discipline Coach</h3>
+                <span class="text-[9px] px-1.5 py-0.5 rounded-full bg-primary-container/20 text-primary-container font-mono font-bold border border-primary-container/30">Live Sync</span>
+              </div>
+              <p class="text-[10px] text-on-surface-variant truncate">Account Analysis & Psychology Audit</p>
+            </div>
+          </div>
+          <button id="ai-coach-close-btn" type="button"
+            class="w-8 h-8 rounded-full bg-white/[0.06] hover:bg-white/10 flex items-center justify-center text-white transition-all active:scale-95 cursor-pointer">
+            <span class="material-symbols-outlined text-[16px]">close</span>
+          </button>
+        </div>
+
+        <!-- Automated End-of-Day Executive Summary Card -->
+        <div class="bg-[#141720] border border-white/[0.06] rounded-2xl p-3 shrink-0 flex flex-col gap-2 shadow-inner">
+          <div class="flex items-center justify-between text-[11px]">
+            <span class="text-white/60 font-medium flex items-center gap-1">
+              <span class="material-symbols-outlined text-[14px] text-primary-container">analytics</span>
+              Account Ledger Snapshot
+            </span>
+            <span id="coach-kpi-score" class="font-mono text-xs font-bold text-primary-container">75/100</span>
+          </div>
+
+          <!-- 4 Core Metric Badges -->
+          <div class="grid grid-cols-4 gap-1.5 text-center">
+            <div class="bg-black/40 rounded-xl p-2 border border-white/5 flex flex-col">
+              <span class="text-[9px] text-white/50 uppercase font-semibold">Invested</span>
+              <span id="coach-kpi-invested" class="font-mono text-xs sm:text-sm font-bold text-white mt-0.5">$0.00</span>
+            </div>
+            <div class="bg-black/40 rounded-xl p-2 border border-white/5 flex flex-col">
+              <span class="text-[9px] text-white/50 uppercase font-semibold">Net PnL</span>
+              <span id="coach-kpi-pnl" class="font-mono text-xs sm:text-sm font-bold text-primary-container mt-0.5">$0.00</span>
+            </div>
+            <div class="bg-black/40 rounded-xl p-2 border border-white/5 flex flex-col">
+              <span class="text-[9px] text-white/50 uppercase font-semibold">Win Rate</span>
+              <span id="coach-kpi-winrate" class="font-mono text-xs sm:text-sm font-bold text-white mt-0.5">0%</span>
+            </div>
+            <div class="bg-black/40 rounded-xl p-2 border border-white/5 flex flex-col">
+              <span class="text-[9px] text-white/50 uppercase font-semibold">R : R</span>
+              <span id="coach-kpi-rr" class="font-mono text-xs sm:text-sm font-bold text-white mt-0.5">1 : 1.0</span>
+            </div>
+          </div>
+
+          <p id="coach-kpi-brief" class="text-[10px] text-on-surface-variant/90 leading-tight italic truncate">
+            Syncing live journal entries and trading metrics...
+          </p>
+        </div>
+
+        <!-- Chat Messages Container -->
+        <div id="ai-coach-chat-container" class="flex-1 overflow-y-auto pr-1 flex flex-col gap-3 text-xs sm:text-sm">
+          <!-- Dynamically populated messages -->
+        </div>
+
+        <!-- Quick-Prompt Chips -->
+        <div class="flex items-center gap-1.5 overflow-x-auto pb-1 shrink-0 no-scrollbar text-[11px]">
+          <button type="button" class="coach-quick-prompt shrink-0 px-2.5 py-1 rounded-full bg-white/[0.06] hover:bg-white/10 border border-white/[0.08] text-white/80 hover:text-white transition-all whitespace-nowrap" data-prompt="Summarize my trading session today">
+            📊 Today's Summary
+          </button>
+          <button type="button" class="coach-quick-prompt shrink-0 px-2.5 py-1 rounded-full bg-white/[0.06] hover:bg-white/10 border border-white/[0.08] text-white/80 hover:text-white transition-all whitespace-nowrap" data-prompt="Audit my emotional discipline and revenge trading">
+            🧠 Discipline Audit
+          </button>
+          <button type="button" class="coach-quick-prompt shrink-0 px-2.5 py-1 rounded-full bg-white/[0.06] hover:bg-white/10 border border-white/[0.08] text-white/80 hover:text-white transition-all whitespace-nowrap" data-prompt="What is my risk-to-reward ratio and how can I improve it?">
+            ⚖️ Risk-to-Reward
+          </button>
+          <button type="button" class="coach-quick-prompt shrink-0 px-2.5 py-1 rounded-full bg-white/[0.06] hover:bg-white/10 border border-white/[0.08] text-white/80 hover:text-white transition-all whitespace-nowrap" data-prompt="Which cryptocurrency pair is my most profitable?">
+            🪙 Pair Profitability
+          </button>
+        </div>
+
+        <!-- Input Bar Form -->
+        <form id="ai-coach-form" class="flex items-center gap-2 pt-2 border-t border-white/[0.06] shrink-0">
+          <input id="ai-coach-input" type="text" placeholder="Ask anything about your account or discipline..."
+            class="flex-1 bg-[#141720] border border-white/[0.1] rounded-2xl px-3.5 py-2.5 text-xs text-white placeholder-white/40 focus:outline-none focus:border-primary-container">
+          <button type="submit"
+            class="w-10 h-10 rounded-2xl bg-primary-container text-black flex items-center justify-center shrink-0 hover:brightness-105 active:scale-95 transition-all shadow-md cursor-pointer">
+            <span class="material-symbols-outlined text-[18px]">send</span>
+          </button>
+        </form>
+
+      </div>
+    </div>
+
     <!-- ================= MONTHLY RESULT & TARGET MODAL ================= -->
     <div id="monthly-result-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4">
       <div id="monthly-result-backdrop" class="absolute inset-0 bg-black/85 backdrop-blur-md"></div>
@@ -1523,6 +1618,7 @@
   <script src="js/scanner.js"></script>
   <script src="js/journal.js"></script>
   <script src="js/auth.js"></script>
+  <script src="js/coach.js"></script>
   <script src="js/app.js"></script>
 </body>
 

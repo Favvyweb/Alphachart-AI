@@ -744,16 +744,9 @@ window.JournalModule = {
   },
 
   openCoachChat: function () {
-    const totalTrades = this.trades.length;
-    let coachMsg = '';
-
-    if (totalTrades === 0) {
-      coachMsg = '🤖 AI Discipline Coach: "You have not logged any trades yet. Whenever you take a trade, click Log Trade to record your outcome and observation!"';
-    } else {
-      coachMsg = `🤖 AI Discipline Coach: "You have ${totalTrades} manually logged trades in your journal. Continue reviewing your observations after every session!"`;
+    if (window.AICoachModule && typeof window.AICoachModule.openModal === 'function') {
+      window.AICoachModule.openModal();
     }
-
-    alert(coachMsg);
   }
 };
 
