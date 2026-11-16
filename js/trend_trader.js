@@ -415,6 +415,23 @@ window.TrendTraderEngine = {
 
     const marketStructure = this.calculateMarketStructure(candles, fractals);
 
+    // Rolling 20-period Volume Moving Average for institutional volume verification
+    const volMA = [];
+    for (let v = 0; v < candles.length; v++) {
+      const vStart = Math.max(0, v - 19);
+      let vSum = 0;
+      let vCount = 0;
+      for (let k = vStart; k <= v; k++) {
+        vSum += (candles[k].volume || 0);
+        vCount++;
+      }
+      volMA.push(vCount > 0 ? (vSum / vCount) : 0);
+    }
+
+    const cleanSymbol = (this.currentPair || 'BTCUSDT').toUpperCase().replace(/[\s\-_/]/g, '');
+    const isAave = cleanSymbol.includes('AAVE');
+    const minScoreThreshold = isAave ? 68 : 60;
+
     // Calculate start of day (12:00:00 AM UTC) to anchor the session
     const nowDayObj = new Date();
     const midnightUtcMs = Date.UTC(nowDayObj.getUTCFullYear(), nowDayObj.getUTCMonth(), nowDayObj.getUTCDate(), 0, 0, 0, 0);
@@ -500,16 +517,44 @@ window.TrendTraderEngine = {
       let canSell = false;
 
       // ========================================================
-      // 1. PRIMARY ENGINE: TREND TRADER TRAILING LINE FLIPS (100% NON-REPAINTING)
+      // 1. INSTITUTIONAL PATTERN LEARNING & CONFLUENCE MATRIX
       // ========================================================
-      // Whenever the trailing line steps in that direction, signal is guaranteed to print!
-      // - Line steps to UPSIDE below candles (isFlipBull) -> 🟢 BUY SIGNAL
-      // - Line steps to DOWNSIDE above candles (isFlipBear) -> 🔴 SELL SIGNAL
-      // Signals are 100% deterministic and immutable upon candle close (NEVER repaint or disappear)
-      if (isFlipBull) {
-        canBuy = true;
-      } else if (isFlipBear) {
-        canSell = true;
+      // Evaluates Candlestick Anatomy, Absorption/Rejection Wicks,
+      // Dynamic Support/Resistance Zones, Liquidity Sweeps, and Volume Participation.
+      // - 100% Non-Repainting: Evaluated strictly on closed candles [0..i].
+      // - Eliminates choppy low-volume fakeouts and wick-exhaustion traps.
+      const curVolMA = volMA[i] || 0;
+      const sweptLow = (cur.low < sL || prev.low < sL) && (cur.close >= sL);
+      const sweptHigh = (cur.high > sH || prev.high > sH) && (cur.close <= sH);
+
+      if (canSignalAgain) {
+        if (isFlipBull) {
+          let score = 50; // Base directional flip trigger
+          if (isBullCandle) score += 15; // Solid green close confirms buyer control
+          if (lowerWickRatio >= 0.15) score += 10; // Absorption wick: dip bought
+          if (upperWickRatio >= 0.48 && !isBullCandle) score -= 25; // Rejection fakeout trap penalty
+          if (cur.volume >= (curVolMA * 0.60) || cur.volume >= prev.volume) score += 10; // Volume participation
+          if (cur.close <= sMid) score += 10; // Entry in Discount / lower half of range
+          if (sweptLow) score += 15; // Institutional liquidity sweep of recent lows
+          if (cur.close >= premLow && cur.volume < curVolMA) score -= 15; // Buying resistance ceiling with low volume
+
+          if (score >= minScoreThreshold) {
+            canBuy = true;
+          }
+        } else if (isFlipBear) {
+          let score = 50; // Base directional flip trigger
+          if (isBearCandle) score += 15; // Solid red close confirms seller control
+          if (upperWickRatio >= 0.15) score += 10; // Rejection wick: rally sold
+          if (lowerWickRatio >= 0.48 && !isBearCandle) score -= 25; // Absorption trap penalty
+          if (cur.volume >= (curVolMA * 0.60) || cur.volume >= prev.volume) score += 10; // Volume participation
+          if (cur.close >= sMid) score += 10; // Entry in Premium / upper half of range
+          if (sweptHigh) score += 15; // Institutional liquidity sweep of recent highs
+          if (cur.close <= discHigh && cur.volume < curVolMA) score -= 15; // Shorting support floor with low volume
+
+          if (score >= minScoreThreshold) {
+            canSell = true;
+          }
+        }
       }
 
       let tag = null;
@@ -527,6 +572,18 @@ window.TrendTraderEngine = {
 
       tags.push(tag);
     }
+
+    // Update continuous background pattern intelligence profile in memory
+    try {
+      this.patternMemory = this.patternMemory || {};
+      const confirmedTrades = tags.filter(t => t === 'BUY' || t === 'SELL').length;
+      this.patternMemory[cleanSymbol] = {
+        lastAnalyzedTime: candles[candles.length - 1]?.time || 0,
+        confirmedTrades,
+        minScoreThreshold,
+        currentRegime: (trendTrader.trend[trendTrader.trend.length - 1] === 1) ? 'BULLISH_EXPANSION' : 'BEARISH_CONTRACTION'
+      };
+    } catch (e) { }
 
     return { candles, psar, fractals, macd, trendTrader, ema7, ema14, ema20, ema50, marketStructure, tags };
   },
