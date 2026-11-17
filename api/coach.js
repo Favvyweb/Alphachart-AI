@@ -1,4 +1,4 @@
-// Serverless API: /api/coach/chat
+// Serverless API: /api/coach
 // Institutional AI Discipline Coach & Account Intelligence Engine
 // Dynamically analyzes user's authentic PostgreSQL journal records, computes exact capital invested,
 // net earnings, win rate, risk-to-reward ratio, emotional discipline rating, and answers questions tailored to their account.
@@ -47,15 +47,13 @@ function computeMetrics(trades = []) {
   let grossProfit = 0;
   let grossLoss = 0;
   const pairStats = {};
-  let stopLossAdherence = 0; // count of properly contained losses
+  let stopLossAdherence = 0;
   let revengeTradeCount = 0;
   let observationsLogged = 0;
 
-  // Standard AlphaChart framework: $100 margin per position at 10x leverage
   const MARGIN_PER_TRADE = 100;
   const totalInvested = totalTrades * MARGIN_PER_TRADE;
 
-  // Sort trades chronologically
   const sorted = [...trades].sort((a, b) => (Number(a.timestamp || a.id || 0)) - (Number(b.timestamp || b.id || 0)));
 
   for (let i = 0; i < sorted.length; i++) {
@@ -66,7 +64,6 @@ function computeMetrics(trades = []) {
     }
     pairStats[pair].trades++;
 
-    // Parse PnL
     const rawPnl = (t.pnl || t.userOutcomePnl || '').toString();
     const num = parseFloat(rawPnl.replace(/[^0-9.-]/g, ''));
     let pnlVal = 0;
@@ -88,7 +85,6 @@ function computeMetrics(trades = []) {
       grossLoss += absLoss;
       pairStats[pair].losses++;
 
-      // Stop Loss Adherence check: loss held to -5% to -7% rather than catastrophic blown account
       if (absLoss <= 7.0) {
         stopLossAdherence++;
       }
@@ -100,7 +96,6 @@ function computeMetrics(trades = []) {
       observationsLogged++;
     }
 
-    // Check revenge trading: consecutive trade taken within 12 minutes after a loss
     if (i > 0 && sorted[i - 1]) {
       const prev = sorted[i - 1];
       const prevNum = parseFloat((prev.pnl || '').toString().replace(/[^0-9.-]/g, ''));
@@ -120,8 +115,7 @@ function computeMetrics(trades = []) {
   const rrRatio = avgLoss > 0 ? (avgWin / avgLoss).toFixed(2) : (avgWin > 0 ? '3.00+' : '1.00');
   const profitFactor = grossLoss > 0 ? (grossProfit / grossLoss).toFixed(2) : (grossProfit > 0 ? 'Max' : '0.00');
 
-  // Discipline Score calculation (0 - 100)
-  let disciplineScore = 75; // baseline
+  let disciplineScore = 75;
   if (totalTrades > 0) {
     if (losses > 0) {
       const slCompliance = stopLossAdherence / losses;
@@ -164,7 +158,6 @@ function computeMetrics(trades = []) {
   };
 }
 
-// Generate specialized, data-backed reasoning tailored strictly to user's real account
 function generateAnalyticalResponse(question, metrics, email) {
   const q = (question || '').toLowerCase();
   const { totalTrades, wins, losses, totalInvested, grossProfit, grossLoss, netPnL, winRate, avgWin, avgLoss, rrRatio, profitFactor, disciplineScore, disciplineGrade, revengeTradeCount, pairStats } = metrics;
@@ -172,7 +165,6 @@ function generateAnalyticalResponse(question, metrics, email) {
   const username = email ? email.split('@')[0] : 'Trader';
   const nameFormatted = username.charAt(0).toUpperCase() + username.slice(1);
 
-  // 1. Question about capital invested or earnings / PnL / summary
   if (q.includes('invest') || q.includes('earn') || q.includes('summary') || q.includes('pnl') || q.includes('profit') || q.includes('how much') || q.includes('today')) {
     const pnlSign = netPnL >= 0 ? '+' : '-';
     let pairLines = '';
@@ -204,7 +196,6 @@ Here is your exact audited performance based on your synchronized journal:
         : 'Your account is currently down. Protect your margin by strictly sticking to the -5% stop loss and avoiding chasing unconfirmed candles.'}`;
   }
 
-  // 2. Question about Emotional Discipline, Psychology, Revenge Trading, or Rules
   if (q.includes('discipline') || q.includes('emotion') || q.includes('revenge') || q.includes('psychology') || q.includes('rule') || q.includes('mindset')) {
     return `### 🧠 Emotional Discipline Audit: **${disciplineScore}/100** (${disciplineGrade})
 
@@ -228,7 +219,6 @@ Based on your trade execution timestamps and observations:
 **Golden Rule for Today:** *"The best traders do not trade to make money on every tick; they trade to execute their rules flawlessly. The money is simply the byproduct of discipline."*`;
   }
 
-  // 3. Question about Risk-to-Reward (R:R) or Win Rate
   if (q.includes('risk') || q.includes('reward') || q.includes('ratio') || q.includes('win rate') || q.includes('r:r')) {
     return `### ⚖️ Risk-to-Reward & Win Rate Diagnostic
 
@@ -243,7 +233,6 @@ With a **1 : ${rrRatio}** risk-to-reward ratio, your break-even win rate is **${
 Because your actual win rate is **${winRate}%**, your trading framework has a **statistically positive expectancy**. Never cut your winning runners early out of fear, and never let a losing trade ride past your predefined stop loss.`;
   }
 
-  // 4. Question about which pair is best or losing money
   if (q.includes('pair') || q.includes('aave') || q.includes('btc') || q.includes('eth') || q.includes('sol') || q.includes('losing') || q.includes('best') || q.includes('worst')) {
     const pairs = Object.keys(pairStats);
     if (pairs.length === 0) {
@@ -262,7 +251,6 @@ ${pairs.length > 1 ? `* ⚠️ **Your Lowest Edge Asset:** **${worstPair}** (Net
 **Recommendation:** Focus your capital and chart attention where your edge is sharpest. If ${bestPair} is printing your cleanest setups, avoid over-diversifying into choppy pairs.`;
   }
 
-  // 5. Default General Trading Advice & Account Guidance
   return `### 🤖 AI Discipline Coach Analysis for **${nameFormatted}**
 
 * **Account Ledger:** ${totalTrades} trades logged | Net PnL: **${netPnL >= 0 ? '+' : ''}$${netPnL.toFixed(2)}** | Win Rate: **${winRate}%**
@@ -282,12 +270,11 @@ What specific aspect of your trading would you like me to audit next? You can as
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed. Use POST.' });
 
   try {
     let body = req.body;
@@ -295,16 +282,13 @@ module.exports = async function handler(req, res) {
       try { body = JSON.parse(body); } catch (e) { }
     }
 
-    const { email, message, clientTrades } = body || {};
-    const cleanEmail = (email || '').trim().toLowerCase();
-
-    if (!message || message.trim().length === 0) {
-      return res.status(400).json({ success: false, error: 'Message cannot be empty.' });
-    }
+    const email = (body && body.email) || req.query.email || '';
+    const message = (body && body.message) || req.query.message || 'Summarize my trading session today';
+    const clientTrades = (body && body.clientTrades) || [];
+    const cleanEmail = email.trim().toLowerCase();
 
     let allTrades = Array.isArray(clientTrades) ? clientTrades : [];
 
-    // Also pull trades directly from PostgreSQL if available
     const dbUrl = getDatabaseUrl();
     if (dbUrl && cleanEmail) {
       let client = null;
@@ -331,7 +315,6 @@ module.exports = async function handler(req, res) {
             userObservation: r.user_observation
           }));
 
-          // Merge: db trades take priority
           const map = new Map();
           allTrades.forEach(t => { if (t && t.id) map.set(Number(t.id), t); });
           dbTrades.forEach(t => { map.set(Number(t.id), t); });

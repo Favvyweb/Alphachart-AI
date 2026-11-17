@@ -315,7 +315,7 @@ Ask me anything about your trading performance, how to fix mistakes, or audit yo
       : [];
 
     try {
-      const res = await fetch('/api/coach/chat', {
+      const res = await fetch('/api/coach', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
