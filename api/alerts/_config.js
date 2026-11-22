@@ -218,6 +218,46 @@ async function getDailySignalRecord(pair, timeframe, dateKey) {
   return global._dailyRecordsMemory.get(memKey) || null;
 }
 
+async function getRangeDailySignalRecords(pair, timeframe, startDateKey, endDateKey) {
+  const cleanPair = (pair || 'BTCUSDT').replace(/[\s\-_/]/g, '').toUpperCase();
+  const cleanTf = timeframe || '5m';
+  const recordsMap = {};
+
+  const client = await getDbClient();
+  if (client) {
+    try {
+      const res = await client.query(
+        `SELECT date_key, data FROM daily_signal_records 
+         WHERE pair = $1 AND timeframe = $2 AND date_key >= $3 AND date_key <= $4 
+         ORDER BY date_key ASC`,
+        [cleanPair, cleanTf, startDateKey, endDateKey]
+      );
+      if (res.rows && res.rows.length > 0) {
+        for (const r of res.rows) {
+          const d = typeof r.data === 'string' ? JSON.parse(r.data) : r.data;
+          recordsMap[r.date_key] = d;
+        }
+      }
+    } catch (e) {
+      console.warn('Error querying range daily signal records from DB:', e.message);
+    } finally {
+      await client.end().catch(() => { });
+    }
+  }
+
+  // Also merge any in-memory
+  for (const [key, val] of global._dailyRecordsMemory.entries()) {
+    if (key.startsWith(`${cleanPair}_${cleanTf}_`)) {
+      const dKey = key.slice(`${cleanPair}_${cleanTf}_`.length);
+      if (dKey >= startDateKey && dKey <= endDateKey && !recordsMap[dKey]) {
+        recordsMap[dKey] = val;
+      }
+    }
+  }
+
+  return recordsMap;
+}
+
 async function hasSentEvent(key) {
   if (!key) return false;
   const client = await getDbClient();
@@ -262,6 +302,7 @@ module.exports = {
   removeSubscription,
   saveDailySignalRecord,
   getDailySignalRecord,
+  getRangeDailySignalRecords,
   hasSentEvent,
   markSentEvent
 };

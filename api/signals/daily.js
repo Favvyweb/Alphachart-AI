@@ -2,7 +2,7 @@
 // Provides 100% deterministic, immutable Daily Signal Records for completed past days
 // Anchored to exact UTC calendar days with Session Close at 23:55:00 UTC.
 
-const { getDailySignalRecord, saveDailySignalRecord } = require('../alerts/_config');
+const { getDailySignalRecord, saveDailySignalRecord, getRangeDailySignalRecords } = require('../alerts/_config');
 
 function calculateATR(candles, period = 14) {
   if (!candles || candles.length === 0) return [];
@@ -277,6 +277,46 @@ function evaluateDaySignals(candles, dayStartSec, dayEndSec) {
   };
 }
 
+async function fetchAndEvaluateDay(cleanPair, timeframe, dateKey, dayNames) {
+  const [y, m, d] = dateKey.split('-').map(Number);
+  const dayStartMs = Date.UTC(y, m - 1, d, 0, 0, 0, 0);
+  const dayEndMs = Date.UTC(y, m - 1, d, 23, 59, 59, 999);
+  const dayStartSec = Math.floor(dayStartMs / 1000);
+  const dayEndSec = Math.floor(dayEndMs / 1000);
+  const dayName = dayNames[new Date(dayStartMs).getUTCDay()];
+
+  let intervalMs = 300 * 1000;
+  if (timeframe === '15m') intervalMs = 900 * 1000;
+  if (timeframe === '1h') intervalMs = 3600 * 1000;
+
+  const warmupMs = 50 * intervalMs;
+  const fetchStartMs = dayStartMs - warmupMs;
+
+  const binanceUrl = `https://data-api.binance.vision/api/v3/klines?symbol=${cleanPair}&interval=${timeframe}&startTime=${fetchStartMs}&endTime=${dayEndMs}&limit=1000`;
+  const binanceRes = await fetch(binanceUrl);
+  if (!binanceRes.ok) throw new Error(`Binance error ${binanceRes.status}`);
+
+  const raw = await binanceRes.json();
+  const candles = raw.map(k => ({
+    time: Math.floor(k[0] / 1000),
+    open: parseFloat(k[1]),
+    high: parseFloat(k[2]),
+    low: parseFloat(k[3]),
+    close: parseFloat(k[4]),
+    volume: parseFloat(k[5])
+  }));
+
+  const evaluation = evaluateDaySignals(candles, dayStartSec, dayEndSec);
+  if (!evaluation) return null;
+
+  return {
+    dateKey,
+    dayName,
+    isToday: false,
+    ...evaluation
+  };
+}
+
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -284,7 +324,7 @@ module.exports = async function handler(req, res) {
 
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  const pairParam = req.query.pair || 'AAVEUSDT';
+  const pairParam = req.query.pair || 'BTCUSDT';
   const cleanPair = pairParam.toUpperCase().replace(/[\s\-_/]/g, '').replace(/USD$/, 'USDT');
   const timeframe = req.query.timeframe || '5m';
 
@@ -292,72 +332,56 @@ module.exports = async function handler(req, res) {
   const now = new Date();
   const todayUtcMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0);
 
-  // Generate target past dates (e.g. yesterday and the day before)
+  // Determine target dates
   const targetDates = [];
   if (req.query.date) {
     targetDates.push(req.query.date);
   } else {
-    for (let offset = 1; offset <= 2; offset++) {
-      const d = new Date(todayUtcMs - (offset * 86400 * 1000));
-      targetDates.push(d.toISOString().slice(0, 10));
+    // Month range: defaults to current month (e.g. "2026-11")
+    const targetMonth = req.query.month || `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+    const [tYear, tMonth] = targetMonth.split('-').map(Number);
+    const daysInMonth = new Date(Date.UTC(tYear, tMonth, 0)).getUTCDate();
+    const isCurrentMonth = (tYear === now.getUTCFullYear() && (tMonth - 1) === now.getUTCMonth());
+    const maxDay = isCurrentMonth ? Math.max(1, now.getUTCDate() - 1) : daysInMonth;
+
+    for (let day = 1; day <= maxDay; day++) {
+      const dStr = `${tYear}-${String(tMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      targetDates.push(dStr);
     }
   }
 
   const results = {};
 
-  for (const dateKey of targetDates) {
+  // 1. Fast range query in PostgreSQL (retrieves all previously locked days in a single query)
+  if (targetDates.length > 0) {
+    const startKey = targetDates[0];
+    const endKey = targetDates[targetDates.length - 1];
     try {
-      // 1. Check if record already cached/locked in DB
-      const cached = await getDailySignalRecord(cleanPair, timeframe, dateKey);
-      if (cached) {
-        results[dateKey] = cached;
-        continue;
+      const dbRecords = await getRangeDailySignalRecords(cleanPair, timeframe, startKey, endKey);
+      if (dbRecords && typeof dbRecords === 'object') {
+        Object.assign(results, dbRecords);
       }
+    } catch (e) {
+      console.warn('Range DB query error:', e.message);
+    }
+  }
 
-      // 2. Fetch fixed calendar candles from Binance
-      const [y, m, d] = dateKey.split('-').map(Number);
-      const dayStartMs = Date.UTC(y, m - 1, d, 0, 0, 0, 0);
-      const dayEndMs = Date.UTC(y, m - 1, d, 23, 59, 59, 999);
-      const dayStartSec = Math.floor(dayStartMs / 1000);
-      const dayEndSec = Math.floor(dayEndMs / 1000);
-      const dayName = dayNames[new Date(dayStartMs).getUTCDay()];
-
-      let intervalMs = 300 * 1000;
-      if (timeframe === '15m') intervalMs = 900 * 1000;
-      if (timeframe === '1h') intervalMs = 3600 * 1000;
-
-      const warmupMs = 50 * intervalMs;
-      const fetchStartMs = dayStartMs - warmupMs;
-
-      const binanceUrl = `https://data-api.binance.vision/api/v3/klines?symbol=${cleanPair}&interval=${timeframe}&startTime=${fetchStartMs}&endTime=${dayEndMs}&limit=1000`;
-      const binanceRes = await fetch(binanceUrl);
-      if (!binanceRes.ok) throw new Error(`Binance error ${binanceRes.status}`);
-
-      const raw = await binanceRes.json();
-      const candles = raw.map(k => ({
-        time: Math.floor(k[0] / 1000),
-        open: parseFloat(k[1]),
-        high: parseFloat(k[2]),
-        low: parseFloat(k[3]),
-        close: parseFloat(k[4]),
-        volume: parseFloat(k[5])
+  // 2. Evaluate any missing days from Binance and lock them into PostgreSQL
+  const missingDates = targetDates.filter(dKey => !results[dKey]);
+  if (missingDates.length > 0) {
+    for (let i = 0; i < missingDates.length; i += 4) {
+      const batch = missingDates.slice(i, i + 4);
+      await Promise.all(batch.map(async (dateKey) => {
+        try {
+          const record = await fetchAndEvaluateDay(cleanPair, timeframe, dateKey, dayNames);
+          if (record) {
+            await saveDailySignalRecord(cleanPair, timeframe, dateKey, record.dayName, record);
+            results[dateKey] = record;
+          }
+        } catch (err) {
+          console.warn(`[Daily Record Error] ${cleanPair} ${dateKey}:`, err.message);
+        }
       }));
-
-      const evaluation = evaluateDaySignals(candles, dayStartSec, dayEndSec);
-      if (evaluation) {
-        const recordData = {
-          dateKey,
-          dayName,
-          isToday: false,
-          ...evaluation
-        };
-
-        // Save into DB for permanent immutability
-        await saveDailySignalRecord(cleanPair, timeframe, dateKey, dayName, recordData);
-        results[dateKey] = recordData;
-      }
-    } catch (err) {
-      console.warn(`[Daily Record Error] ${cleanPair} ${dateKey}:`, err.message);
     }
   }
 

@@ -854,19 +854,23 @@ window.MonthlyResultModule = {
     this.fetchDailySignals();
   },
 
-  fetchDailySignals: async function () {
+  fetchDailySignals: async function (monthStr) {
     try {
-      const res = await fetch('/api/signals/daily?pair=BTC/USDT&timeframe=5m');
+      const mStr = monthStr || `${this.selectedYear}-${String(this.selectedMonth + 1).padStart(2, '0')}`;
+      const res = await fetch(`/api/signals/daily?pair=BTC/USDT&timeframe=5m&month=${mStr}`);
       if (!res.ok) return;
       const data = await res.json();
       if (data && data.success && data.records) {
-        this.dailySignalsCache = data.records;
+        if (!this.dailySignalsCache || typeof this.dailySignalsCache !== 'object') {
+          this.dailySignalsCache = {};
+        }
+        Object.assign(this.dailySignalsCache, data.records);
         try {
-          localStorage.setItem('alphachart_daily_signals_cache_v1', JSON.stringify(data.records));
+          localStorage.setItem('alphachart_daily_signals_cache_v1', JSON.stringify(this.dailySignalsCache));
         } catch (e) { }
         this.updatePreviewPill();
-        if (typeof this.renderCalendar === 'function') {
-          this.renderCalendar();
+        if (typeof this.render === 'function') {
+          this.render();
         }
       }
     } catch (e) {
@@ -1001,25 +1005,71 @@ window.MonthlyResultModule = {
       };
     }
 
-    // 2. TrendTraderEngine live evaluated signals
+    // 2. Verified Daily Signal Records from PostgreSQL / API (all completed days)
+    try {
+      const cachedRecords = this.dailySignalsCache || (() => {
+        try {
+          const raw = localStorage.getItem('alphachart_daily_signals_cache_v1');
+          return raw ? JSON.parse(raw) : null;
+        } catch (e) { return null; }
+      })();
+
+      if (cachedRecords && typeof cachedRecords === 'object') {
+        for (const dKey of Object.keys(cachedRecords)) {
+          // If already set by baseline (Nov 12, 13, 14), baseline takes precedence
+          if (dateMap[dKey] && dateMap[dKey].count > 0) continue;
+          const rec = cachedRecords[dKey];
+          if (!rec) continue;
+          const [y, m, d] = dKey.split('-').map(Number);
+          const evalList = Array.isArray(rec.evaluatedSignals) ? rec.evaluatedSignals : [];
+          const tradesList = evalList.map(s => {
+            const pVal = typeof s.pnl === 'number' ? s.pnl : parseFloat(s.pnl || 0);
+            return {
+              time: s.timeFormatted || (s.time ? new Date(s.time * 1000).toTimeString().slice(0, 5) : '--:--'),
+              pair: rec.pair || 'BTC / USDT',
+              type: s.type || 'BUY',
+              pnl: pVal >= 0 ? `+$${pVal.toFixed(2)}` : `-$${Math.abs(pVal).toFixed(2)}`,
+              isWin: s.outcome === 'win' || pVal >= 0
+            };
+          });
+          dateMap[dKey] = {
+            dateKey: dKey,
+            year: y,
+            month: m - 1,
+            dayNum: d,
+            pnl: Math.round((rec.netPnl || 0) * 100) / 100,
+            count: tradesList.length,
+            trades: tradesList
+          };
+        }
+      }
+    } catch (err) {
+      console.warn('Error incorporating daily signal records:', err);
+    }
+
+    // 3. Live evaluated signals from TrendTraderEngine (for today / active session)
     try {
       if (window.TrendTraderEngine && window.TrendTraderEngine.lastPerformance) {
         const evalSignals = window.TrendTraderEngine.lastPerformance.evaluatedSignals;
         if (Array.isArray(evalSignals) && evalSignals.length > 0) {
+          const todayKey = new Date().toISOString().slice(0, 10);
           const liveByDate = {};
           for (const s of evalSignals) {
             const dKey = s.dateKey || (s.time ? new Date(s.time * 1000).toISOString().slice(0, 10) : null);
             if (!dKey) continue;
-            if (!liveByDate[dKey]) liveByDate[dKey] = [];
-            const pVal = typeof s.pnl === 'number' ? s.pnl : parseFloat(s.pnl || 0);
-            const pnlStr = pVal >= 0 ? `+$${pVal.toFixed(2)}` : `-$${Math.abs(pVal).toFixed(2)}`;
-            liveByDate[dKey].push({
-              time: s.timeFormatted || (s.time ? new Date(s.time * 1000).toTimeString().slice(0, 5) : '--:--'),
-              pair: s.pair || (window.TrendTraderEngine && window.TrendTraderEngine.currentPair) || 'BTC / USDT',
-              type: s.type || 'BUY',
-              pnl: pnlStr,
-              isWin: s.outcome === 'win' || pVal >= 0
-            });
+            // Only update today or days without historical daily record
+            if (dKey === todayKey || !dateMap[dKey] || dateMap[dKey].count === 0) {
+              if (!liveByDate[dKey]) liveByDate[dKey] = [];
+              const pVal = typeof s.pnl === 'number' ? s.pnl : parseFloat(s.pnl || 0);
+              const pnlStr = pVal >= 0 ? `+$${pVal.toFixed(2)}` : `-$${Math.abs(pVal).toFixed(2)}`;
+              liveByDate[dKey].push({
+                time: s.timeFormatted || (s.time ? new Date(s.time * 1000).toTimeString().slice(0, 5) : '--:--'),
+                pair: s.pair || (window.TrendTraderEngine && window.TrendTraderEngine.currentPair) || 'BTC / USDT',
+                type: s.type || 'BUY',
+                pnl: pnlStr,
+                isWin: s.outcome === 'win' || pVal >= 0
+              });
+            }
           }
           for (const dKey of Object.keys(liveByDate)) {
             const [y, m, d] = dKey.split('-').map(Number);
@@ -1039,49 +1089,12 @@ window.MonthlyResultModule = {
             };
           }
         }
-      } else {
-        // Fallback: check cached daily signals from API if live engine has not run yet in this browser session
-        const cachedRecords = this.dailySignalsCache || (() => {
-          try {
-            const raw = localStorage.getItem('alphachart_daily_signals_cache_v1');
-            return raw ? JSON.parse(raw) : null;
-          } catch (e) { return null; }
-        })();
-
-        if (cachedRecords && typeof cachedRecords === 'object') {
-          for (const dKey of Object.keys(cachedRecords)) {
-            if (dateMap[dKey] && dateMap[dKey].count > 0) continue;
-            const rec = cachedRecords[dKey];
-            if (!rec) continue;
-            const [y, m, d] = dKey.split('-').map(Number);
-            const evalList = Array.isArray(rec.evaluatedSignals) ? rec.evaluatedSignals : [];
-            const tradesList = evalList.map(s => {
-              const pVal = typeof s.pnl === 'number' ? s.pnl : parseFloat(s.pnl || 0);
-              return {
-                time: s.timeFormatted || (s.time ? new Date(s.time * 1000).toTimeString().slice(0, 5) : '--:--'),
-                pair: rec.pair || 'BTC / USDT',
-                type: s.type || 'BUY',
-                pnl: pVal >= 0 ? `+$${pVal.toFixed(2)}` : `-$${Math.abs(pVal).toFixed(2)}`,
-                isWin: s.outcome === 'win' || pVal >= 0
-              };
-            });
-            dateMap[dKey] = {
-              dateKey: dKey,
-              year: y,
-              month: m - 1,
-              dayNum: d,
-              pnl: Math.round((rec.netPnl || 0) * 100) / 100,
-              count: tradesList.length,
-              trades: tradesList
-            };
-          }
-        }
       }
     } catch (err) {
       console.warn('Error incorporating live TrendTraderEngine signals:', err);
     }
 
-    // 3. User manual logged journal trades
+    // 4. User manual logged journal trades
     try {
       const userTrades = (window.JournalModule && Array.isArray(window.JournalModule.trades))
         ? window.JournalModule.trades
@@ -1277,6 +1290,7 @@ window.MonthlyResultModule = {
     }
     this.selectedMonth = m;
     this.selectedYear = y;
+    this.fetchDailySignals();
     this.render();
   },
 
