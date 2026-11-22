@@ -331,6 +331,7 @@ module.exports = async function handler(req, res) {
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const now = new Date();
   const todayUtcMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0);
+  const todayDateKey = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-${String(now.getUTCDate()).padStart(2, '0')}`;
 
   // Determine target dates
   const targetDates = [];
@@ -342,7 +343,8 @@ module.exports = async function handler(req, res) {
     const [tYear, tMonth] = targetMonth.split('-').map(Number);
     const daysInMonth = new Date(Date.UTC(tYear, tMonth, 0)).getUTCDate();
     const isCurrentMonth = (tYear === now.getUTCFullYear() && (tMonth - 1) === now.getUTCMonth());
-    const maxDay = isCurrentMonth ? Math.max(1, now.getUTCDate() - 1) : daysInMonth;
+    // Include today for current month so today's real-time completed trades are returned
+    const maxDay = isCurrentMonth ? now.getUTCDate() : daysInMonth;
 
     for (let day = 1; day <= maxDay; day++) {
       const dStr = `${tYear}-${String(tMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -366,8 +368,8 @@ module.exports = async function handler(req, res) {
     }
   }
 
-  // 2. Evaluate any missing days from Binance and lock them into PostgreSQL
-  const missingDates = targetDates.filter(dKey => !results[dKey]);
+  // 2. Evaluate any missing past days from Binance and lock them into PostgreSQL
+  const missingDates = targetDates.filter(dKey => !results[dKey] && dKey !== todayDateKey);
   if (missingDates.length > 0) {
     for (let i = 0; i < missingDates.length; i += 4) {
       const batch = missingDates.slice(i, i + 4);
@@ -382,6 +384,20 @@ module.exports = async function handler(req, res) {
           console.warn(`[Daily Record Error] ${cleanPair} ${dateKey}:`, err.message);
         }
       }));
+    }
+  }
+
+  // 3. For Today (active day in progress): always fetch fresh candles from Binance to get real-time completed trades
+  if (targetDates.includes(todayDateKey)) {
+    try {
+      const todayRecord = await fetchAndEvaluateDay(cleanPair, timeframe, todayDateKey, dayNames);
+      if (todayRecord) {
+        todayRecord.isToday = true;
+        results[todayDateKey] = todayRecord;
+        await saveDailySignalRecord(cleanPair, timeframe, todayDateKey, todayRecord.dayName, todayRecord);
+      }
+    } catch (err) {
+      console.warn(`[Today Live Record Error] ${cleanPair} ${todayDateKey}:`, err.message);
     }
   }
 

@@ -852,6 +852,19 @@ window.MonthlyResultModule = {
     this.bindEvents();
     this.updatePreviewPill();
     this.fetchDailySignals();
+
+    // Auto-refresh today's real-time completed trades every 60 seconds
+    if (!this._liveRefreshInterval) {
+      this._liveRefreshInterval = setInterval(() => {
+        this.fetchDailySignals();
+      }, 60000);
+    }
+    // Refresh immediately when user returns to app or wakes screen
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) {
+        this.fetchDailySignals();
+      }
+    });
   },
 
   fetchDailySignals: async function (monthStr) {
@@ -1405,6 +1418,8 @@ window.MonthlyResultModule = {
     gridEl.className = 'grid grid-cols-7 gap-1.5';
 
     let gridHtml = '';
+    const todayKey = this.formatDateKey(new Date());
+
     for (const d of daysToRender) {
       const dKey = this.formatDateKey(d);
       const dayNum = d.getDate();
@@ -1413,23 +1428,36 @@ window.MonthlyResultModule = {
       const dayData = dateMap[dKey] || { pnl: 0, count: 0, trades: [] };
       const hasTrades = dayData.count > 0;
       const isProfit = dayData.pnl >= 0;
+      const isToday = (dKey === todayKey);
 
       let cardClass = '';
       let pnlText = '';
       let subText = '';
       let iconColor = '';
+      let todayBadge = '';
 
       if (hasTrades) {
         if (isProfit) {
-          cardClass = 'bg-[#0d4a2b] hover:bg-[#115e37] border border-[#00e479]/40 text-white shadow-sm';
+          cardClass = isToday
+            ? 'bg-[#0d4a2b] hover:bg-[#115e37] border-2 border-primary-container text-white shadow-[0_0_12px_rgba(0,255,136,0.3)]'
+            : 'bg-[#0d4a2b] hover:bg-[#115e37] border border-[#00e479]/40 text-white shadow-sm';
           pnlText = `+${dayData.pnl.toFixed(2)}`;
           iconColor = 'text-[#00e479]';
         } else {
-          cardClass = 'bg-[#63171e] hover:bg-[#781c24] border border-[#ff3366]/40 text-white shadow-sm';
+          cardClass = isToday
+            ? 'bg-[#63171e] hover:bg-[#781c24] border-2 border-[#ff3366] text-white shadow-[0_0_12px_rgba(255,51,102,0.3)]'
+            : 'bg-[#63171e] hover:bg-[#781c24] border border-[#ff3366]/40 text-white shadow-sm';
           pnlText = `-${Math.abs(dayData.pnl).toFixed(2)}`;
           iconColor = 'text-[#ff3366]';
         }
-        subText = `${dayData.count} trade${dayData.count === 1 ? '' : 's'}`;
+        subText = isToday
+          ? `${dayData.count} trade${dayData.count === 1 ? '' : 's'} (Live)`
+          : `${dayData.count} trade${dayData.count === 1 ? '' : 's'}`;
+      } else if (isToday) {
+        cardClass = 'bg-[#121b16] hover:bg-[#15231c] border border-primary-container/40 text-white/90 shadow-sm';
+        pnlText = '+$0.00';
+        subText = '0 trades (Live)';
+        iconColor = 'text-primary-container';
       } else {
         cardClass = 'bg-[#15171d] border border-white/[0.04] text-white/40';
         pnlText = '—';
@@ -1437,19 +1465,24 @@ window.MonthlyResultModule = {
         iconColor = 'text-white/20';
       }
 
+      todayBadge = isToday
+        ? `<span class="text-[8px] font-black uppercase px-1 py-0.2 rounded bg-primary-container text-black tracking-wider ml-auto animate-pulse">TODAY</span>`
+        : '';
+
       gridHtml += `
         <div onclick="window.MonthlyResultModule.showDateDetails('${dKey}')"
           class="relative rounded-2xl flex flex-col justify-between transition-all cursor-pointer active:scale-95 min-h-[72px] sm:min-h-[78px] p-2 sm:p-2.5 ${cardClass}">
           <div class="flex items-center gap-1">
             <span class="material-symbols-outlined text-[13px] ${iconColor}">event_note</span>
             <span class="text-[11px] font-bold font-mono text-white/90">${dayShort} ${dayNum}</span>
+            ${todayBadge}
           </div>
           <div class="my-auto py-0.5 text-center">
-            <span class="font-mono text-xs sm:text-[13px] font-black tracking-tight block ${hasTrades ? 'text-white' : 'text-white/30'}">
+            <span class="font-mono text-xs sm:text-[13px] font-black tracking-tight block ${hasTrades || isToday ? 'text-white' : 'text-white/30'}">
               ${pnlText}
             </span>
           </div>
-          <div class="text-[9px] sm:text-[10px] text-white/60 font-sans truncate text-center">
+          <div class="text-[9px] sm:text-[10px] ${isToday ? 'text-primary-container font-semibold' : 'text-white/60'} font-sans truncate text-center">
             ${subText || '&nbsp;'}
           </div>
         </div>
@@ -1561,29 +1594,44 @@ window.MonthlyResultModule = {
     }
 
     // Render all days of the current month
+    const todayKey = this.formatDateKey(new Date());
+
     for (let day = 1; day <= daysInMonth; day++) {
       const dObj = new Date(this.selectedYear, this.selectedMonth, day);
       const dKey = this.formatDateKey(dObj);
       const dayData = dateMap[dKey] || { pnl: 0, count: 0, trades: [] };
       const hasTrades = dayData.count > 0;
       const isProfit = dayData.pnl >= 0;
+      const isToday = (dKey === todayKey);
 
       let cardClass = '';
       let pnlText = '';
       let subText = '';
       let iconColor = '';
+      let todayBadge = '';
 
       if (hasTrades) {
         if (isProfit) {
-          cardClass = 'bg-[#0d4a2b] hover:bg-[#115e37] border border-[#00e479]/40 text-white shadow-sm';
+          cardClass = isToday
+            ? 'bg-[#0d4a2b] hover:bg-[#115e37] border-2 border-primary-container text-white shadow-[0_0_12px_rgba(0,255,136,0.3)]'
+            : 'bg-[#0d4a2b] hover:bg-[#115e37] border border-[#00e479]/40 text-white shadow-sm';
           pnlText = `+${dayData.pnl.toFixed(2)}`;
           iconColor = 'text-[#00e479]';
         } else {
-          cardClass = 'bg-[#63171e] hover:bg-[#781c24] border border-[#ff3366]/40 text-white shadow-sm';
+          cardClass = isToday
+            ? 'bg-[#63171e] hover:bg-[#781c24] border-2 border-[#ff3366] text-white shadow-[0_0_12px_rgba(255,51,102,0.3)]'
+            : 'bg-[#63171e] hover:bg-[#781c24] border border-[#ff3366]/40 text-white shadow-sm';
           pnlText = `-${Math.abs(dayData.pnl).toFixed(2)}`;
           iconColor = 'text-[#ff3366]';
         }
-        subText = `${dayData.count} trade${dayData.count === 1 ? '' : 's'}`;
+        subText = isToday
+          ? `${dayData.count} trade${dayData.count === 1 ? '' : 's'} (Live)`
+          : `${dayData.count} trade${dayData.count === 1 ? '' : 's'}`;
+      } else if (isToday) {
+        cardClass = 'bg-[#121b16] hover:bg-[#15231c] border border-primary-container/40 text-white/90 shadow-sm';
+        pnlText = '+$0.00';
+        subText = '0 trades (Live)';
+        iconColor = 'text-primary-container';
       } else {
         cardClass = 'bg-[#15171d] border border-white/[0.04] text-white/40';
         pnlText = '—';
@@ -1591,19 +1639,24 @@ window.MonthlyResultModule = {
         iconColor = 'text-white/20';
       }
 
+      todayBadge = isToday
+        ? `<span class="text-[8px] font-black uppercase px-1 py-0.2 rounded bg-primary-container text-black tracking-wider ml-auto animate-pulse">TODAY</span>`
+        : '';
+
       gridHtml += `
         <div onclick="window.MonthlyResultModule.showDateDetails('${dKey}')"
           class="relative rounded-2xl flex flex-col justify-between transition-all cursor-pointer active:scale-95 min-h-[72px] sm:min-h-[78px] p-2 sm:p-2.5 ${cardClass}">
           <div class="flex items-center gap-1">
             <span class="material-symbols-outlined text-[13px] ${iconColor}">event_note</span>
             <span class="text-[11px] font-bold font-mono text-white/90">${day}</span>
+            ${todayBadge}
           </div>
           <div class="my-auto py-0.5 text-center">
-            <span class="font-mono text-xs sm:text-[13px] font-black tracking-tight block ${hasTrades ? 'text-white' : 'text-white/30'}">
+            <span class="font-mono text-xs sm:text-[13px] font-black tracking-tight block ${hasTrades || isToday ? 'text-white' : 'text-white/30'}">
               ${pnlText}
             </span>
           </div>
-          <div class="text-[9px] sm:text-[10px] text-white/60 font-sans truncate text-center">
+          <div class="text-[9px] sm:text-[10px] ${isToday ? 'text-primary-container font-semibold' : 'text-white/60'} font-sans truncate text-center">
             ${subText || '&nbsp;'}
           </div>
         </div>
@@ -1906,7 +1959,11 @@ window.MonthlyResultModule = {
   showDateDetails: function (dateKey) {
     const dateMap = this.getUnifiedTradesMap();
     const dayData = dateMap[dateKey];
-    if (!dayData || dayData.count === 0) return;
+    const todayKey = this.formatDateKey(new Date());
+    const isToday = (dateKey === todayKey);
+
+    if (!dayData && !isToday) return;
+    if (dayData && dayData.count === 0 && !isToday) return;
 
     const panel = document.getElementById('monthly-day-details-panel');
     const title = document.getElementById('monthly-day-details-title');
@@ -1914,31 +1971,46 @@ window.MonthlyResultModule = {
 
     const [y, m, d] = dateKey.split('-').map(Number);
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const count = dayData ? dayData.count : 0;
+    const pnl = dayData ? dayData.pnl : 0;
+    const pnlFormatted = pnl >= 0 ? `+$${pnl.toFixed(2)}` : `-$${Math.abs(pnl).toFixed(2)}`;
 
     if (title) {
-      const pnlFormatted = dayData.pnl >= 0 ? `+$${dayData.pnl.toFixed(2)}` : `-$${Math.abs(dayData.pnl).toFixed(2)}`;
-      title.innerText = `${monthNames[m - 1]} ${d}, ${y}: ${dayData.count} Trades (${pnlFormatted})`;
+      if (isToday) {
+        title.innerText = `Today (${monthNames[m - 1]} ${d}, ${y}): ${count} Completed Trade${count === 1 ? '' : 's'} (${pnlFormatted})`;
+      } else {
+        title.innerText = `${monthNames[m - 1]} ${d}, ${y}: ${count} Trades (${pnlFormatted})`;
+      }
     }
 
     if (list) {
-      list.innerHTML = dayData.trades.map((t) => {
-        const isLong = (t.type === 'LONG' || t.type === 'BUY');
-        const isWin = t.isWin !== undefined ? t.isWin : (!t.pnl.startsWith('-') && !t.pnl.toLowerCase().includes('loss'));
-        return `
-          <div class="p-2 rounded-xl bg-black/40 border border-white/[0.06] flex items-center justify-between text-xs font-mono">
-            <div class="flex items-center gap-2">
-              <span class="px-1.5 py-0.5 rounded text-[9px] font-bold ${isLong ? 'bg-[#00e479]/20 text-[#00e479]' : 'bg-[#ff3366]/20 text-[#ff3366]'}">
-                ${t.type || 'TRADE'}
-              </span>
-              <span class="font-bold text-white">${t.pair}</span>
-              ${t.time ? `<span class="text-[10px] text-white/40">${t.time}</span>` : ''}
-            </div>
-            <span class="font-bold ${isWin ? 'text-primary-container' : 'text-[#ff3366]'}">
-              ${t.pnl}
-            </span>
+      if (!dayData || dayData.trades.length === 0) {
+        list.innerHTML = `
+          <div class="py-6 text-center text-xs text-white/50 flex flex-col items-center gap-1.5">
+            <span class="material-symbols-outlined text-primary-container text-2xl animate-spin">sync</span>
+            <span>Market session is live. Trades will appear here in real time as they complete.</span>
           </div>
         `;
-      }).join('');
+      } else {
+        list.innerHTML = dayData.trades.map((t) => {
+          const isLong = (t.type === 'LONG' || t.type === 'BUY');
+          const isWin = t.isWin !== undefined ? t.isWin : (!t.pnl.startsWith('-') && !t.pnl.toLowerCase().includes('loss'));
+          return `
+            <div class="p-2 rounded-xl bg-black/40 border border-white/[0.06] flex items-center justify-between text-xs font-mono">
+              <div class="flex items-center gap-2">
+                <span class="px-1.5 py-0.5 rounded text-[9px] font-bold ${isLong ? 'bg-[#00e479]/20 text-[#00e479]' : 'bg-[#ff3366]/20 text-[#ff3366]'}">
+                  ${t.type || 'TRADE'}
+                </span>
+                <span class="font-bold text-white">${t.pair}</span>
+                ${t.time ? `<span class="text-[10px] text-white/40">${t.time}</span>` : ''}
+              </div>
+              <span class="font-bold ${isWin ? 'text-primary-container' : 'text-[#ff3366]'}">
+                ${t.pnl}
+              </span>
+            </div>
+          `;
+        }).join('');
+      }
     }
 
     if (panel) {

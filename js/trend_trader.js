@@ -2059,8 +2059,13 @@ window.TrendTraderEngine = {
       }));
     } catch (e) {}
 
-    if (window.MonthlyResultModule && typeof window.MonthlyResultModule.updatePreviewPill === 'function') {
-      window.MonthlyResultModule.updatePreviewPill();
+    if (window.MonthlyResultModule) {
+      if (typeof window.MonthlyResultModule.updatePreviewPill === 'function') {
+        window.MonthlyResultModule.updatePreviewPill();
+      }
+      if (typeof window.MonthlyResultModule.render === 'function') {
+        window.MonthlyResultModule.render();
+      }
     }
 
     if (todayTagEl) {
