@@ -287,18 +287,20 @@ function parseSimulationQuery(question = '', activePair = 'AAVE / USDT') {
   else if (q.includes('aave')) pair = 'AAVEUSDT';
   else if (activePair) pair = activePair.replace(/[\s\-_/]/g, '').toUpperCase();
 
-  // Detect Margin / Capital (e.g. $100, 100 dollars, with 100, 500 margin)
-  let margin = 100;
-  const marginMatch = q.match(/\$(\d+(?:\.\d+)?)/) || q.match(/(\d+)\s*(?:dollars|usd|usdt|margin)/i) || q.match(/with\s+(\d+)/i);
-  if (marginMatch && marginMatch[1]) {
-    margin = parseFloat(marginMatch[1]);
-  }
-
   // Detect Leverage (e.g. 10x, 20x, 5x, 10 leverage, leverage of 10)
   let leverage = 10;
   const levMatch = q.match(/(\d+)\s*x\b/i) || q.match(/(\d+)\s*(?:x\s*)?leverage/i) || q.match(/leverage\s*(?:of\s*)?(\d+)/i);
   if (levMatch && levMatch[1]) {
     leverage = parseFloat(levMatch[1]);
+  }
+
+  // Detect Margin / Capital (e.g. $100, 100 dollars, with 100, 500 margin - ignoring any number followed by 'x')
+  let margin = 100;
+  const marginMatch = q.match(/\$(\d+(?:\.\d+)?)/)
+    || q.match(/(\d+(?:\.\d+)?)\s*(?:dollars|usd|usdt|margin)/i)
+    || q.match(/(?:with|capital of)\s*\$?(\d+(?:\.\d+)?)(?!\s*x\b)/i);
+  if (marginMatch && marginMatch[1]) {
+    margin = parseFloat(marginMatch[1]);
   }
 
   // Detect Date Range
