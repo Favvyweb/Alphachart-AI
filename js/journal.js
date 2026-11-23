@@ -892,7 +892,7 @@ window.MonthlyResultModule = {
     const cleanPair = (this.selectedPair || 'AAVE/USDT').replace(/[\s\-_/]/g, '').toUpperCase();
     try {
       const raw = localStorage.getItem(`alphachart_daily_signals_cache_${cleanPair}_v1`) ||
-                  (cleanPair === 'BTCUSDT' ? localStorage.getItem('alphachart_daily_signals_cache_v1') : null);
+        (cleanPair === 'BTCUSDT' ? localStorage.getItem('alphachart_daily_signals_cache_v1') : null);
       this.dailySignalsCache = raw ? JSON.parse(raw) : {};
       this.dailySignalsCachePair = cleanPair;
     } catch (e) {
@@ -1085,12 +1085,12 @@ window.MonthlyResultModule = {
       const cachedRecords = (this.dailySignalsCache && this.dailySignalsCachePair === cleanPair)
         ? this.dailySignalsCache
         : (() => {
-            try {
-              const raw = localStorage.getItem(`alphachart_daily_signals_cache_${cleanPair}_v1`) ||
-                          (cleanPair === 'BTCUSDT' ? localStorage.getItem('alphachart_daily_signals_cache_v1') : null);
-              return raw ? JSON.parse(raw) : null;
-            } catch (e) { return null; }
-          })();
+          try {
+            const raw = localStorage.getItem(`alphachart_daily_signals_cache_${cleanPair}_v1`) ||
+              (cleanPair === 'BTCUSDT' ? localStorage.getItem('alphachart_daily_signals_cache_v1') : null);
+            return raw ? JSON.parse(raw) : null;
+          } catch (e) { return null; }
+        })();
 
       if (cachedRecords && typeof cachedRecords === 'object') {
         for (const dKey of Object.keys(cachedRecords)) {
