@@ -846,10 +846,15 @@ window.MonthlyResultModule = {
   selectedMonth: new Date().getMonth(), // 0-indexed: 10 = November
   selectedWeekOffset: 0,
   selectedPeriod: 'month', // 'week', 'month', 'year', 'all'
+  selectedPair: localStorage.getItem('alphachart_monthly_result_pair_v1') || 'AAVE/USDT',
   viewMode: 'all7', // 'all7' (Mon-Sun, 7 Days default) or 'weekdays' (Mon-Fri)
 
   init: function () {
+    const savedPair = localStorage.getItem('alphachart_monthly_result_pair_v1') || 'AAVE/USDT';
+    this.selectedPair = savedPair;
     this.bindEvents();
+    this.updateCoinPillUI();
+    this.loadCachedSignalsForPair();
     this.updatePreviewPill();
     this.fetchDailySignals();
 
@@ -867,19 +872,69 @@ window.MonthlyResultModule = {
     });
   },
 
+  updateCoinPillUI: function () {
+    const curPair = (this.selectedPair || 'AAVE/USDT').toUpperCase();
+    document.querySelectorAll('.monthly-coin-pill').forEach(btn => {
+      const p = (btn.getAttribute('data-pair') || 'AAVE/USDT').toUpperCase();
+      if (p === curPair) {
+        btn.className = 'monthly-coin-pill active px-3 py-1 rounded-lg text-xs font-bold bg-primary-container text-black shadow-sm transition-all text-center shrink-0 cursor-pointer';
+      } else {
+        btn.className = 'monthly-coin-pill px-3 py-1 rounded-lg text-xs font-semibold text-white/60 hover:text-white bg-white/[0.04] hover:bg-white/[0.08] transition-all text-center shrink-0 cursor-pointer';
+      }
+    });
+    const tag = document.getElementById('monthly-result-coin-tag');
+    if (tag) {
+      tag.innerText = curPair.split('/')[0].trim().toUpperCase();
+    }
+  },
+
+  loadCachedSignalsForPair: function () {
+    const cleanPair = (this.selectedPair || 'AAVE/USDT').replace(/[\s\-_/]/g, '').toUpperCase();
+    try {
+      const raw = localStorage.getItem(`alphachart_daily_signals_cache_${cleanPair}_v1`) ||
+                  (cleanPair === 'BTCUSDT' ? localStorage.getItem('alphachart_daily_signals_cache_v1') : null);
+      this.dailySignalsCache = raw ? JSON.parse(raw) : {};
+      this.dailySignalsCachePair = cleanPair;
+    } catch (e) {
+      this.dailySignalsCache = {};
+    }
+  },
+
+  setPair: function (pair) {
+    if (!pair) return;
+    this.selectedPair = pair;
+    try {
+      localStorage.setItem('alphachart_monthly_result_pair_v1', pair);
+    } catch (e) { }
+
+    this.updateCoinPillUI();
+    this.loadCachedSignalsForPair();
+    this.render();
+    this.updatePreviewPill();
+    this.fetchDailySignals();
+
+    if (window.App && typeof window.App.showToast === 'function') {
+      const sym = pair.split('/')[0].trim().toUpperCase();
+      window.App.showToast(`Switched calendar to ${sym} signals`);
+    }
+  },
+
   fetchDailySignals: async function (monthStr) {
     try {
+      const curPair = this.selectedPair || 'AAVE/USDT';
+      const cleanPair = curPair.replace(/[\s\-_/]/g, '').toUpperCase();
       const mStr = monthStr || `${this.selectedYear}-${String(this.selectedMonth + 1).padStart(2, '0')}`;
-      const res = await fetch(`/api/signals/daily?pair=BTC/USDT&timeframe=5m&month=${mStr}`);
+      const res = await fetch(`/api/signals/daily?pair=${encodeURIComponent(curPair)}&timeframe=5m&month=${mStr}`);
       if (!res.ok) return;
       const data = await res.json();
       if (data && data.success && data.records) {
-        if (!this.dailySignalsCache || typeof this.dailySignalsCache !== 'object') {
+        if (!this.dailySignalsCache || typeof this.dailySignalsCache !== 'object' || this.dailySignalsCachePair !== cleanPair) {
           this.dailySignalsCache = {};
+          this.dailySignalsCachePair = cleanPair;
         }
         Object.assign(this.dailySignalsCache, data.records);
         try {
-          localStorage.setItem('alphachart_daily_signals_cache_v1', JSON.stringify(this.dailySignalsCache));
+          localStorage.setItem(`alphachart_daily_signals_cache_${cleanPair}_v1`, JSON.stringify(this.dailySignalsCache));
         } catch (e) { }
         this.updatePreviewPill();
         if (typeof this.render === 'function') {
@@ -953,10 +1008,13 @@ window.MonthlyResultModule = {
    */
   getUnifiedTradesMap: function () {
     const dateMap = {}; // 'YYYY-MM-DD' -> { dateKey, year, month, dayNum, pnl, count, trades: [] }
+    const curPair = this.selectedPair || 'AAVE/USDT';
+    const cleanPair = curPair.replace(/[\s\-_/]/g, '').toUpperCase();
 
     // 1. Confirmed system trading records
     const baselineRecords = {
       '2026-11-12': {
+        pair: 'BTCUSDT',
         dateKey: '2026-11-12',
         trades: [
           { time: '02:15', pair: 'BTC / USDT', type: 'BUY', pnl: '+$12.50', isWin: true },
@@ -974,6 +1032,7 @@ window.MonthlyResultModule = {
         ]
       },
       '2026-11-13': {
+        pair: 'BTCUSDT',
         dateKey: '2026-11-13',
         trades: [
           { time: '03:20', pair: 'BTC / USDT', type: 'SELL', pnl: '+$62.50', isWin: true },
@@ -987,6 +1046,7 @@ window.MonthlyResultModule = {
         ]
       },
       '2026-11-14': {
+        pair: 'AAVEUSDT',
         dateKey: '2026-11-14',
         trades: [
           { time: '02:40', pair: 'AAVE / USDT', type: 'SELL', pnl: '+$55.14', isWin: true },
@@ -1001,6 +1061,8 @@ window.MonthlyResultModule = {
 
     for (const k of Object.keys(baselineRecords)) {
       const rec = baselineRecords[k];
+      // Only include baseline if it matches the selected pair
+      if (rec.pair && rec.pair !== cleanPair) continue;
       const [y, m, d] = k.split('-').map(Number);
       let dayPnl = 0;
       for (const tr of rec.trades) {
@@ -1018,18 +1080,21 @@ window.MonthlyResultModule = {
       };
     }
 
-    // 2. Verified Daily Signal Records from PostgreSQL / API (all completed days)
+    // 2. Verified Daily Signal Records from PostgreSQL / API (all completed days for selected coin)
     try {
-      const cachedRecords = this.dailySignalsCache || (() => {
-        try {
-          const raw = localStorage.getItem('alphachart_daily_signals_cache_v1');
-          return raw ? JSON.parse(raw) : null;
-        } catch (e) { return null; }
-      })();
+      const cachedRecords = (this.dailySignalsCache && this.dailySignalsCachePair === cleanPair)
+        ? this.dailySignalsCache
+        : (() => {
+            try {
+              const raw = localStorage.getItem(`alphachart_daily_signals_cache_${cleanPair}_v1`) ||
+                          (cleanPair === 'BTCUSDT' ? localStorage.getItem('alphachart_daily_signals_cache_v1') : null);
+              return raw ? JSON.parse(raw) : null;
+            } catch (e) { return null; }
+          })();
 
       if (cachedRecords && typeof cachedRecords === 'object') {
         for (const dKey of Object.keys(cachedRecords)) {
-          // If already set by baseline (Nov 12, 13, 14), baseline takes precedence
+          // If already set by baseline for this coin, baseline takes precedence
           if (dateMap[dKey] && dateMap[dKey].count > 0) continue;
           const rec = cachedRecords[dKey];
           if (!rec) continue;
@@ -1039,7 +1104,7 @@ window.MonthlyResultModule = {
             const pVal = typeof s.pnl === 'number' ? s.pnl : parseFloat(s.pnl || 0);
             return {
               time: s.timeFormatted || (s.time ? new Date(s.time * 1000).toTimeString().slice(0, 5) : '--:--'),
-              pair: rec.pair || 'BTC / USDT',
+              pair: rec.pair || curPair,
               type: s.type || 'BUY',
               pnl: pVal >= 0 ? `+$${pVal.toFixed(2)}` : `-$${Math.abs(pVal).toFixed(2)}`,
               isWin: s.outcome === 'win' || pVal >= 0
@@ -1060,46 +1125,49 @@ window.MonthlyResultModule = {
       console.warn('Error incorporating daily signal records:', err);
     }
 
-    // 3. Live evaluated signals from TrendTraderEngine (for today / active session)
+    // 3. Live evaluated signals from TrendTraderEngine (if engine is active on this pair)
     try {
       if (window.TrendTraderEngine && window.TrendTraderEngine.lastPerformance) {
-        const evalSignals = window.TrendTraderEngine.lastPerformance.evaluatedSignals;
-        if (Array.isArray(evalSignals) && evalSignals.length > 0) {
-          const todayKey = new Date().toISOString().slice(0, 10);
-          const liveByDate = {};
-          for (const s of evalSignals) {
-            const dKey = s.dateKey || (s.time ? new Date(s.time * 1000).toISOString().slice(0, 10) : null);
-            if (!dKey) continue;
-            // Only update today or days without historical daily record
-            if (dKey === todayKey || !dateMap[dKey] || dateMap[dKey].count === 0) {
-              if (!liveByDate[dKey]) liveByDate[dKey] = [];
-              const pVal = typeof s.pnl === 'number' ? s.pnl : parseFloat(s.pnl || 0);
-              const pnlStr = pVal >= 0 ? `+$${pVal.toFixed(2)}` : `-$${Math.abs(pVal).toFixed(2)}`;
-              liveByDate[dKey].push({
-                time: s.timeFormatted || (s.time ? new Date(s.time * 1000).toTimeString().slice(0, 5) : '--:--'),
-                pair: s.pair || (window.TrendTraderEngine && window.TrendTraderEngine.currentPair) || 'BTC / USDT',
-                type: s.type || 'BUY',
-                pnl: pnlStr,
-                isWin: s.outcome === 'win' || pVal >= 0
-              });
+        const enginePair = (window.TrendTraderEngine.currentPair || '').toUpperCase().replace(/[\s\-_/]/g, '').replace(/USD$/, 'USDT');
+        if (enginePair === cleanPair) {
+          const evalSignals = window.TrendTraderEngine.lastPerformance.evaluatedSignals;
+          if (Array.isArray(evalSignals) && evalSignals.length > 0) {
+            const todayKey = new Date().toISOString().slice(0, 10);
+            const liveByDate = {};
+            for (const s of evalSignals) {
+              const dKey = s.dateKey || (s.time ? new Date(s.time * 1000).toISOString().slice(0, 10) : null);
+              if (!dKey) continue;
+              // Only update today or days without historical daily record
+              if (dKey === todayKey || !dateMap[dKey] || dateMap[dKey].count === 0) {
+                if (!liveByDate[dKey]) liveByDate[dKey] = [];
+                const pVal = typeof s.pnl === 'number' ? s.pnl : parseFloat(s.pnl || 0);
+                const pnlStr = pVal >= 0 ? `+$${pVal.toFixed(2)}` : `-$${Math.abs(pVal).toFixed(2)}`;
+                liveByDate[dKey].push({
+                  time: s.timeFormatted || (s.time ? new Date(s.time * 1000).toTimeString().slice(0, 5) : '--:--'),
+                  pair: curPair,
+                  type: s.type || 'BUY',
+                  pnl: pnlStr,
+                  isWin: s.outcome === 'win' || pVal >= 0
+                });
+              }
             }
-          }
-          for (const dKey of Object.keys(liveByDate)) {
-            const [y, m, d] = dKey.split('-').map(Number);
-            let sumPnl = 0;
-            for (const t of liveByDate[dKey]) {
-              const pVal = parseFloat((t.pnl || '').replace(/[^0-9.-]/g, '')) * ((t.pnl || '').includes('-') ? -1 : 1);
-              if (!isNaN(pVal)) sumPnl += pVal;
+            for (const dKey of Object.keys(liveByDate)) {
+              const [y, m, d] = dKey.split('-').map(Number);
+              let sumPnl = 0;
+              for (const t of liveByDate[dKey]) {
+                const pVal = parseFloat((t.pnl || '').replace(/[^0-9.-]/g, '')) * ((t.pnl || '').includes('-') ? -1 : 1);
+                if (!isNaN(pVal)) sumPnl += pVal;
+              }
+              dateMap[dKey] = {
+                dateKey: dKey,
+                year: y,
+                month: m - 1,
+                dayNum: d,
+                pnl: Math.round(sumPnl * 100) / 100,
+                count: liveByDate[dKey].length,
+                trades: liveByDate[dKey]
+              };
             }
-            dateMap[dKey] = {
-              dateKey: dKey,
-              year: y,
-              month: m - 1,
-              dayNum: d,
-              pnl: Math.round(sumPnl * 100) / 100,
-              count: liveByDate[dKey].length,
-              trades: liveByDate[dKey]
-            };
           }
         }
       }
@@ -1107,12 +1175,15 @@ window.MonthlyResultModule = {
       console.warn('Error incorporating live TrendTraderEngine signals:', err);
     }
 
-    // 4. User manual logged journal trades
+    // 4. User manual logged journal trades (matching selected coin)
     try {
       const userTrades = (window.JournalModule && Array.isArray(window.JournalModule.trades))
         ? window.JournalModule.trades
         : [];
       for (const t of userTrades) {
+        const trPair = (t.pair || '').toUpperCase().replace(/[\s\-_/]/g, '').replace(/USD$/, 'USDT');
+        if (trPair && trPair !== cleanPair && !trPair.includes('MANUAL')) continue;
+
         let dObj = null;
         if (t.timestamp) dObj = new Date(t.timestamp);
         else if (t.date) dObj = new Date(t.date);
@@ -1143,7 +1214,7 @@ window.MonthlyResultModule = {
           const isWin = pVal >= 0;
           dateMap[dKey].trades.push({
             time: t.time || `${String(dObj.getHours()).padStart(2, '0')}:${String(dObj.getMinutes()).padStart(2, '0')}`,
-            pair: t.pair || 'BTC / USDT',
+            pair: t.pair || curPair,
             type: t.type || 'LONG',
             pnl: t.pnl || (pVal >= 0 ? `+$${pVal.toFixed(2)}` : `-$${Math.abs(pVal).toFixed(2)}`),
             isWin
@@ -1159,6 +1230,14 @@ window.MonthlyResultModule = {
 
   bindEvents: function () {
     const self = this;
+
+    // Coin switcher pills (AAVE, BTC, ETH, SOL)
+    document.querySelectorAll('.monthly-coin-pill').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const p = btn.getAttribute('data-pair') || 'AAVE/USDT';
+        self.setPair(p);
+      });
+    });
 
     // Open button under AI Discipline Coach
     const openBtn = document.getElementById('btn-open-monthly-result');
@@ -1227,6 +1306,7 @@ window.MonthlyResultModule = {
     if (modal) {
       modal.classList.remove('hidden');
       modal.classList.add('flex');
+      this.updateCoinPillUI();
       this.render();
     }
   },
@@ -2034,7 +2114,8 @@ window.MonthlyResultModule = {
     }
     totalPnl = Math.round(totalPnl * 100) / 100;
     const formatted = totalPnl >= 0 ? `+$${totalPnl.toFixed(2)}` : `-$${Math.abs(totalPnl).toFixed(2)}`;
-    pill.innerText = formatted;
+    const coinSymbol = (this.selectedPair || 'AAVE').split('/')[0].trim().toUpperCase();
+    pill.innerText = `${coinSymbol}: ${formatted}`;
     pill.className = `text-xs font-mono font-bold ${totalPnl >= 0 ? 'text-primary-container' : 'text-[#ff3366]'}`;
   }
 };
