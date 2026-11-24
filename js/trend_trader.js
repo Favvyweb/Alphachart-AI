@@ -429,8 +429,6 @@ window.TrendTraderEngine = {
     }
 
     const cleanSymbol = (this.currentPair || 'BTCUSDT').toUpperCase().replace(/[\s\-_/]/g, '');
-    const isAave = cleanSymbol.includes('AAVE');
-    const minScoreThreshold = isAave ? 68 : 60;
 
     // Calculate start of day (12:00:00 AM UTC) to anchor the session
     const nowDayObj = new Date();
@@ -449,7 +447,6 @@ window.TrendTraderEngine = {
       }
       const cur = candles[i];
       const prev = candles[i - 1];
-      const prev2 = i >= 2 ? candles[i - 2] : prev;
 
       // Session reset at each calendar day midnight UTC (00:00:00 UTC) so each day evaluates deterministically
       const curDayNum = Math.floor(cur.time / 86400);
@@ -464,98 +461,19 @@ window.TrendTraderEngine = {
       const isFlipBull = (ttTrend === 1 && prevTtTrend === -1);
       const isFlipBear = (ttTrend === -1 && prevTtTrend === 1);
 
-      // Invalidate / reset trade lifecycle if trailing stop breached or severe adverse move:
-      // This prevents activeTrade from being stuck across multi-hour cascades!
-      if (activeTrade === 'BUY' && (ttTrend === -1 || (entryPrice > 0 && cur.close < entryPrice * 0.994))) {
+      // Invalidate / reset trade lifecycle if trailing stop breached
+      if (activeTrade === 'BUY' && ttTrend === -1) {
         activeTrade = null;
       }
-      if (activeTrade === 'SELL' && (ttTrend === 1 || (entryPrice > 0 && cur.close > entryPrice * 1.006))) {
+      if (activeTrade === 'SELL' && ttTrend === 1) {
         activeTrade = null;
       }
 
-      const macdHist = (macd.histogram && macd.histogram[i] !== undefined) ? macd.histogram[i] : 0;
-      const macdLine = (macd.macdLine && macd.macdLine[i] !== undefined) ? macd.macdLine[i] : 0;
-      const sigLine = (macd.signalLine && macd.signalLine[i] !== undefined) ? macd.signalLine[i] : 0;
-      const prevMacdHist = (i > 0 && macd.histogram && macd.histogram[i - 1] !== undefined) ? macd.histogram[i - 1] : 0;
-
-      const isHistRising = macdHist > prevMacdHist;
-      const isHistFalling = macdHist < prevMacdHist;
-      const isMacdBullish = macdLine >= sigLine;
-      const isMacdBearish = macdLine < sigLine;
-
-      const curRange = Math.max(cur.high - cur.low, 0.0001);
-      const upperWick = cur.high - Math.max(cur.close, cur.open);
-      const lowerWick = Math.min(cur.close, cur.open) - cur.low;
-      const upperWickRatio = upperWick / curRange;
-      const lowerWickRatio = lowerWick / curRange;
-      const isBullCandle = cur.close > cur.open;
-      const isBearCandle = cur.close < cur.open;
-
-      const prevRange = Math.max(prev.high - prev.low, 0.0001);
-      const prevUpperWickRatio = (prev.high - Math.max(prev.close, prev.open)) / prevRange;
-      const prevLowerWickRatio = (Math.min(prev.close, prev.open) - prev.low) / prevRange;
-
-      // Dynamic session swing range for SMC Premium, Equilibrium, and Discount Zones
-      const lookback = Math.max(0, i - 60);
-      let sH = -Infinity;
-      let sL = Infinity;
-      for (let k = lookback; k <= i; k++) {
-        if (candles[k].high > sH) sH = candles[k].high;
-        if (candles[k].low < sL) sL = candles[k].low;
-      }
-      const sRange = Math.max(sH - sL, 0.0001);
-      const sMid = sL + (sRange * 0.5); // 0.50 Equilibrium level
-      const premLow = sH - (sRange * 0.20); // Top 20% is Premium Zone (Strong Resistance)
-      const discHigh = sL + (sRange * 0.20); // Bottom 20% is Discount Zone (Weak Support)
-      const eqTolerance = sRange * 0.07; // Equilibrium tolerance band
-
-      // Cooldown check (prevent rapid-fire consecutive flips within 2 bars)
-      const barsSinceSignal = i - lastSignalIndex;
-      const canSignalAgain = barsSinceSignal >= 2;
-
-      let canBuy = false;
-      let canSell = false;
-
-      // ========================================================
-      // 1. INSTITUTIONAL PATTERN LEARNING & CONFLUENCE MATRIX
-      // ========================================================
-      // Evaluates Candlestick Anatomy, Absorption/Rejection Wicks,
-      // Dynamic Support/Resistance Zones, Liquidity Sweeps, and Volume Participation.
-      // - 100% Non-Repainting: Evaluated strictly on closed candles [0..i].
-      // - Eliminates choppy low-volume fakeouts and wick-exhaustion traps.
-      const curVolMA = volMA[i] || 0;
-      const sweptLow = (cur.low < sL || prev.low < sL) && (cur.close >= sL);
-      const sweptHigh = (cur.high > sH || prev.high > sH) && (cur.close <= sH);
-
-      if (canSignalAgain) {
-        if (isFlipBull) {
-          let score = 50; // Base directional flip trigger
-          if (isBullCandle) score += 15; // Solid green close confirms buyer control
-          if (lowerWickRatio >= 0.15) score += 10; // Absorption wick: dip bought
-          if (upperWickRatio >= 0.48 && !isBullCandle) score -= 25; // Rejection fakeout trap penalty
-          if (cur.volume >= (curVolMA * 0.60) || cur.volume >= prev.volume) score += 10; // Volume participation
-          if (cur.close <= sMid) score += 10; // Entry in Discount / lower half of range
-          if (sweptLow) score += 15; // Institutional liquidity sweep of recent lows
-          if (cur.close >= premLow && cur.volume < curVolMA) score -= 15; // Buying resistance ceiling with low volume
-
-          if (score >= minScoreThreshold) {
-            canBuy = true;
-          }
-        } else if (isFlipBear) {
-          let score = 50; // Base directional flip trigger
-          if (isBearCandle) score += 15; // Solid red close confirms seller control
-          if (upperWickRatio >= 0.15) score += 10; // Rejection wick: rally sold
-          if (lowerWickRatio >= 0.48 && !isBearCandle) score -= 25; // Absorption trap penalty
-          if (cur.volume >= (curVolMA * 0.60) || cur.volume >= prev.volume) score += 10; // Volume participation
-          if (cur.close >= sMid) score += 10; // Entry in Premium / upper half of range
-          if (sweptHigh) score += 15; // Institutional liquidity sweep of recent highs
-          if (cur.close <= discHigh && cur.volume < curVolMA) score -= 15; // Shorting support floor with low volume
-
-          if (score >= minScoreThreshold) {
-            canSell = true;
-          }
-        }
-      }
+      // 100% Deterministic Trend Trader Execution:
+      // - BUY: Stop line flips Bullish (+1) below candles on confirmed candle close
+      // - SELL: Stop line flips Bearish (-1) above candles on confirmed candle close
+      const canBuy = isFlipBull;
+      const canSell = isFlipBear;
 
       let tag = null;
       if (canBuy && activeTrade !== 'BUY') {
@@ -580,7 +498,6 @@ window.TrendTraderEngine = {
       this.patternMemory[cleanSymbol] = {
         lastAnalyzedTime: candles[candles.length - 1]?.time || 0,
         confirmedTrades,
-        minScoreThreshold,
         currentRegime: (trendTrader.trend[trendTrader.trend.length - 1] === 1) ? 'BULLISH_EXPANSION' : 'BEARISH_CONTRACTION'
       };
     } catch (e) { }

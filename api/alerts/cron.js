@@ -98,8 +98,6 @@ function evaluateSignals(candles, symbol = 'BTCUSDT') {
   }
 
   const cleanSym = (symbol || '').toUpperCase().replace(/[\s\-_/]/g, '');
-  const isAave = cleanSym.includes('AAVE');
-  const minScoreThreshold = isAave ? 68 : 60;
 
   const signals = [];
   let activeTrade = null;
@@ -158,63 +156,9 @@ function evaluateSignals(candles, symbol = 'BTCUSDT') {
       }
     }
 
-    // Cooldown check (prevent rapid-fire consecutive flips within 2 bars)
-    const canSignalAgain = (i - lastSignalIndex) >= 2;
-
-    const curRange = Math.max(cur.high - cur.low, 0.0001);
-    const upperWick = cur.high - Math.max(cur.close, cur.open);
-    const lowerWick = Math.min(cur.close, cur.open) - cur.low;
-    const upperWickRatio = upperWick / curRange;
-    const lowerWickRatio = lowerWick / curRange;
-    const isBullCandle = cur.close > cur.open;
-    const isBearCandle = cur.close < cur.open;
-
-    // Dynamic S/R lookback (50 bars)
-    const lookback = Math.max(0, i - 50);
-    let sH = -Infinity;
-    let sL = Infinity;
-    for (let k = lookback; k <= i; k++) {
-      if (candles[k].high > sH) sH = candles[k].high;
-      if (candles[k].low < sL) sL = candles[k].low;
-    }
-    const sRange = Math.max(sH - sL, 0.0001);
-    const sMid = sL + (sRange * 0.5);
-    const premZone = sH - (sRange * 0.20);
-    const discZone = sL + (sRange * 0.20);
-
-    const sweptLow = (cur.low < sL || prev.low < sL) && (cur.close >= sL);
-    const sweptHigh = (cur.high > sH || prev.high > sH) && (cur.close <= sH);
-
-    const curVolMA = volMA[i] || 0;
-    let canBuy = false;
-    let canSell = false;
-
-    // Multi-factor Confluence Scoring (Candle Anatomy, Absorption/Rejection, S/R, Volume)
-    if (canSignalAgain) {
-      if (isFlipBull) {
-        let score = 50;
-        if (isBullCandle) score += 15;
-        if (lowerWickRatio >= 0.15) score += 10;
-        if (upperWickRatio >= 0.48 && !isBullCandle) score -= 25;
-        if (cur.volume >= (curVolMA * 0.60) || cur.volume >= prev.volume) score += 10;
-        if (cur.close <= sMid) score += 10;
-        if (sweptLow) score += 15;
-        if (cur.close >= premZone && cur.volume < curVolMA) score -= 15;
-
-        if (score >= minScoreThreshold) canBuy = true;
-      } else if (isFlipBear) {
-        let score = 50;
-        if (isBearCandle) score += 15;
-        if (upperWickRatio >= 0.15) score += 10;
-        if (lowerWickRatio >= 0.48 && !isBearCandle) score -= 25;
-        if (cur.volume >= (curVolMA * 0.60) || cur.volume >= prev.volume) score += 10;
-        if (cur.close >= sMid) score += 10;
-        if (sweptHigh) score += 15;
-        if (cur.close <= discZone && cur.volume < curVolMA) score -= 15;
-
-        if (score >= minScoreThreshold) canSell = true;
-      }
-    }
+    // 100% Deterministic Trend Trader Signals (matches chart & daily signals engine)
+    const canBuy = isFlipBull;
+    const canSell = isFlipBear;
 
     if (canBuy && activeTrade !== 'BUY') {
       activeTrade = 'BUY';
