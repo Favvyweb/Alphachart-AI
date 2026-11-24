@@ -922,12 +922,13 @@ window.TrendTraderEngine = {
             if (ev.time === s.time) continue;
 
             const isTp = ev.level.startsWith('TP');
+            const isBe = ev.level === 'BE';
             markers.push({
               time: ev.time,
               position: ev.isBuy ? (isTp ? 'aboveBar' : 'belowBar') : (isTp ? 'belowBar' : 'aboveBar'),
-              color: isTp ? '#a855f7' : '#ff453a', // Purple for TP, red for SL
-              shape: isTp ? 'square' : 'circle',
-              text: isTp ? (ev.level || 'TP') : 'SL',
+              color: isTp ? '#a855f7' : (isBe ? '#38bdf8' : '#ff453a'), // Purple for TP, cyan for BE, red for SL
+              shape: isTp ? 'square' : (isBe ? 'square' : 'circle'),
+              text: isTp ? (ev.level || 'TP') : (isBe ? 'BE' : 'SL'),
               size: 1.2
             });
           }
@@ -1042,7 +1043,7 @@ window.TrendTraderEngine = {
     if (latestTag === 'BUY') {
       if (statusBadge) statusBadge.className = 'px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg bg-primary-container/20 border border-primary-container/50 text-primary-container font-bold text-[10px] sm:text-[11px] flex items-center gap-1.5 shadow-[0_0_12px_rgba(0,255,136,0.3)] max-w-full min-w-0 overflow-hidden';
       if (latestEvalTrade && latestEvalTrade.isWin && latestEvalTrade.tpTier && latestEvalTrade.tpTier.startsWith('TP')) {
-        if (statusText) statusText.innerText = `🟣 BUY TP Hit! (${latestEvalTrade.tpTier}) • Profit: +$${latestEvalTrade.pnl.toFixed(2)}`;
+        if (statusText) statusText.innerText = `🟣 BUY TP Hit! (${latestEvalTrade.tpTier}) • Profit: +$${latestEvalTrade.pnl.toFixed(2)} • Breakeven Locked 🔒`;
       } else {
         const entryP = analysis.candles[latestTagIndex].close;
         const tp1P = entryP * 1.002;
@@ -1052,7 +1053,7 @@ window.TrendTraderEngine = {
     } else if (latestTag === 'SELL') {
       if (statusBadge) statusBadge.className = 'px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg bg-error/20 border border-error/50 text-error font-bold text-[10px] sm:text-[11px] flex items-center gap-1.5 shadow-[0_0_12px_rgba(255,51,102,0.3)] max-w-full min-w-0 overflow-hidden';
       if (latestEvalTrade && latestEvalTrade.isWin && latestEvalTrade.tpTier && latestEvalTrade.tpTier.startsWith('TP')) {
-        if (statusText) statusText.innerText = `🟣 SELL TP Hit! (${latestEvalTrade.tpTier}) • Profit: +$${latestEvalTrade.pnl.toFixed(2)}`;
+        if (statusText) statusText.innerText = `🟣 SELL TP Hit! (${latestEvalTrade.tpTier}) • Profit: +$${latestEvalTrade.pnl.toFixed(2)} • Breakeven Locked 🔒`;
       } else {
         const entryP = analysis.candles[latestTagIndex].close;
         const tp1P = entryP * 0.998;
@@ -1686,6 +1687,17 @@ window.TrendTraderEngine = {
         if (curHighRoe >= 30.0 && !hitTp3) {
           hitTp3 = true;
           tpEvents.push({ time: nextC.time, level: 'TP3', text: 'TP3 (+30%) • +$82.05', isBuy });
+        }
+
+        // Automated Breakeven Defense Lock:
+        // Once TP1 (+2% ROE) is hit, stop loss automatically trails to Entry Price ($0.00).
+        // If price pulls back to or through entry, trade safely exits at Breakeven, guaranteeing zero loss!
+        if (hitTp1 && curLowDrawdown <= 0.0 && !hitSL) {
+          tradeClosed = true;
+          exitPrice = entryPrice;
+          tpEvents.push({ time: nextC.time, level: 'BE', text: 'Breakeven Locked (+0%)', isBuy });
+          reason = `Breakeven Exit after TP1 ($${exitPrice.toFixed(2)})`;
+          break;
         }
 
         // Stop Loss Check:

@@ -168,6 +168,16 @@ function evaluateDaySignals(candles, dayStartSec, dayEndSec) {
         hitTp1 = true;
       }
 
+      // Automated Breakeven Defense Lock:
+      // Once TP1 (+2% ROE) is hit, stop loss automatically trails to Entry Price ($0.00).
+      // If price pulls back to or through entry, trade safely exits at Breakeven, guaranteeing zero loss!
+      if (hitTp1 && curLowDrawdown <= 0.0 && !hitSL) {
+        tradeClosed = true;
+        exitPrice = entryPrice;
+        reason = `Breakeven Exit after TP1 ($${exitPrice.toFixed(2)})`;
+        break;
+      }
+
       // Stop Loss (-5%)
       if (curLowDrawdown <= -5.0 && !hitTp1 && !hitSL) {
         hitSL = true;

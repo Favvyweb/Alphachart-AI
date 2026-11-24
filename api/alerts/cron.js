@@ -135,7 +135,10 @@ function evaluateSignals(candles, symbol = 'BTCUSDT') {
         tp2Hit = true;
         signals.push({ type: 'TP2', time: cur.time, price: cur.high, direction: 'BUY' });
       }
-      if (roeLow <= -5.0 && !tp1Hit) {
+      // Automated Breakeven Defense Lock after TP1
+      if (tp1Hit && roeLow <= 0.0) {
+        activeTrade = null;
+      } else if (roeLow <= -5.0 && !tp1Hit) {
         signals.push({ type: 'SL', time: cur.time, price: entryPrice * 0.995, direction: 'BUY' });
         activeTrade = null;
       }
@@ -150,7 +153,10 @@ function evaluateSignals(candles, symbol = 'BTCUSDT') {
         tp2Hit = true;
         signals.push({ type: 'TP2', time: cur.time, price: cur.low, direction: 'SELL' });
       }
-      if (roeLow <= -5.0 && !tp1Hit) {
+      // Automated Breakeven Defense Lock after TP1
+      if (tp1Hit && roeLow <= 0.0) {
+        activeTrade = null;
+      } else if (roeLow <= -5.0 && !tp1Hit) {
         signals.push({ type: 'SL', time: cur.time, price: entryPrice * 1.005, direction: 'SELL' });
         activeTrade = null;
       }
