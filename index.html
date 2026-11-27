@@ -468,13 +468,34 @@
       <div id="page-charts" class="tab-page px-0 sm:px-4 pt-1 sm:pt-0">
         <div class="flex flex-col gap-2 sm:gap-3">
 
-          <!-- Top Quick-Select Coin Switcher Bar -->
-          <div class="flex items-center gap-1.5 overflow-x-auto hide-scrollbar px-3 sm:px-0 pb-1">
-            <span
-              class="text-[10px] font-mono text-on-surface-variant uppercase tracking-wider shrink-0 mr-1 flex items-center gap-1">
-              <span class="material-symbols-outlined text-[14px] text-primary-container">currency_exchange</span>
-              Pairs:
-            </span>
+          <!-- Top Universal Coin Search & Quick-Select Bar -->
+          <div class="flex items-center gap-1.5 overflow-x-auto hide-scrollbar px-3 sm:px-0 pb-1 relative z-20">
+            <!-- Universal Coin Search Input with Autocomplete Dropdown -->
+            <div class="relative shrink-0 flex items-center">
+              <div class="flex items-center bg-[#18181b] border border-white/15 focus-within:border-primary-container rounded-lg px-2 py-1 gap-1.5 transition-all shadow-inner">
+                <span class="material-symbols-outlined text-[15px] text-primary-container">search</span>
+                <input id="chart-coin-search-input" type="text" placeholder="Search any coin (e.g. SUI, NEAR)..." autocomplete="off" spellcheck="false"
+                  class="bg-transparent text-xs font-mono text-white placeholder-on-surface-variant/70 focus:outline-none w-32 sm:w-48 uppercase">
+                <button id="chart-coin-search-clear" type="button" class="hidden text-on-surface-variant hover:text-white p-0.5 cursor-pointer" title="Clear search">
+                  <span class="material-symbols-outlined text-[13px]">close</span>
+                </button>
+              </div>
+              <!-- Autocomplete Dropdown List -->
+              <div id="chart-coin-search-dropdown" class="absolute top-full left-0 mt-1 w-64 max-h-72 overflow-y-auto bg-[#141416] border border-white/15 rounded-xl shadow-[0_12px_36px_rgba(0,0,0,0.85)] z-50 hidden py-1.5 backdrop-blur-md">
+                <div class="px-2.5 py-1 text-[10px] font-mono uppercase text-on-surface-variant font-bold border-b border-white/5 flex items-center justify-between">
+                  <span>Crypto Coins</span>
+                  <span class="text-primary-container">Live Signals</span>
+                </div>
+                <div id="chart-coin-search-results" class="flex flex-col py-1">
+                  <!-- Populated dynamically via JS -->
+                </div>
+              </div>
+            </div>
+
+            <!-- Separator divider -->
+            <div class="h-4 w-px bg-white/10 shrink-0 mx-0.5"></div>
+
+            <!-- Quick Popular Coin Pills -->
             <button type="button"
               class="btn-chart-quick-coin px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-[#1c1c1e] hover:bg-[#2c2c2e] text-white border border-white/10 shrink-0 transition-all active:scale-95 cursor-pointer"
               data-pair="BTC / USDT">BTC</button>
@@ -484,6 +505,12 @@
             <button type="button"
               class="btn-chart-quick-coin px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-[#1c1c1e] hover:bg-[#2c2c2e] text-white border border-white/10 shrink-0 transition-all active:scale-95 cursor-pointer"
               data-pair="SOL / USDT">SOL</button>
+            <button type="button"
+              class="btn-chart-quick-coin px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-[#1c1c1e] hover:bg-[#2c2c2e] text-white border border-white/10 shrink-0 transition-all active:scale-95 cursor-pointer"
+              data-pair="SUI / USDT">SUI</button>
+            <button type="button"
+              class="btn-chart-quick-coin px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-[#1c1c1e] hover:bg-[#2c2c2e] text-white border border-white/10 shrink-0 transition-all active:scale-95 cursor-pointer"
+              data-pair="NEAR / USDT">NEAR</button>
             <button type="button"
               class="btn-chart-quick-coin px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-[#1c1c1e] hover:bg-[#2c2c2e] text-white border border-white/10 shrink-0 transition-all active:scale-95 cursor-pointer"
               data-pair="AAVE / USDT">AAVE</button>
@@ -511,8 +538,12 @@
                 </div>
                 <div class="min-w-0">
                   <div class="flex items-center gap-1.5">
-                    <h3 id="full-chart-coin-title" class="font-bold text-xs sm:text-sm text-white truncate">BTC / USDT
-                    </h3>
+                    <button id="btn-chart-title-coin" type="button"
+                      class="group flex items-center gap-0.5 hover:text-primary-container transition-colors cursor-pointer text-left focus:outline-none"
+                      title="Click to select or search any coin">
+                      <h3 id="full-chart-coin-title" class="font-bold text-xs sm:text-sm text-white group-hover:text-primary-container transition-colors truncate">BTC / USDT</h3>
+                      <span class="material-symbols-outlined text-[15px] text-on-surface-variant group-hover:text-primary-container transition-colors">arrow_drop_down</span>
+                    </button>
                     <span class="w-1.5 h-1.5 rounded-full bg-primary-container animate-ping shrink-0"></span>
                     <span class="text-[9px] font-mono font-bold text-primary-container uppercase hidden sm:inline">Live
                       Engine</span>
