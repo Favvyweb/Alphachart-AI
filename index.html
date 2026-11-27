@@ -468,26 +468,29 @@
       <div id="page-charts" class="tab-page px-0 sm:px-4 pt-1 sm:pt-0">
         <div class="flex flex-col gap-2 sm:gap-3">
 
-          <!-- Top Quick-Select Coin Switcher Bar -->
-          <div class="flex items-center gap-1.5 overflow-x-auto hide-scrollbar px-3 sm:px-0 pb-1">
+          <!-- Top Quick-Select Coin Switcher Bar (Dynamic Favorites) -->
+          <div id="chart-favorites-bar" class="flex items-center gap-1.5 overflow-x-auto hide-scrollbar px-3 sm:px-0 pb-1">
+            <span class="text-[11px] font-mono text-amber-400 font-bold uppercase tracking-wider shrink-0 mr-1 flex items-center gap-1 select-none">
+              <span class="material-symbols-outlined text-[15px] text-amber-400">star</span> FAV:
+            </span>
             <button type="button"
               class="btn-chart-quick-coin px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-[#1c1c1e] hover:bg-[#2c2c2e] text-white border border-white/10 shrink-0 transition-all active:scale-95 cursor-pointer"
-              data-pair="BTC / USDT">BTC</button>
+              data-pair="BTC / USDT" data-sym="BTC" title="BTC (Permanent Favorite)">BTC</button>
             <button type="button"
               class="btn-chart-quick-coin px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-[#1c1c1e] hover:bg-[#2c2c2e] text-white border border-white/10 shrink-0 transition-all active:scale-95 cursor-pointer"
-              data-pair="ETH / USDT">ETH</button>
+              data-pair="ETH / USDT" data-sym="ETH" title="ETH • Double-tap to remove">ETH</button>
             <button type="button"
               class="btn-chart-quick-coin px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-[#1c1c1e] hover:bg-[#2c2c2e] text-white border border-white/10 shrink-0 transition-all active:scale-95 cursor-pointer"
-              data-pair="SOL / USDT">SOL</button>
+              data-pair="SOL / USDT" data-sym="SOL" title="SOL • Double-tap to remove">SOL</button>
             <button type="button"
               class="btn-chart-quick-coin px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-[#1c1c1e] hover:bg-[#2c2c2e] text-white border border-white/10 shrink-0 transition-all active:scale-95 cursor-pointer"
-              data-pair="AAVE / USDT">AAVE</button>
+              data-pair="AAVE / USDT" data-sym="AAVE" title="AAVE • Double-tap to remove">AAVE</button>
             <button type="button"
               class="btn-chart-quick-coin px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-[#1c1c1e] hover:bg-[#2c2c2e] text-white border border-white/10 shrink-0 transition-all active:scale-95 cursor-pointer"
-              data-pair="XRP / USDT">XRP</button>
+              data-pair="XRP / USDT" data-sym="XRP" title="XRP • Double-tap to remove">XRP</button>
             <button type="button"
               class="btn-chart-quick-coin px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-[#1c1c1e] hover:bg-[#2c2c2e] text-white border border-white/10 shrink-0 transition-all active:scale-95 cursor-pointer"
-              data-pair="DOGE / USDT">DOGE</button>
+              data-pair="DOGE / USDT" data-sym="DOGE" title="DOGE • Double-tap to remove">DOGE</button>
           </div>
 
           <!-- Main Real-time Chart Card Container (End-to-End on Mobile) -->
@@ -495,7 +498,8 @@
             class="relative w-full bg-[#1c1c1e] border-y sm:border border-white/[0.08] rounded-none sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden text-white">
 
             <!-- Chart Top Bar: Structured in 2 Clean Rows (Identical on Mobile & Web) -->
-            <div class="flex flex-col px-3 sm:px-4 py-2 sm:py-2.5 border-b border-white/[0.08] bg-[#121214] shrink-0 gap-2 sm:gap-2.5">
+            <div
+              class="flex flex-col px-3 sm:px-4 py-2 sm:py-2.5 border-b border-white/[0.08] bg-[#121214] shrink-0 gap-2 sm:gap-2.5">
 
               <!-- Row 1: Live Engine Branding (Left) & Return Button (Right) -->
               <div class="flex items-center justify-between w-full">
@@ -526,7 +530,8 @@
               <!-- Row 2: Engine View Tabs (Left) & Timeframe Controls (Right) -->
               <div class="flex items-center justify-between w-full gap-2 pt-1 border-t border-white/[0.04]">
                 <!-- Engine View Tabs -->
-                <div class="flex items-center bg-[#000000] p-0.5 rounded-xl border border-white/[0.08] text-xs shrink-0">
+                <div
+                  class="flex items-center bg-[#000000] p-0.5 rounded-xl border border-white/[0.08] text-xs shrink-0">
                   <button id="full-chart-tab-tv" type="button"
                     class="px-2 sm:px-2.5 py-1 rounded-lg font-semibold transition-all bg-primary-container text-black shadow-sm flex items-center gap-1 text-[10px] sm:text-[11px] whitespace-nowrap cursor-pointer">
                     <span class="material-symbols-outlined text-[13px] sm:text-[14px]">public</span>
@@ -1705,13 +1710,13 @@
   <script src="js/chart_overlay.js"></script>
   <script src="js/ai_engine.js?v=38"></script>
   <script src="js/lightweight-charts.standalone.production.js"></script>
-  <script src="js/trend_trader.js?v=38"></script>
-  <script src="js/symbol_search.js?v=38"></script>
-  <script src="js/scanner.js?v=38"></script>
-  <script src="js/journal.js?v=38"></script>
-  <script src="js/coach.js?v=38"></script>
-  <script src="js/auth.js?v=38"></script>
-  <script src="js/app.js?v=38"></script>
+  <script src="js/trend_trader.js?v=39"></script>
+  <script src="js/symbol_search.js?v=39"></script>
+  <script src="js/scanner.js?v=39"></script>
+  <script src="js/journal.js?v=39"></script>
+  <script src="js/coach.js?v=39"></script>
+  <script src="js/auth.js?v=39"></script>
+  <script src="js/app.js?v=39"></script>
 </body>
 
 </html>

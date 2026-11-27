@@ -6,8 +6,195 @@
  * - TradingView Futures contract mapping (BINANCE:<SYMBOL>USDT.P)
  * - Sector category filters: All Futures, Hot, Layer 1, DeFi, Memes, AI & Data, Layer 2
  * - Live 24h prices and % changes from Binance Futures
+ * - Favorites Management: Up to 7 favorites with static BTC anchor, star toggles in search, and double-tap removal
  * - Arrow key navigation & Enter key selection
  */
+
+/**
+ * Global Favorites Manager for Top Quick-Select Bar
+ */
+window.FavoritesManager = {
+  STORAGE_KEY: 'alphachart_favorites',
+  MAX_FAVORITES: 7,
+  DEFAULT_FAVORITES: ['BTC', 'ETH', 'SOL', 'AAVE', 'XRP', 'DOGE'],
+  lastTap: {},
+  tapTimeout: null,
+
+  getFavorites: function () {
+    try {
+      const stored = localStorage.getItem(this.STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const cleaned = parsed.map(s => String(s).toUpperCase().trim()).filter(Boolean);
+          // BTC is the permanent anchor at position 0
+          if (!cleaned.includes('BTC')) cleaned.unshift('BTC');
+          else if (cleaned.indexOf('BTC') !== 0) {
+            const idx = cleaned.indexOf('BTC');
+            cleaned.splice(idx, 1);
+            cleaned.unshift('BTC');
+          }
+          return cleaned.slice(0, this.MAX_FAVORITES);
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to read favorites', e);
+    }
+    return [...this.DEFAULT_FAVORITES];
+  },
+
+  saveFavorites: function (favs) {
+    try {
+      if (!favs.includes('BTC')) favs.unshift('BTC');
+      const capped = favs.slice(0, this.MAX_FAVORITES);
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(capped));
+    } catch (e) {
+      console.warn('Failed to save favorites', e);
+    }
+  },
+
+  isFavorite: function (sym) {
+    if (!sym) return false;
+    const clean = sym.toUpperCase().replace(/[\s\-_/]/g, '').replace(/USDT$/i, '').replace(/\.P$/i, '');
+    return this.getFavorites().includes(clean);
+  },
+
+  addFavorite: function (sym) {
+    if (!sym) return false;
+    const clean = sym.toUpperCase().replace(/[\s\-_/]/g, '').replace(/USDT$/i, '').replace(/\.P$/i, '');
+    const favs = this.getFavorites();
+    if (favs.includes(clean)) return true;
+
+    if (favs.length >= this.MAX_FAVORITES) {
+      if (window.App && typeof window.App.showToast === 'function') {
+        window.App.showToast(`Max ${this.MAX_FAVORITES} favorites reached. Double-tap a coin above to remove it.`);
+      }
+      return false;
+    }
+
+    favs.push(clean);
+    this.saveFavorites(favs);
+    this.renderTopFavoritesBar();
+    if (window.SymbolSearchModule && window.SymbolSearchModule.isOpen) {
+      window.SymbolSearchModule.renderResults();
+    }
+    if (window.App && typeof window.App.showToast === 'function') {
+      window.App.showToast(`Added ${clean} to Favorites ★`);
+    }
+    return true;
+  },
+
+  removeFavorite: function (sym) {
+    if (!sym) return false;
+    const clean = sym.toUpperCase().replace(/[\s\-_/]/g, '').replace(/USDT$/i, '').replace(/\.P$/i, '');
+    if (clean === 'BTC') {
+      if (window.App && typeof window.App.showToast === 'function') {
+        window.App.showToast('BTC is a permanent favorite and cannot be removed');
+      }
+      return false;
+    }
+
+    let favs = this.getFavorites();
+    favs = favs.filter(s => s !== clean);
+    this.saveFavorites(favs);
+    this.renderTopFavoritesBar();
+    if (window.SymbolSearchModule && window.SymbolSearchModule.isOpen) {
+      window.SymbolSearchModule.renderResults();
+    }
+    if (window.App && typeof window.App.showToast === 'function') {
+      window.App.showToast(`Removed ${clean} from Favorites`);
+    }
+    return true;
+  },
+
+  toggleFavorite: function (sym) {
+    if (this.isFavorite(sym)) {
+      return this.removeFavorite(sym);
+    } else {
+      return this.addFavorite(sym);
+    }
+  },
+
+  renderTopFavoritesBar: function () {
+    const bar = document.getElementById('chart-favorites-bar');
+    if (!bar) return;
+
+    const favs = this.getFavorites();
+    const activePair = (window.ScannerModule && window.ScannerModule.fullChartPair) || 'BTC / USDT';
+    const activeClean = activePair.replace(/[\s\-_/]/g, '').replace(/USDT$/i, '').replace(/\.P$/i, '').toUpperCase();
+
+    let html = `
+      <span class="text-[11px] font-mono text-amber-400 font-bold uppercase tracking-wider shrink-0 mr-1 flex items-center gap-1 select-none">
+        <span class="material-symbols-outlined text-[15px] text-amber-400">star</span> FAV:
+      </span>
+    `;
+
+    favs.forEach(sym => {
+      const isActive = sym === activeClean;
+      const isBTC = sym === 'BTC';
+      const activeClass = isActive
+        ? 'bg-primary-container text-black border-primary-container font-extrabold'
+        : 'bg-[#1c1c1e] hover:bg-[#2c2c2e] text-white border-white/10 font-bold';
+      const tooltip = isBTC
+        ? 'BTC (Permanent Favorite)'
+        : `${sym} • Double-tap to remove`;
+
+      html += `
+        <button type="button"
+          class="btn-chart-quick-coin px-2.5 py-1 rounded-lg text-xs font-mono ${activeClass} border shrink-0 transition-all active:scale-95 cursor-pointer select-none"
+          data-pair="${sym} / USDT"
+          data-sym="${sym}"
+          title="${tooltip}">${sym}</button>
+      `;
+    });
+
+    bar.innerHTML = html;
+    this.bindPillEvents();
+  },
+
+  bindPillEvents: function () {
+    const self = this;
+    const bar = document.getElementById('chart-favorites-bar');
+    if (!bar) return;
+
+    bar.querySelectorAll('.btn-chart-quick-coin').forEach(btn => {
+      const sym = btn.getAttribute('data-sym');
+      const pair = btn.getAttribute('data-pair');
+
+      // Desktop double-click
+      btn.addEventListener('dblclick', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        clearTimeout(self.tapTimeout);
+        self.removeFavorite(sym);
+      });
+
+      // Mobile touch / click double-tap handler (< 320ms)
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const now = Date.now();
+        const lastTime = self.lastTap[sym] || 0;
+        const timeDiff = now - lastTime;
+
+        if (timeDiff > 0 && timeDiff < 320) {
+          // Double-tap detected: cancel single-click switch and remove
+          clearTimeout(self.tapTimeout);
+          self.lastTap[sym] = 0;
+          self.removeFavorite(sym);
+        } else {
+          // First tap
+          self.lastTap[sym] = now;
+          clearTimeout(self.tapTimeout);
+          self.tapTimeout = setTimeout(() => {
+            if (window.ScannerModule && typeof window.ScannerModule.switchFullChartCoin === 'function') {
+              window.ScannerModule.switchFullChartCoin(pair);
+            }
+          }, 220);
+        }
+      });
+    });
+  }
+};
 
 window.SymbolSearchModule = {
   isOpen: false,
@@ -176,6 +363,11 @@ window.SymbolSearchModule = {
 
     // Fetch live prices and complete Binance Futures USDT trading universe in background
     self.fetchBinanceLiveTickers();
+
+    // Render Favorites Top Bar
+    if (window.FavoritesManager) {
+      window.FavoritesManager.renderTopFavoritesBar();
+    }
   },
 
   /**
@@ -276,6 +468,15 @@ window.SymbolSearchModule = {
       // Color badge based on symbol initials
       const initial = coin.sym.substring(0, 2);
 
+      // Check if coin is favorited
+      const isFav = window.FavoritesManager ? window.FavoritesManager.isFavorite(coin.sym) : false;
+      const isBTC = coin.sym.toUpperCase() === 'BTC';
+      const favTitle = isBTC
+        ? 'BTC is permanent favorite'
+        : (isFav ? 'Remove from Favorites' : 'Add to Favorites (Max 7)');
+      const starIcon = isFav ? 'star' : 'star_border';
+      const starColor = isFav ? 'text-amber-400 font-bold' : 'text-white/20 hover:text-amber-400';
+
       html += `
         <div class="symbol-search-row ${rowBg} px-3 py-2.5 rounded-xl flex items-center justify-between cursor-pointer transition-all gap-2"
           data-index="${idx}" data-pair="${coin.pair}">
@@ -292,6 +493,14 @@ window.SymbolSearchModule = {
               <p class="text-[10px] sm:text-[11px] text-on-surface-variant truncate font-sans">${coin.name}</p>
             </div>
           </div>
+          <button type="button"
+            class="btn-coin-fav p-1.5 rounded-lg hover:bg-white/10 transition-colors ml-auto mr-1 cursor-pointer shrink-0 z-10 flex items-center justify-center active:scale-90"
+            data-sym="${coin.sym}"
+            title="${favTitle}">
+            <span class="material-symbols-outlined text-[20px] ${starColor} transition-colors">
+              ${starIcon}
+            </span>
+          </button>
           <div class="flex items-center gap-5 sm:gap-8 shrink-0 text-right font-mono">
             <div class="w-16 ${changeClass} font-bold text-xs">
               ${coin.change !== 0 ? `${changeSign}${coin.change.toFixed(2)}%` : '--'}
@@ -305,6 +514,18 @@ window.SymbolSearchModule = {
     });
 
     list.innerHTML = html;
+
+    // Attach click listeners to favorite star buttons
+    list.querySelectorAll('.btn-coin-fav').forEach(favBtn => {
+      favBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const sym = favBtn.getAttribute('data-sym');
+        if (window.FavoritesManager) {
+          window.FavoritesManager.toggleFavorite(sym);
+        }
+      });
+    });
 
     // Attach click listeners to rows
     list.querySelectorAll('.symbol-search-row').forEach(row => {

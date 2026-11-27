@@ -210,16 +210,18 @@ window.ScannerModule = {
       });
     }
 
-    // Quick-select coin switcher chips on Charts page
-    document.querySelectorAll('.btn-chart-quick-coin').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.preventDefault();
-        const pair = btn.getAttribute('data-pair');
-        if (pair) {
-          self.switchFullChartCoin(pair);
-        }
+    // Quick-select coin switcher chips on Charts page (managed by FavoritesManager if available)
+    if (!window.FavoritesManager) {
+      document.querySelectorAll('.btn-chart-quick-coin').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          const pair = btn.getAttribute('data-pair');
+          if (pair) {
+            self.switchFullChartCoin(pair);
+          }
+        });
       });
-    });
+    }
 
     // Window Resize listener to keep TradingView chart sharp and auto-fitted
     window.addEventListener('resize', () => {
@@ -787,14 +789,15 @@ window.ScannerModule = {
     this.fullChartInterval = intv;
 
     // Highlight active quick coin chip if it matches one of the top pills
+    const activeBase = (pair || '').replace(/[\s\-_/]/g, '').replace(/USDT$/i, '').replace(/\.P$/i, '').toUpperCase();
     document.querySelectorAll('.btn-chart-quick-coin').forEach(btn => {
-      const p = btn.getAttribute('data-pair');
-      if (p === pair || (pair.startsWith('BTC') && p.startsWith('BTC')) || (pair.startsWith('ETH') && p.startsWith('ETH')) || (pair.startsWith('SOL') && p.startsWith('SOL')) || (pair.startsWith('AAVE') && p.startsWith('AAVE')) || (pair.startsWith('XRP') && p.startsWith('XRP')) || (pair.startsWith('DOGE') && p.startsWith('DOGE'))) {
-        btn.classList.add('bg-primary-container', 'text-black', 'border-primary-container');
-        btn.classList.remove('bg-[#1c1c1e]', 'text-white', 'border-white/10');
+      const btnBase = (btn.getAttribute('data-sym') || btn.getAttribute('data-pair') || '').replace(/[\s\-_/]/g, '').replace(/USDT$/i, '').replace(/\.P$/i, '').toUpperCase();
+      if (btnBase && btnBase === activeBase) {
+        btn.classList.add('bg-primary-container', 'text-black', 'border-primary-container', 'font-extrabold');
+        btn.classList.remove('bg-[#1c1c1e]', 'text-white', 'border-white/10', 'font-bold');
       } else {
-        btn.classList.remove('bg-primary-container', 'text-black', 'border-primary-container');
-        btn.classList.add('bg-[#1c1c1e]', 'text-white', 'border-white/10');
+        btn.classList.remove('bg-primary-container', 'text-black', 'border-primary-container', 'font-extrabold');
+        btn.classList.add('bg-[#1c1c1e]', 'text-white', 'border-white/10', 'font-bold');
       }
     });
 
