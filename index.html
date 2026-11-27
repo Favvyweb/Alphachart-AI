@@ -494,41 +494,39 @@
           <div
             class="relative w-full bg-[#1c1c1e] border-y sm:border border-white/[0.08] rounded-none sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden text-white">
 
-            <!-- Chart Top Bar -->
-            <div
-              class="flex flex-wrap sm:flex-nowrap items-center justify-between px-3 sm:px-4 py-2 sm:py-2.5 border-b border-white/[0.08] bg-[#121214] shrink-0 gap-y-2 gap-x-2">
+            <!-- Chart Top Bar: Structured in 2 Clean Rows (Identical on Mobile & Web) -->
+            <div class="flex flex-col px-3 sm:px-4 py-2 sm:py-2.5 border-b border-white/[0.08] bg-[#121214] shrink-0 gap-2 sm:gap-2.5">
 
-              <!-- Left: Live Engine Branding & Subtitle -->
-              <div class="order-1 flex items-center gap-2 min-w-0 max-w-[calc(100%-44px)] sm:max-w-none">
-                <div
-                  class="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-primary-container/15 border border-primary-container/20 flex items-center justify-center shrink-0 text-primary-container">
-                  <span class="material-symbols-outlined text-[16px] sm:text-[18px]">candlestick_chart</span>
-                </div>
-                <div class="min-w-0">
-                  <div class="flex items-center gap-1.5">
-                    <span class="font-bold text-xs sm:text-sm text-white tracking-tight">AlphaChart Pro</span>
-                    <span class="w-1.5 h-1.5 rounded-full bg-primary-container animate-ping shrink-0"></span>
-                    <span class="text-[9px] font-mono font-bold text-primary-container uppercase hidden sm:inline">Live
-                      Engine</span>
+              <!-- Row 1: Live Engine Branding (Left) & Return Button (Right) -->
+              <div class="flex items-center justify-between w-full">
+                <div class="flex items-center gap-2 min-w-0">
+                  <div
+                    class="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-primary-container/15 border border-primary-container/20 flex items-center justify-center shrink-0 text-primary-container">
+                    <span class="material-symbols-outlined text-[16px] sm:text-[18px]">candlestick_chart</span>
                   </div>
-                  <p id="full-chart-price-display"
-                    class="text-[10px] sm:text-[11px] font-mono text-[#38bdf8] font-semibold truncate">
-                    Real-time Candles & Signals</p>
+                  <div class="min-w-0">
+                    <div class="flex items-center gap-1.5">
+                      <span class="font-bold text-xs sm:text-sm text-white tracking-tight">AlphaChart Pro</span>
+                      <span class="w-1.5 h-1.5 rounded-full bg-primary-container animate-ping shrink-0"></span>
+                    </div>
+                    <p id="full-chart-price-display"
+                      class="text-[10px] sm:text-[11px] font-mono text-[#38bdf8] font-semibold truncate">
+                      Futures 5-Minute Candles • Live Perpetual Engine</p>
+                  </div>
                 </div>
+
+                <!-- Return / Back to Scanner Button -->
+                <button id="full-chart-close-btn" type="button"
+                  class="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#2c2c2e] hover:bg-[#3a3a3c] flex items-center justify-center text-white transition-all shrink-0 active:scale-90 cursor-pointer ml-auto"
+                  title="Return to Signal Scanner">
+                  <span class="material-symbols-outlined text-[16px] sm:text-[18px]">arrow_back</span>
+                </button>
               </div>
 
-              <!-- Return / Back to Scanner Button -->
-              <button id="full-chart-close-btn" type="button"
-                class="order-2 sm:order-3 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#2c2c2e] hover:bg-[#3a3a3c] flex items-center justify-center text-white transition-all shrink-0 active:scale-90 cursor-pointer ml-auto sm:ml-0"
-                title="Return to Signal Scanner">
-                <span class="material-symbols-outlined text-[16px] sm:text-[18px]">arrow_back</span>
-              </button>
-
-              <!-- Mode Tabs + Timeframe Controls: Order 3 on mobile, Order 2 on desktop -->
-              <div
-                class="order-3 sm:order-2 flex items-center justify-between sm:justify-end gap-1.5 w-full sm:w-auto shrink-0">
+              <!-- Row 2: Engine View Tabs (Left) & Timeframe Controls (Right) -->
+              <div class="flex items-center justify-between w-full gap-2 pt-1 border-t border-white/[0.04]">
                 <!-- Engine View Tabs -->
-                <div class="flex items-center bg-[#000000] p-0.5 rounded-xl border border-white/[0.08] text-xs">
+                <div class="flex items-center bg-[#000000] p-0.5 rounded-xl border border-white/[0.08] text-xs shrink-0">
                   <button id="full-chart-tab-tv" type="button"
                     class="px-2 sm:px-2.5 py-1 rounded-lg font-semibold transition-all bg-primary-container text-black shadow-sm flex items-center gap-1 text-[10px] sm:text-[11px] whitespace-nowrap cursor-pointer">
                     <span class="material-symbols-outlined text-[13px] sm:text-[14px]">public</span>
@@ -562,17 +560,21 @@
             <!-- Signal & Alert Sub-Bar: Crypto Search Box (Left) + SMC & Alert Controls (Right) -->
             <div
               class="px-3 sm:px-4 py-1.5 bg-[#18181b] border-b border-white/[0.06] flex items-center justify-between gap-2 shrink-0 flex-wrap sm:flex-nowrap text-xs">
-              
+
               <!-- Left Side: TradingView-Style Native Symbol Selector Box (In Red Circle Area) -->
               <div class="flex items-center gap-2 min-w-0 shrink-0">
                 <button id="btn-chart-symbol-search" type="button"
                   class="flex items-center gap-1.5 sm:gap-2 bg-[#121318] hover:bg-[#20232e] text-white border border-white/15 hover:border-primary-container/60 px-2.5 sm:px-3 py-1 rounded-lg text-xs sm:text-sm font-mono font-bold transition-all cursor-pointer shadow-md group active:scale-95 shrink-0"
                   title="Search any Binance USDⓈ-M Perpetual Futures contract (e.g. SUI, PEPE, SOL, NEAR, RENDER, DOGE)">
-                  <span class="material-symbols-outlined text-[15px] sm:text-[17px] text-primary-container group-hover:scale-110 transition-transform">search</span>
-                  <span id="full-chart-coin-title" class="font-extrabold text-xs sm:text-sm text-white group-hover:text-primary-container transition-colors tracking-wide uppercase">BTCUSDT.P</span>
-                  <span class="text-[9px] font-mono px-1 py-0.5 rounded bg-primary-container/20 text-primary-container font-extrabold border border-primary-container/30 uppercase shrink-0">PERP</span>
+                  <span
+                    class="material-symbols-outlined text-[15px] sm:text-[17px] text-primary-container group-hover:scale-110 transition-transform">search</span>
+                  <span id="full-chart-coin-title"
+                    class="font-extrabold text-xs sm:text-sm text-white group-hover:text-primary-container transition-colors tracking-wide uppercase">BTCUSDT.P</span>
+                  <span
+                    class="text-[9px] font-mono px-1 py-0.5 rounded bg-primary-container/20 text-primary-container font-extrabold border border-primary-container/30 uppercase shrink-0">PERP</span>
                   <span class="w-1.5 h-1.5 rounded-full bg-primary-container animate-ping shrink-0"></span>
-                  <span class="material-symbols-outlined text-[14px] text-on-surface-variant group-hover:text-white transition-colors">expand_more</span>
+                  <span
+                    class="material-symbols-outlined text-[14px] text-on-surface-variant group-hover:text-white transition-colors">expand_more</span>
                 </button>
               </div>
 
@@ -1614,39 +1616,63 @@
   </div>
 
   <!-- ================= TRADINGVIEW-STYLE UNIVERSAL SYMBOL SEARCH MODAL ================= -->
-  <div id="symbol-search-modal" class="fixed inset-0 z-50 flex items-start justify-center pt-10 sm:pt-16 px-3 bg-black/80 backdrop-blur-md hidden transition-all duration-200">
+  <div id="symbol-search-modal"
+    class="fixed inset-0 z-50 flex items-start justify-center pt-10 sm:pt-16 px-3 bg-black/80 backdrop-blur-md hidden transition-all duration-200">
     <!-- Click Outside Backdrop -->
     <div id="symbol-search-backdrop" class="absolute inset-0"></div>
 
     <!-- Modal Dialog Card -->
-    <div class="relative w-full max-w-xl bg-[#131722] border border-white/15 rounded-2xl shadow-[0_25px_60px_rgba(0,0,0,0.9)] flex flex-col overflow-hidden max-h-[82vh] text-white z-10 animate-in fade-in zoom-in-95 duration-150">
-      
+    <div
+      class="relative w-full max-w-xl bg-[#131722] border border-white/15 rounded-2xl shadow-[0_25px_60px_rgba(0,0,0,0.9)] flex flex-col overflow-hidden max-h-[82vh] text-white z-10 animate-in fade-in zoom-in-95 duration-150">
+
       <!-- Top Search Bar Header (TradingView Style) -->
       <div class="p-3 sm:p-4 border-b border-white/10 flex items-center gap-2.5 bg-[#181b27]">
         <span class="material-symbols-outlined text-[20px] text-primary-container shrink-0">search</span>
-        <input id="symbol-search-input" type="text" placeholder="Search any Futures coin (e.g. SUI, PEPE, SOL, NEAR, RENDER, DOGE)..." autocomplete="off" spellcheck="false"
+        <input id="symbol-search-input" type="text"
+          placeholder="Search any Futures coin (e.g. SUI, PEPE, SOL, NEAR, RENDER, DOGE)..." autocomplete="off"
+          spellcheck="false"
           class="bg-transparent text-sm sm:text-base font-mono text-white placeholder-on-surface-variant/70 focus:outline-none w-full uppercase font-bold">
-        <button id="symbol-search-clear-btn" type="button" class="hidden text-on-surface-variant hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer shrink-0" title="Clear">
+        <button id="symbol-search-clear-btn" type="button"
+          class="hidden text-on-surface-variant hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer shrink-0"
+          title="Clear">
           <span class="material-symbols-outlined text-[16px]">close</span>
         </button>
-        <button id="symbol-search-close-btn" type="button" class="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center text-on-surface-variant hover:text-white transition-colors cursor-pointer shrink-0 ml-1" title="Close (Esc)">
+        <button id="symbol-search-close-btn" type="button"
+          class="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center text-on-surface-variant hover:text-white transition-colors cursor-pointer shrink-0 ml-1"
+          title="Close (Esc)">
           <span class="material-symbols-outlined text-[18px]">close</span>
         </button>
       </div>
 
       <!-- Quick Filter Category Tabs -->
-      <div class="px-3 py-2 border-b border-white/5 flex items-center gap-1.5 overflow-x-auto hide-scrollbar bg-[#11131c] text-[11px] font-mono shrink-0">
-        <button type="button" class="symbol-cat-tab active px-3 py-1 rounded-lg bg-primary-container text-black font-bold transition-all cursor-pointer whitespace-nowrap shadow-sm" data-cat="all">All Futures</button>
-        <button type="button" class="symbol-cat-tab px-3 py-1 rounded-lg text-on-surface-variant hover:text-white hover:bg-white/5 font-semibold transition-all cursor-pointer whitespace-nowrap" data-cat="hot">🔥 Hot</button>
-        <button type="button" class="symbol-cat-tab px-3 py-1 rounded-lg text-on-surface-variant hover:text-white hover:bg-white/5 font-semibold transition-all cursor-pointer whitespace-nowrap" data-cat="l1">Layer 1</button>
-        <button type="button" class="symbol-cat-tab px-3 py-1 rounded-lg text-on-surface-variant hover:text-white hover:bg-white/5 font-semibold transition-all cursor-pointer whitespace-nowrap" data-cat="defi">DeFi</button>
-        <button type="button" class="symbol-cat-tab px-3 py-1 rounded-lg text-on-surface-variant hover:text-white hover:bg-white/5 font-semibold transition-all cursor-pointer whitespace-nowrap" data-cat="meme">Memes</button>
-        <button type="button" class="symbol-cat-tab px-3 py-1 rounded-lg text-on-surface-variant hover:text-white hover:bg-white/5 font-semibold transition-all cursor-pointer whitespace-nowrap" data-cat="ai">AI & Data</button>
-        <button type="button" class="symbol-cat-tab px-3 py-1 rounded-lg text-on-surface-variant hover:text-white hover:bg-white/5 font-semibold transition-all cursor-pointer whitespace-nowrap" data-cat="l2">Layer 2</button>
+      <div
+        class="px-3 py-2 border-b border-white/5 flex items-center gap-1.5 overflow-x-auto hide-scrollbar bg-[#11131c] text-[11px] font-mono shrink-0">
+        <button type="button"
+          class="symbol-cat-tab active px-3 py-1 rounded-lg bg-primary-container text-black font-bold transition-all cursor-pointer whitespace-nowrap shadow-sm"
+          data-cat="all">All Futures</button>
+        <button type="button"
+          class="symbol-cat-tab px-3 py-1 rounded-lg text-on-surface-variant hover:text-white hover:bg-white/5 font-semibold transition-all cursor-pointer whitespace-nowrap"
+          data-cat="hot">🔥 Hot</button>
+        <button type="button"
+          class="symbol-cat-tab px-3 py-1 rounded-lg text-on-surface-variant hover:text-white hover:bg-white/5 font-semibold transition-all cursor-pointer whitespace-nowrap"
+          data-cat="l1">Layer 1</button>
+        <button type="button"
+          class="symbol-cat-tab px-3 py-1 rounded-lg text-on-surface-variant hover:text-white hover:bg-white/5 font-semibold transition-all cursor-pointer whitespace-nowrap"
+          data-cat="defi">DeFi</button>
+        <button type="button"
+          class="symbol-cat-tab px-3 py-1 rounded-lg text-on-surface-variant hover:text-white hover:bg-white/5 font-semibold transition-all cursor-pointer whitespace-nowrap"
+          data-cat="meme">Memes</button>
+        <button type="button"
+          class="symbol-cat-tab px-3 py-1 rounded-lg text-on-surface-variant hover:text-white hover:bg-white/5 font-semibold transition-all cursor-pointer whitespace-nowrap"
+          data-cat="ai">AI & Data</button>
+        <button type="button"
+          class="symbol-cat-tab px-3 py-1 rounded-lg text-on-surface-variant hover:text-white hover:bg-white/5 font-semibold transition-all cursor-pointer whitespace-nowrap"
+          data-cat="l2">Layer 2</button>
       </div>
 
       <!-- Table Column Headers -->
-      <div class="px-3 sm:px-4 py-1.5 bg-[#0d0f17] border-b border-white/5 flex items-center justify-between text-[10px] font-mono uppercase text-on-surface-variant tracking-wider shrink-0">
+      <div
+        class="px-3 sm:px-4 py-1.5 bg-[#0d0f17] border-b border-white/5 flex items-center justify-between text-[10px] font-mono uppercase text-on-surface-variant tracking-wider shrink-0">
         <span>Futures Contract / Project</span>
         <div class="flex items-center gap-5 sm:gap-8">
           <span class="w-16 text-right">24h Change</span>
@@ -1655,17 +1681,22 @@
       </div>
 
       <!-- Scrollable Results List -->
-      <div id="symbol-search-results-list" class="flex-1 overflow-y-auto divide-y divide-white/5 max-h-[50vh] p-1.5 select-none">
+      <div id="symbol-search-results-list"
+        class="flex-1 overflow-y-auto divide-y divide-white/5 max-h-[50vh] p-1.5 select-none">
         <!-- Rendered dynamically via SymbolSearchModule -->
       </div>
 
       <!-- Modal Footer -->
-      <div class="px-3 sm:px-4 py-2 bg-[#0e1017] border-t border-white/5 flex items-center justify-between text-[10px] text-on-surface-variant font-mono shrink-0">
+      <div
+        class="px-3 sm:px-4 py-2 bg-[#0e1017] border-t border-white/5 flex items-center justify-between text-[10px] text-on-surface-variant font-mono shrink-0">
         <span class="flex items-center gap-1.5">
           <span class="w-1.5 h-1.5 rounded-full bg-primary-container"></span>
           <span>Binance USDⓈ-M Perpetual Futures Engine (No Spot)</span>
         </span>
-        <span class="hidden sm:inline">Use <kbd class="px-1.5 py-0.5 rounded bg-white/10 text-white font-mono text-[9px]">↑</kbd> <kbd class="px-1.5 py-0.5 rounded bg-white/10 text-white font-mono text-[9px]">↓</kbd> + <kbd class="px-1.5 py-0.5 rounded bg-white/10 text-white font-mono text-[9px]">Enter</kbd> to select</span>
+        <span class="hidden sm:inline">Use <kbd
+            class="px-1.5 py-0.5 rounded bg-white/10 text-white font-mono text-[9px]">↑</kbd> <kbd
+            class="px-1.5 py-0.5 rounded bg-white/10 text-white font-mono text-[9px]">↓</kbd> + <kbd
+            class="px-1.5 py-0.5 rounded bg-white/10 text-white font-mono text-[9px]">Enter</kbd> to select</span>
       </div>
 
     </div>
