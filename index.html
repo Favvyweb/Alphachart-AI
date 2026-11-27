@@ -498,23 +498,21 @@
             <div
               class="flex flex-wrap sm:flex-nowrap items-center justify-between px-3 sm:px-4 py-2 sm:py-2.5 border-b border-white/[0.08] bg-[#121214] shrink-0 gap-y-2 gap-x-2">
 
-              <!-- Coin info (Order 1 on mobile, Order 1 on desktop) -->
+              <!-- Coin info (Order 1 on mobile, Order 1 on desktop) with TradingView-Style Symbol Search -->
               <div class="order-1 flex items-center gap-2 min-w-0 max-w-[calc(100%-44px)] sm:max-w-none">
-                <div
-                  class="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-primary-container/15 border border-primary-container/20 flex items-center justify-center shrink-0 text-primary-container">
-                  <span class="material-symbols-outlined text-[16px] sm:text-[18px]">candlestick_chart</span>
-                </div>
-                <div class="min-w-0">
-                  <div class="flex items-center gap-1.5">
-                    <h3 id="full-chart-coin-title" class="font-bold text-xs sm:text-sm text-white truncate">BTC / USDT
-                    </h3>
-                    <span class="w-1.5 h-1.5 rounded-full bg-primary-container animate-ping shrink-0"></span>
-                    <span class="text-[9px] font-mono font-bold text-primary-container uppercase hidden sm:inline">Live
-                      Engine</span>
-                  </div>
+                <!-- TradingView-Style Native Symbol Selector Box -->
+                <button id="btn-chart-symbol-search" type="button"
+                  class="flex items-center gap-1.5 sm:gap-2 bg-[#1b1e28] hover:bg-[#252a38] text-white border border-white/15 hover:border-primary-container/60 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs sm:text-sm font-mono font-bold transition-all cursor-pointer shadow-md group active:scale-95 shrink-0"
+                  title="Search any crypto coin like TradingView (e.g. SUI, PEPE, SOL, NEAR, RENDER, DOGE)">
+                  <span class="material-symbols-outlined text-[16px] sm:text-[18px] text-primary-container group-hover:scale-110 transition-transform">search</span>
+                  <span id="full-chart-coin-title" class="font-extrabold text-xs sm:text-sm text-white group-hover:text-primary-container transition-colors tracking-wide uppercase">BTCUSDT</span>
+                  <span class="w-1.5 h-1.5 rounded-full bg-primary-container animate-ping shrink-0"></span>
+                  <span class="material-symbols-outlined text-[15px] text-on-surface-variant group-hover:text-white transition-colors">expand_more</span>
+                </button>
+                <div class="min-w-0 hidden md:block">
                   <p id="full-chart-price-display"
-                    class="text-[10px] sm:text-[11px] font-mono text-[#38bdf8] font-semibold truncate">
-                    Real-time Candles & Signals</p>
+                    class="text-[10px] font-mono text-on-surface-variant font-medium truncate">
+                    Live 5m Trend Trader Candles</p>
                 </div>
               </div>
 
@@ -1600,15 +1598,74 @@
 
   </div>
 
+  <!-- ================= TRADINGVIEW-STYLE UNIVERSAL SYMBOL SEARCH MODAL ================= -->
+  <div id="symbol-search-modal" class="fixed inset-0 z-50 flex items-start justify-center pt-10 sm:pt-16 px-3 bg-black/80 backdrop-blur-md hidden transition-all duration-200">
+    <!-- Click Outside Backdrop -->
+    <div id="symbol-search-backdrop" class="absolute inset-0"></div>
+
+    <!-- Modal Dialog Card -->
+    <div class="relative w-full max-w-xl bg-[#131722] border border-white/15 rounded-2xl shadow-[0_25px_60px_rgba(0,0,0,0.9)] flex flex-col overflow-hidden max-h-[82vh] text-white z-10 animate-in fade-in zoom-in-95 duration-150">
+      
+      <!-- Top Search Bar Header (TradingView Style) -->
+      <div class="p-3 sm:p-4 border-b border-white/10 flex items-center gap-2.5 bg-[#181b27]">
+        <span class="material-symbols-outlined text-[20px] text-primary-container shrink-0">search</span>
+        <input id="symbol-search-input" type="text" placeholder="Search any crypto coin (e.g. SUI, PEPE, SOL, NEAR, RENDER, DOGE)..." autocomplete="off" spellcheck="false"
+          class="bg-transparent text-sm sm:text-base font-mono text-white placeholder-on-surface-variant/70 focus:outline-none w-full uppercase font-bold">
+        <button id="symbol-search-clear-btn" type="button" class="hidden text-on-surface-variant hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer shrink-0" title="Clear">
+          <span class="material-symbols-outlined text-[16px]">close</span>
+        </button>
+        <button id="symbol-search-close-btn" type="button" class="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center text-on-surface-variant hover:text-white transition-colors cursor-pointer shrink-0 ml-1" title="Close (Esc)">
+          <span class="material-symbols-outlined text-[18px]">close</span>
+        </button>
+      </div>
+
+      <!-- Quick Filter Category Tabs -->
+      <div class="px-3 py-2 border-b border-white/5 flex items-center gap-1.5 overflow-x-auto hide-scrollbar bg-[#11131c] text-[11px] font-mono shrink-0">
+        <button type="button" class="symbol-cat-tab active px-3 py-1 rounded-lg bg-primary-container text-black font-bold transition-all cursor-pointer whitespace-nowrap shadow-sm" data-cat="all">All Coins</button>
+        <button type="button" class="symbol-cat-tab px-3 py-1 rounded-lg text-on-surface-variant hover:text-white hover:bg-white/5 font-semibold transition-all cursor-pointer whitespace-nowrap" data-cat="hot">🔥 Hot</button>
+        <button type="button" class="symbol-cat-tab px-3 py-1 rounded-lg text-on-surface-variant hover:text-white hover:bg-white/5 font-semibold transition-all cursor-pointer whitespace-nowrap" data-cat="l1">Layer 1</button>
+        <button type="button" class="symbol-cat-tab px-3 py-1 rounded-lg text-on-surface-variant hover:text-white hover:bg-white/5 font-semibold transition-all cursor-pointer whitespace-nowrap" data-cat="defi">DeFi</button>
+        <button type="button" class="symbol-cat-tab px-3 py-1 rounded-lg text-on-surface-variant hover:text-white hover:bg-white/5 font-semibold transition-all cursor-pointer whitespace-nowrap" data-cat="meme">Memes</button>
+        <button type="button" class="symbol-cat-tab px-3 py-1 rounded-lg text-on-surface-variant hover:text-white hover:bg-white/5 font-semibold transition-all cursor-pointer whitespace-nowrap" data-cat="ai">AI & Data</button>
+        <button type="button" class="symbol-cat-tab px-3 py-1 rounded-lg text-on-surface-variant hover:text-white hover:bg-white/5 font-semibold transition-all cursor-pointer whitespace-nowrap" data-cat="l2">Layer 2</button>
+      </div>
+
+      <!-- Table Column Headers -->
+      <div class="px-3 sm:px-4 py-1.5 bg-[#0d0f17] border-b border-white/5 flex items-center justify-between text-[10px] font-mono uppercase text-on-surface-variant tracking-wider shrink-0">
+        <span>Symbol / Project</span>
+        <div class="flex items-center gap-5 sm:gap-8">
+          <span class="w-16 text-right">24h Change</span>
+          <span class="w-20 text-right">Live Price</span>
+        </div>
+      </div>
+
+      <!-- Scrollable Results List -->
+      <div id="symbol-search-results-list" class="flex-1 overflow-y-auto divide-y divide-white/5 max-h-[50vh] p-1.5 select-none">
+        <!-- Rendered dynamically via SymbolSearchModule -->
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="px-3 sm:px-4 py-2 bg-[#0e1017] border-t border-white/5 flex items-center justify-between text-[10px] text-on-surface-variant font-mono shrink-0">
+        <span class="flex items-center gap-1.5">
+          <span class="w-1.5 h-1.5 rounded-full bg-primary-container"></span>
+          <span>Binance Spot & Futures Real-Time Engine</span>
+        </span>
+        <span class="hidden sm:inline">Use <kbd class="px-1.5 py-0.5 rounded bg-white/10 text-white font-mono text-[9px]">↑</kbd> <kbd class="px-1.5 py-0.5 rounded bg-white/10 text-white font-mono text-[9px]">↓</kbd> + <kbd class="px-1.5 py-0.5 rounded bg-white/10 text-white font-mono text-[9px]">Enter</kbd> to select</span>
+      </div>
+
+    </div>
+  </div>
+
   <script src="js/chart_overlay.js"></script>
-  <script src="js/ai_engine.js?v=37"></script>
+  <script src="js/ai_engine.js?v=38"></script>
   <script src="js/lightweight-charts.standalone.production.js"></script>
-  <script src="js/trend_trader.js?v=37"></script>
-  <script src="js/scanner.js?v=37"></script>
-  <script src="js/journal.js?v=37"></script>
-  <script src="js/coach.js?v=37"></script>
-  <script src="js/auth.js?v=37"></script>
-  <script src="js/app.js?v=37"></script>
+  <script src="js/trend_trader.js?v=38"></script>
+  <script src="js/symbol_search.js?v=38"></script>
+  <script src="js/scanner.js?v=38"></script>
+  <script src="js/journal.js?v=38"></script>
+  <script src="js/coach.js?v=38"></script>
+  <script src="js/auth.js?v=38"></script>
+  <script src="js/app.js?v=38"></script>
 </body>
 
 </html>

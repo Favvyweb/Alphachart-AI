@@ -199,14 +199,24 @@ window.ScannerModule = {
       });
     }
 
+    // TradingView-style Symbol Search Button on Charts page
+    const searchBtn = document.getElementById('btn-chart-symbol-search');
+    if (searchBtn) {
+      searchBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (window.SymbolSearchModule && typeof window.SymbolSearchModule.open === 'function') {
+          window.SymbolSearchModule.open();
+        }
+      });
+    }
+
     // Quick-select coin switcher chips on Charts page
     document.querySelectorAll('.btn-chart-quick-coin').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.preventDefault();
         const pair = btn.getAttribute('data-pair');
         if (pair) {
-          self.fullChartPair = pair;
-          self.renderFullChart(pair, self.fullChartInterval);
+          self.switchFullChartCoin(pair);
         }
       });
     });
@@ -756,6 +766,18 @@ window.ScannerModule = {
   },
 
   /**
+   * Switch full chart coin and update TradingView-style symbol title
+   */
+  switchFullChartCoin: function (pair) {
+    if (!pair) return;
+    this.fullChartPair = pair;
+    const clean = pair.replace(/[\s\-_/]/g, '').toUpperCase();
+    const titleEl = document.getElementById('full-chart-coin-title');
+    if (titleEl) titleEl.innerText = clean;
+    this.renderFullChart(pair, this.fullChartInterval);
+  },
+
+  /**
    * Render either the native Trend Trader Engine Canvas or TradingView embed
    */
   renderFullChart: async function (pairName, interval) {
@@ -764,7 +786,7 @@ window.ScannerModule = {
     this.fullChartPair = pair;
     this.fullChartInterval = intv;
 
-    // Highlight active quick coin chip
+    // Highlight active quick coin chip if it matches one of the top pills
     document.querySelectorAll('.btn-chart-quick-coin').forEach(btn => {
       const p = btn.getAttribute('data-pair');
       if (p === pair || (pair.startsWith('BTC') && p.startsWith('BTC')) || (pair.startsWith('ETH') && p.startsWith('ETH')) || (pair.startsWith('SOL') && p.startsWith('SOL')) || (pair.startsWith('AAVE') && p.startsWith('AAVE')) || (pair.startsWith('XRP') && p.startsWith('XRP')) || (pair.startsWith('DOGE') && p.startsWith('DOGE'))) {
@@ -778,7 +800,10 @@ window.ScannerModule = {
 
     const coinTitle = document.getElementById('full-chart-coin-title');
     const priceDisplay = document.getElementById('full-chart-price-display');
-    if (coinTitle) coinTitle.innerText = pair;
+    if (coinTitle) {
+      const clean = pair.replace(/[\s\-_/]/g, '').toUpperCase();
+      coinTitle.innerText = clean;
+    }
     if (priceDisplay) {
       const tfLabel = intv === '5' ? '5-Minute' : intv === '15' ? '15-Minute' : '1-Hour';
       priceDisplay.innerText = `Real-time ${tfLabel} Candles • Live Streaming`;

@@ -138,7 +138,35 @@ window.TrendTraderEngine = {
     const midnightUtcMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0);
     const midnightSec = Math.floor(midnightUtcMs / 1000);
     const startSec = midnightSec - (100 * intervalSec);
-    let current = symbol.includes('BTC') ? 66500.0 : symbol.includes('ETH') ? 2600.0 : symbol.includes('AAVE') ? 125.36 : 100.0;
+    let current = 100.0;
+    const upperSym = (symbol || '').toUpperCase();
+    if (upperSym.includes('BTC')) current = 96000.0;
+    else if (upperSym.includes('ETH')) current = 3600.0;
+    else if (upperSym.includes('SOL')) current = 230.0;
+    else if (upperSym.includes('BNB')) current = 650.0;
+    else if (upperSym.includes('AAVE')) current = 195.0;
+    else if (upperSym.includes('AVAX')) current = 42.0;
+    else if (upperSym.includes('LINK')) current = 18.0;
+    else if (upperSym.includes('NEAR')) current = 6.80;
+    else if (upperSym.includes('SUI')) current = 3.40;
+    else if (upperSym.includes('XRP')) current = 1.45;
+    else if (upperSym.includes('ADA')) current = 0.95;
+    else if (upperSym.includes('DOGE')) current = 0.40;
+    else if (upperSym.includes('PEPE')) current = 0.000021;
+    else if (upperSym.includes('SHIB')) current = 0.000026;
+    else if (upperSym.includes('BONK')) current = 0.000045;
+    else if (upperSym.includes('FLOKI')) current = 0.00022;
+    else if (upperSym.includes('TAO')) current = 520.0;
+    else if (upperSym.includes('RENDER')) current = 8.50;
+    else if (upperSym.includes('FET')) current = 1.35;
+    else if (upperSym.includes('INJ')) current = 22.0;
+    else if (upperSym.includes('KAS')) current = 0.16;
+    else if (upperSym.includes('SEI')) current = 0.55;
+    else if (upperSym.includes('DOT')) current = 7.50;
+    else if (upperSym.includes('UNI')) current = 11.20;
+    else if (upperSym.includes('TIA')) current = 5.20;
+    else if (upperSym.includes('APT')) current = 12.0;
+    else if (upperSym.includes('TON')) current = 6.40;
 
     for (let i = 0; i < count; i++) {
       const t = startSec + (i * intervalSec);
@@ -597,7 +625,28 @@ window.TrendTraderEngine = {
       return chart.addSeries(window.LightweightCharts.LineSeries, options);
     };
 
-    // Add Candlestick Series (exact TradingView neon styling)
+    // Calculate required decimal precision dynamically based on the coin's price scale
+    let precision = 2;
+    let minMove = 0.01;
+    const sampleClose = candles[candles.length - 1] ? candles[candles.length - 1].close : 100;
+    if (sampleClose < 0.0001) {
+      precision = 8;
+      minMove = 0.00000001;
+    } else if (sampleClose < 0.01) {
+      precision = 6;
+      minMove = 0.000001;
+    } else if (sampleClose < 1) {
+      precision = 4;
+      minMove = 0.0001;
+    } else if (sampleClose < 10) {
+      precision = 3;
+      minMove = 0.001;
+    } else {
+      precision = 2;
+      minMove = 0.01;
+    }
+
+    // Add Candlestick Series (exact TradingView neon styling with dynamic price precision)
     this.candleSeries = addCandleSeries(this.mainChart, {
       upColor: '#00ff88',
       downColor: '#ff3366',
@@ -605,6 +654,11 @@ window.TrendTraderEngine = {
       borderDownColor: '#ff3366',
       wickUpColor: '#00ff88',
       wickDownColor: '#ff3366',
+      priceFormat: {
+        type: 'price',
+        precision: precision,
+        minMove: minMove
+      }
     });
     this.candleSeries.setData(candles);
 
@@ -1048,7 +1102,7 @@ window.TrendTraderEngine = {
         const entryP = analysis.candles[latestTagIndex].close;
         const tp1P = entryP * 1.002;
         const slP = entryP * 0.995;
-        if (statusText) statusText.innerText = `🟢 BUY Active ($${entryP.toFixed(2)}) • TP1: $${tp1P.toFixed(2)} (+2%) | SL: $${slP.toFixed(2)} (-5%)`;
+        if (statusText) statusText.innerText = `🟢 BUY Active ($${this.formatPrice(entryP)}) • TP1: $${this.formatPrice(tp1P)} (+2%) | SL: $${this.formatPrice(slP)} (-5%)`;
       }
     } else if (latestTag === 'SELL') {
       if (statusBadge) statusBadge.className = 'px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg bg-error/20 border border-error/50 text-error font-bold text-[10px] sm:text-[11px] flex items-center gap-1.5 shadow-[0_0_12px_rgba(255,51,102,0.3)] max-w-full min-w-0 overflow-hidden';
@@ -1058,7 +1112,7 @@ window.TrendTraderEngine = {
         const entryP = analysis.candles[latestTagIndex].close;
         const tp1P = entryP * 0.998;
         const slP = entryP * 1.005;
-        if (statusText) statusText.innerText = `🔴 SELL Active ($${entryP.toFixed(2)}) • TP1: $${tp1P.toFixed(2)} (+2%) | SL: $${slP.toFixed(2)} (-5%)`;
+        if (statusText) statusText.innerText = `🔴 SELL Active ($${this.formatPrice(entryP)}) • TP1: $${this.formatPrice(tp1P)} (+2%) | SL: $${this.formatPrice(slP)} (-5%)`;
       }
     } else {
       if (statusBadge) statusBadge.className = 'px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg bg-white/5 border border-white/10 text-on-surface-variant font-bold text-[10px] sm:text-[11px] flex items-center gap-1.5 max-w-full min-w-0 overflow-hidden';
@@ -1068,6 +1122,19 @@ window.TrendTraderEngine = {
     if (macdStatus) {
       macdStatus.innerText = `MACD: ${lastM.toFixed(2)} / ${lastS.toFixed(2)} • ${isBullishMacd ? 'Bullish Expansion' : 'Bearish Pressure'}`;
     }
+  },
+
+  /**
+   * Format prices from $95,000 down to $0.00002135
+   */
+  formatPrice: function (price) {
+    if (price === null || price === undefined || isNaN(price)) return '0.00';
+    const p = Number(price);
+    if (p >= 1000) return p.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    if (p >= 1) return p.toFixed(2);
+    if (p >= 0.01) return p.toFixed(4);
+    if (p >= 0.0001) return p.toFixed(6);
+    return p.toFixed(8);
   },
 
   /**
