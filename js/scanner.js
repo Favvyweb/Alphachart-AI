@@ -205,36 +205,10 @@ window.ScannerModule = {
         e.preventDefault();
         const pair = btn.getAttribute('data-pair');
         if (pair) {
-          self.switchFullChartCoin(pair);
+          self.fullChartPair = pair;
+          self.renderFullChart(pair, self.fullChartInterval);
         }
       });
-    });
-
-    // Initialize Universal Coin Search & Dropdown Autocomplete
-    self.initCoinSearch();
-
-    // Global listener for TradingView iframe postMessages (cross-origin symbol change sync)
-    window.addEventListener('message', (event) => {
-      try {
-        let data = event.data;
-        if (typeof data === 'string') {
-          try { data = JSON.parse(data); } catch (_) { }
-        }
-        if (!data) return;
-
-        let detected = null;
-        if ((data.name === 'tv-widget-symbol-change' || data.name === 'symbol_changed') && data.data && data.data.symbol) {
-          detected = data.data.symbol;
-        } else if (data.name === 'quoteUpdate' && data.data && data.data.symbol) {
-          detected = data.data.symbol;
-        } else if (data.symbol && typeof data.symbol === 'string' && (data.symbol.includes(':') || data.symbol.toUpperCase().endsWith('USDT'))) {
-          detected = data.symbol;
-        }
-
-        if (detected) {
-          self.handleTradingViewSymbolChange(detected);
-        }
-      } catch (_) { }
     });
 
     // Window Resize listener to keep TradingView chart sharp and auto-fitted
@@ -602,27 +576,9 @@ window.ScannerModule = {
   },
 
   /**
-   * Switch between native Trend Trader Engine and TradingView embed (with automatic 2-way sync)
+   * Switch between native Trend Trader Engine and TradingView embed
    */
   setFullChartMode: function (mode) {
-    if (this.fullChartMode === 'tv' && mode === 'ttr') {
-      // Switching from TradingView to Trend Trader: sync symbol if user changed it inside TV embed
-      const tvSym = this.getTradingViewCurrentSymbol();
-      if (tvSym) {
-        const cleanPair = this.formatPairDisplay(tvSym);
-        if (cleanPair && cleanPair !== this.fullChartPair) {
-          this.fullChartPair = cleanPair;
-          const coinTitle = document.getElementById('full-chart-coin-title');
-          if (coinTitle) coinTitle.innerText = cleanPair;
-          const searchInput = document.getElementById('chart-coin-search-input');
-          if (searchInput) searchInput.value = cleanPair;
-          this.updateQuickCoinPillsUI(cleanPair);
-          if (window.App && typeof window.App.showToast === 'function') {
-            window.App.showToast(`Synced Trend Trader to ${cleanPair}`);
-          }
-        }
-      }
-    }
     this.fullChartMode = mode;
     this.updateModeTabsUI();
     this.renderFullChart(this.fullChartPair, this.fullChartInterval);
@@ -763,348 +719,12 @@ window.ScannerModule = {
   },
 
   /**
-   * Popular Binance Crypto Coins for Instant Search & Quick Select
-   */
-  popularCoins: [
-    { sym: 'BTC', name: 'Bitcoin', pair: 'BTC / USDT' },
-    { sym: 'ETH', name: 'Ethereum', pair: 'ETH / USDT' },
-    { sym: 'SOL', name: 'Solana', pair: 'SOL / USDT' },
-    { sym: 'SUI', name: 'Sui', pair: 'SUI / USDT' },
-    { sym: 'NEAR', name: 'NEAR Protocol', pair: 'NEAR / USDT' },
-    { sym: 'AAVE', name: 'Aave', pair: 'AAVE / USDT' },
-    { sym: 'BNB', name: 'Binance Coin', pair: 'BNB / USDT' },
-    { sym: 'XRP', name: 'Ripple', pair: 'XRP / USDT' },
-    { sym: 'DOGE', name: 'Dogecoin', pair: 'DOGE / USDT' },
-    { sym: 'AVAX', name: 'Avalanche', pair: 'AVAX / USDT' },
-    { sym: 'LINK', name: 'Chainlink', pair: 'LINK / USDT' },
-    { sym: 'PEPE', name: 'Pepe', pair: 'PEPE / USDT' },
-    { sym: 'SHIB', name: 'Shiba Inu', pair: 'SHIB / USDT' },
-    { sym: 'ADA', name: 'Cardano', pair: 'ADA / USDT' },
-    { sym: 'DOT', name: 'Polkadot', pair: 'DOT / USDT' },
-    { sym: 'TIA', name: 'Celestia', pair: 'TIA / USDT' },
-    { sym: 'INJ', name: 'Injective', pair: 'INJ / USDT' },
-    { sym: 'APT', name: 'Aptos', pair: 'APT / USDT' },
-    { sym: 'RENDER', name: 'Render', pair: 'RENDER / USDT' },
-    { sym: 'FET', name: 'ASI Alliance', pair: 'FET / USDT' },
-    { sym: 'FTM', name: 'Fantom', pair: 'FTM / USDT' },
-    { sym: 'S', name: 'Sonic', pair: 'S / USDT' },
-    { sym: 'ONDO', name: 'Ondo Finance', pair: 'ONDO / USDT' },
-    { sym: 'WIF', name: 'dogwifhat', pair: 'WIF / USDT' },
-    { sym: 'SEI', name: 'Sei', pair: 'SEI / USDT' },
-    { sym: 'ARB', name: 'Arbitrum', pair: 'ARB / USDT' },
-    { sym: 'OP', name: 'Optimism', pair: 'OP / USDT' },
-    { sym: 'KAS', name: 'Kaspa', pair: 'KAS / USDT' },
-    { sym: 'TON', name: 'Toncoin', pair: 'TON / USDT' },
-    { sym: 'STX', name: 'Stacks', pair: 'STX / USDT' },
-    { sym: 'TAO', name: 'Bittensor', pair: 'TAO / USDT' },
-    { sym: 'LTC', name: 'Litecoin', pair: 'LTC / USDT' },
-    { sym: 'BCH', name: 'Bitcoin Cash', pair: 'BCH / USDT' },
-    { sym: 'UNI', name: 'Uniswap', pair: 'UNI / USDT' },
-    { sym: 'XLM', name: 'Stellar Lumens', pair: 'XLM / USDT' },
-    { sym: 'ATOM', name: 'Cosmos', pair: 'ATOM / USDT' },
-    { sym: 'KAVA', name: 'Kava', pair: 'KAVA / USDT' },
-    { sym: 'ALGO', name: 'Algorand', pair: 'ALGO / USDT' },
-    { sym: 'FIL', name: 'Filecoin', pair: 'FIL / USDT' },
-    { sym: 'ICP', name: 'Internet Computer', pair: 'ICP / USDT' },
-    { sym: 'POL', name: 'Polygon', pair: 'POL / USDT' },
-    { sym: 'BONK', name: 'Bonk', pair: 'BONK / USDT' },
-    { sym: 'FLOKI', name: 'Floki', pair: 'FLOKI / USDT' },
-    { sym: 'JUP', name: 'Jupiter', pair: 'JUP / USDT' },
-    { sym: 'PYTH', name: 'Pyth Network', pair: 'PYTH / USDT' },
-    { sym: 'ENA', name: 'Ethena', pair: 'ENA / USDT' },
-    { sym: 'WLD', name: 'Worldcoin', pair: 'WLD / USDT' },
-    { sym: 'RUNE', name: 'THORChain', pair: 'RUNE / USDT' },
-    { sym: 'PENDLE', name: 'Pendle', pair: 'PENDLE / USDT' },
-    { sym: 'DYDX', name: 'dYdX', pair: 'DYDX / USDT' },
-    { sym: 'CRV', name: 'Curve DAO', pair: 'CRV / USDT' },
-    { sym: 'MKR', name: 'Maker', pair: 'MKR / USDT' }
-  ],
-
-  /**
-   * Format any raw ticker or TradingView symbol cleanly into "BASE / QUOTE"
-   */
-  formatPairDisplay: function (rawSym) {
-    if (!rawSym || typeof rawSym !== 'string') return this.fullChartPair || 'BTC / USDT';
-    let s = rawSym.trim();
-    if (s.includes(':')) s = s.split(':')[1];
-    s = s.replace(/\.P$/i, '').replace(/PERP$/i, '').replace(/[\s\-_/]/g, '').toUpperCase();
-
-    if (s.endsWith('USDT')) {
-      const base = s.replace(/USDT$/, '');
-      return `${base} / USDT`;
-    }
-    if (s.endsWith('USDC')) {
-      const base = s.replace(/USDC$/, '');
-      return `${base} / USDC`;
-    }
-    if (s.endsWith('USD')) {
-      const base = s.replace(/USD$/, '');
-      return `${base} / USDT`;
-    }
-    if (s.includes('XAU') || s.includes('GOLD')) return 'XAU / USD';
-    if (s.includes('EURUSD')) return 'EUR / USD';
-    if (s.includes('GBPUSD')) return 'GBP / USD';
-
-    return `${s} / USDT`;
-  },
-
-  /**
-   * Format price with appropriate decimal precision based on magnitude
-   */
-  formatPrice: function (price) {
-    if (price === null || price === undefined || isNaN(price)) return '0.00';
-    const p = Number(price);
-    if (p >= 1000) return p.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    if (p >= 1) return p.toFixed(2);
-    if (p >= 0.01) return p.toFixed(4);
-    return p.toFixed(6);
-  },
-
-  /**
-   * Update active highlight styling on quick coin pills
-   */
-  updateQuickCoinPillsUI: function (pair) {
-    const curBase = (pair || '').split('/')[0].trim().toUpperCase();
-    document.querySelectorAll('.btn-chart-quick-coin').forEach(btn => {
-      const p = btn.getAttribute('data-pair') || '';
-      const baseP = p.split('/')[0].trim().toUpperCase();
-      if (baseP === curBase) {
-        btn.classList.add('bg-primary-container', 'text-black', 'border-primary-container');
-        btn.classList.remove('bg-[#1c1c1e]', 'text-white', 'border-white/10');
-      } else {
-        btn.classList.remove('bg-primary-container', 'text-black', 'border-primary-container');
-        btn.classList.add('bg-[#1c1c1e]', 'text-white', 'border-white/10');
-      }
-    });
-  },
-
-  /**
-   * Initialize Universal Coin Search Input & Dropdown Autocomplete
-   */
-  initCoinSearch: function () {
-    const self = this;
-    const input = document.getElementById('chart-coin-search-input');
-    const clearBtn = document.getElementById('chart-coin-search-clear');
-    const dropdown = document.getElementById('chart-coin-search-dropdown');
-    const resultsContainer = document.getElementById('chart-coin-search-results');
-    const titleBtn = document.getElementById('btn-chart-title-coin');
-
-    if (!input || !dropdown || !resultsContainer) return;
-
-    const renderCoinsList = (query = '') => {
-      const q = query.trim().toUpperCase().replace(/[\s\-_/]/g, '');
-      let filtered = self.popularCoins;
-
-      if (q.length > 0) {
-        filtered = self.popularCoins.filter(c =>
-          c.sym.includes(q) ||
-          c.name.toUpperCase().includes(q) ||
-          c.pair.replace(/[\s/]/g, '').includes(q)
-        );
-      }
-
-      let html = '';
-
-      // If user typed a custom coin not strictly in top list or wants exact match, show custom option first
-      if (q.length >= 2) {
-        const cleanBase = q.replace(/USDT$/, '').replace(/USD$/, '');
-        const hasExactMatch = filtered.some(c => c.sym === cleanBase);
-        if (!hasExactMatch) {
-          html += `
-            <div class="search-coin-item px-3 py-2 hover:bg-primary-container/15 flex items-center justify-between cursor-pointer border-b border-white/5 transition-colors group" data-pair="${cleanBase} / USDT">
-              <div class="flex items-center gap-2">
-                <span class="w-2 h-2 rounded-full bg-primary-container animate-pulse"></span>
-                <div>
-                  <span class="font-mono font-bold text-xs text-white group-hover:text-primary-container">${cleanBase} / USDT</span>
-                  <p class="text-[10px] text-on-surface-variant font-mono">Binance Live Candles & Trend Signals</p>
-                </div>
-              </div>
-              <span class="text-[10px] font-mono text-primary-container font-semibold uppercase bg-primary-container/10 px-1.5 py-0.5 rounded border border-primary-container/20">Select</span>
-            </div>
-          `;
-        }
-      }
-
-      if (filtered.length === 0 && q.length < 2) {
-        html += `<div class="px-3 py-3 text-xs text-on-surface-variant text-center font-mono">Type 2+ letters to search any coin</div>`;
-      } else {
-        html += filtered.slice(0, 15).map(c => `
-          <div class="search-coin-item px-3 py-1.5 hover:bg-white/10 flex items-center justify-between cursor-pointer transition-colors group rounded-lg mx-1" data-pair="${c.pair}">
-            <div class="flex items-center gap-2 min-w-0">
-              <span class="font-mono font-bold text-xs text-white group-hover:text-primary-container">${c.sym}</span>
-              <span class="text-[11px] text-on-surface-variant truncate">${c.name}</span>
-            </div>
-            <span class="text-[10px] font-mono text-on-surface-variant group-hover:text-white shrink-0 ml-2">${c.pair}</span>
-          </div>
-        `).join('');
-      }
-
-      resultsContainer.innerHTML = html;
-
-      // Attach click listeners to all items
-      resultsContainer.querySelectorAll('.search-coin-item').forEach(item => {
-        item.addEventListener('click', () => {
-          const pair = item.getAttribute('data-pair');
-          if (pair) {
-            self.switchFullChartCoin(pair);
-            dropdown.classList.add('hidden');
-          }
-        });
-      });
-    };
-
-    // Open dropdown on focus or click
-    input.addEventListener('focus', () => {
-      renderCoinsList(input.value);
-      dropdown.classList.remove('hidden');
-    });
-
-    input.addEventListener('input', (e) => {
-      const val = e.target.value;
-      if (clearBtn) clearBtn.classList.toggle('hidden', val.length === 0);
-      renderCoinsList(val);
-      dropdown.classList.remove('hidden');
-    });
-
-    // Enter key selects top result or custom coin
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        const firstItem = resultsContainer.querySelector('.search-coin-item');
-        if (firstItem) {
-          const pair = firstItem.getAttribute('data-pair');
-          if (pair) self.switchFullChartCoin(pair);
-        } else if (input.value.trim().length > 0) {
-          self.switchFullChartCoin(input.value.trim());
-        }
-        dropdown.classList.add('hidden');
-        input.blur();
-      } else if (e.key === 'Escape') {
-        dropdown.classList.add('hidden');
-        input.blur();
-      }
-    });
-
-    if (clearBtn) {
-      clearBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        input.value = '';
-        clearBtn.classList.add('hidden');
-        renderCoinsList('');
-        input.focus();
-      });
-    }
-
-    if (titleBtn) {
-      titleBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        input.focus();
-        input.select();
-        renderCoinsList(input.value);
-        dropdown.classList.remove('hidden');
-      });
-    }
-
-    // Close dropdown on outside click
-    document.addEventListener('click', (e) => {
-      if (!dropdown.contains(e.target) && !input.contains(e.target) && (!titleBtn || !titleBtn.contains(e.target))) {
-        dropdown.classList.add('hidden');
-      }
-    });
-  },
-
-  /**
-   * Switch active chart coin (Universal: Trend Trader + TradingView 2-Way Sync)
-   */
-  switchFullChartCoin: function (pairName) {
-    const cleanPair = this.formatPairDisplay(pairName);
-    if (!cleanPair) return;
-
-    this.fullChartPair = cleanPair;
-    this.currentTvSymbol = this.getTradingViewSymbol(cleanPair);
-
-    // Update UI headers & inputs
-    const coinTitle = document.getElementById('full-chart-coin-title');
-    if (coinTitle) coinTitle.innerText = cleanPair;
-    const searchInput = document.getElementById('chart-coin-search-input');
-    if (searchInput) searchInput.value = cleanPair;
-
-    this.updateQuickCoinPillsUI(cleanPair);
-
-    // If TradingView widget exists, synchronize it immediately
-    if (this.tvWidgetInstance && typeof this.tvWidgetInstance.setSymbol === 'function') {
-      try {
-        this.tvWidgetInstance.setSymbol(this.currentTvSymbol, this.fullChartInterval);
-      } catch (e) {
-        console.log('TV setSymbol note:', e);
-      }
-    }
-
-    // Render full chart (Trend Trader or TradingView)
-    this.renderFullChart(cleanPair, this.fullChartInterval);
-  },
-
-  /**
-   * Handle Symbol Change coming FROM TradingView embed -> Syncs Trend Trader
-   */
-  handleTradingViewSymbolChange: function (rawSym) {
-    if (!rawSym || typeof rawSym !== 'string') return;
-    const cleanPair = this.formatPairDisplay(rawSym);
-    if (!cleanPair || cleanPair === this.fullChartPair) return;
-
-    console.log(`[AlphaChart AI] TradingView symbol changed to: ${rawSym} -> ${cleanPair}`);
-    this.fullChartPair = cleanPair;
-    this.currentTvSymbol = this.getTradingViewSymbol(cleanPair);
-
-    // Update UI headers & inputs
-    const coinTitle = document.getElementById('full-chart-coin-title');
-    if (coinTitle) coinTitle.innerText = cleanPair;
-    const searchInput = document.getElementById('chart-coin-search-input');
-    if (searchInput) searchInput.value = cleanPair;
-
-    // Highlight quick pills
-    this.updateQuickCoinPillsUI(cleanPair);
-
-    // If Trend Trader view is active, immediately re-render chart with new coin's signals
-    if (this.fullChartMode === 'ttr') {
-      this.renderFullChart(cleanPair, this.fullChartInterval);
-    } else {
-      // Pre-warm Trend Trader candles in background so switching tab is instant
-      if (window.TrendTraderEngine && typeof window.TrendTraderEngine.fetchCandles === 'function') {
-        const tfCode = this.fullChartInterval === '60' ? '1h' : (this.fullChartInterval === '15' ? '15m' : '5m');
-        window.TrendTraderEngine.fetchCandles(cleanPair, tfCode);
-      }
-    }
-
-    if (window.App && typeof window.App.showToast === 'function') {
-      window.App.showToast(`Synced Trend Trader to ${cleanPair}`);
-    }
-  },
-
-  /**
-   * Retrieve active symbol from TradingView widget instance if available
-   */
-  getTradingViewCurrentSymbol: function () {
-    try {
-      if (this.tvWidgetInstance && typeof this.tvWidgetInstance.chart === 'function') {
-        const chart = this.tvWidgetInstance.chart();
-        if (chart && typeof chart.symbol === 'function') {
-          return chart.symbol();
-        }
-      }
-    } catch (e) { }
-    return null;
-  },
-
-  /**
    * Map asset symbol to TradingView format
    */
   getTradingViewSymbol: function (pairName) {
     if (!pairName || typeof pairName !== 'string') return 'BINANCE:BTCUSDT';
 
-    let raw = pairName.trim().toUpperCase();
-    if (raw.includes(':')) raw = raw.split(':')[1];
-    raw = raw.replace(/\.P$/i, '').replace(/PERP$/i, '').replace(/[\s\-_/]/g, '');
+    const raw = pairName.trim().toUpperCase().replace(/[\s\-_/]/g, '');
 
     // Gold / Commodities
     if (raw.includes('XAU') || raw.includes('GOLD')) {
@@ -1131,7 +751,7 @@ window.ScannerModule = {
       return `BINANCE:${base}USDT`;
     }
 
-    // Default crypto base token (e.g. "ENA", "BTC", "SOL", "ETH", "SUI", "NEAR") -> pair with USDT on Binance
+    // Default crypto base token (e.g. "ENA", "BTC", "SOL", "ETH") -> pair with USDT on Binance
     return `BINANCE:${raw}USDT`;
   },
 
@@ -1145,15 +765,20 @@ window.ScannerModule = {
     this.fullChartInterval = intv;
 
     // Highlight active quick coin chip
-    this.updateQuickCoinPillsUI(pair);
+    document.querySelectorAll('.btn-chart-quick-coin').forEach(btn => {
+      const p = btn.getAttribute('data-pair');
+      if (p === pair || (pair.startsWith('BTC') && p.startsWith('BTC')) || (pair.startsWith('ETH') && p.startsWith('ETH')) || (pair.startsWith('SOL') && p.startsWith('SOL')) || (pair.startsWith('AAVE') && p.startsWith('AAVE')) || (pair.startsWith('XRP') && p.startsWith('XRP')) || (pair.startsWith('DOGE') && p.startsWith('DOGE'))) {
+        btn.classList.add('bg-primary-container', 'text-black', 'border-primary-container');
+        btn.classList.remove('bg-[#1c1c1e]', 'text-white', 'border-white/10');
+      } else {
+        btn.classList.remove('bg-primary-container', 'text-black', 'border-primary-container');
+        btn.classList.add('bg-[#1c1c1e]', 'text-white', 'border-white/10');
+      }
+    });
 
     const coinTitle = document.getElementById('full-chart-coin-title');
     const priceDisplay = document.getElementById('full-chart-price-display');
-    const searchInput = document.getElementById('chart-coin-search-input');
-
     if (coinTitle) coinTitle.innerText = pair;
-    if (searchInput && searchInput !== document.activeElement) searchInput.value = pair;
-
     if (priceDisplay) {
       const tfLabel = intv === '5' ? '5-Minute' : intv === '15' ? '15-Minute' : '1-Hour';
       priceDisplay.innerText = `Real-time ${tfLabel} Candles • Live Streaming`;
@@ -1218,22 +843,22 @@ window.ScannerModule = {
         if (latestTag === 'BUY') {
           if (statusBadge) statusBadge.className = 'px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg bg-primary-container/20 border border-primary-container/50 text-primary-container font-bold text-[10px] sm:text-[11px] flex items-center gap-1.5 shadow-[0_0_12px_rgba(0,255,136,0.3)] max-w-full min-w-0 overflow-hidden';
           if (latestEvalTrade && latestEvalTrade.isWin && latestEvalTrade.tpTier && latestEvalTrade.tpTier.startsWith('TP')) {
-            if (statusText) statusText.innerText = `🟣 BUY TP Hit! (${latestEvalTrade.tpTier}) • Profit: +$${latestEvalTrade.pnl.toFixed(2)} • Breakeven Locked 🔒`;
+            if (statusText) statusText.innerText = `🟣 BUY TP Hit! (${latestEvalTrade.tpTier}) • Profit: +$${latestEvalTrade.pnl.toFixed(2)}`;
           } else {
             const entryP = candles[latestTagIndex].close;
             const tp1P = entryP * 1.002;
             const slP = entryP * 0.995;
-            if (statusText) statusText.innerText = `🟢 BUY Active ($${this.formatPrice(entryP)}) • TP1: $${this.formatPrice(tp1P)} (+2%) | SL: $${this.formatPrice(slP)} (-5%)`;
+            if (statusText) statusText.innerText = `🟢 BUY Active ($${entryP.toFixed(2)}) • TP1: $${tp1P.toFixed(2)} (+2%) | SL: $${slP.toFixed(2)} (-5%)`;
           }
         } else if (latestTag === 'SELL') {
           if (statusBadge) statusBadge.className = 'px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg bg-error/20 border border-error/50 text-error font-bold text-[10px] sm:text-[11px] flex items-center gap-1.5 shadow-[0_0_12px_rgba(255,51,102,0.3)] max-w-full min-w-0 overflow-hidden';
           if (latestEvalTrade && latestEvalTrade.isWin && latestEvalTrade.tpTier && latestEvalTrade.tpTier.startsWith('TP')) {
-            if (statusText) statusText.innerText = `🟣 SELL TP Hit! (${latestEvalTrade.tpTier}) • Profit: +$${latestEvalTrade.pnl.toFixed(2)} • Breakeven Locked 🔒`;
+            if (statusText) statusText.innerText = `🟣 SELL TP Hit! (${latestEvalTrade.tpTier}) • Profit: +$${latestEvalTrade.pnl.toFixed(2)}`;
           } else {
             const entryP = candles[latestTagIndex].close;
             const tp1P = entryP * 0.998;
             const slP = entryP * 1.005;
-            if (statusText) statusText.innerText = `🔴 SELL Active ($${this.formatPrice(entryP)}) • TP1: $${this.formatPrice(tp1P)} (+2%) | SL: $${this.formatPrice(slP)} (-5%)`;
+            if (statusText) statusText.innerText = `🔴 SELL Active ($${entryP.toFixed(2)}) • TP1: $${tp1P.toFixed(2)} (+2%) | SL: $${slP.toFixed(2)} (-5%)`;
           }
         } else {
           if (statusBadge) statusBadge.className = 'px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg bg-white/5 border border-white/10 text-on-surface-variant font-bold text-[10px] sm:text-[11px] flex items-center gap-1.5 max-w-full min-w-0 overflow-hidden';
@@ -1284,8 +909,7 @@ window.ScannerModule = {
       tvContainer.innerHTML = '';
 
       if (window.TradingView && window.TradingView.widget) {
-        const self = this;
-        this.tvWidgetInstance = new window.TradingView.widget({
+        new window.TradingView.widget({
           autosize: true,
           symbol: tvSymbol,
           interval: intv,
@@ -1317,25 +941,6 @@ window.ScannerModule = {
           withdateranges: true, // Bottom date range selectors (1D, 5D, 1M, 1Y, ALL)
           container_id: "full-chart-tv-container"
         });
-
-        // Listen for internal symbol changes within the TradingView embed
-        try {
-          if (typeof this.tvWidgetInstance.onChartReady === 'function') {
-            this.tvWidgetInstance.onChartReady(() => {
-              try {
-                const chart = self.tvWidgetInstance.chart();
-                if (chart && typeof chart.onSymbolChanged === 'function') {
-                  chart.onSymbolChanged().subscribe(null, (symbolInfo) => {
-                    const rawSym = (symbolInfo && (symbolInfo.name || symbolInfo.ticker || symbolInfo.pro_name)) || '';
-                    if (rawSym) self.handleTradingViewSymbolChange(rawSym);
-                  });
-                }
-              } catch (subErr) {
-                console.log('TV onSymbolChanged subscription notice:', subErr);
-              }
-            });
-          }
-        } catch (e) { }
       }
 
       // Smooth loader fade-out once iframe is styled and paints
