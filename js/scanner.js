@@ -752,17 +752,16 @@ window.ScannerModule = {
       }
     }
 
-    // Crypto Pairs
-    if (raw.endsWith('USDT') || raw.endsWith('USDC') || raw.endsWith('BUSD')) {
-      return `BINANCE:${raw}`;
+    // Crypto Perpetual Futures on Binance (always .P on TradingView, e.g. BINANCE:BTCUSDT.P)
+    let cryptoSym = raw;
+    if (cryptoSym.endsWith('USD') && !cryptoSym.endsWith('USDT') && !cryptoSym.endsWith('BUSD') && !cryptoSym.endsWith('USDC')) {
+      cryptoSym = `${cryptoSym.replace(/USD$/, '')}USDT`;
     }
-    if (raw.endsWith('USD')) {
-      const base = raw.replace(/USD$/, '');
-      return `BINANCE:${base}USDT`;
+    if (!cryptoSym.endsWith('USDT') && !cryptoSym.endsWith('BUSD') && !cryptoSym.endsWith('USDC')) {
+      cryptoSym = `${cryptoSym}USDT`;
     }
-
-    // Default crypto base token (e.g. "ENA", "BTC", "SOL", "ETH") -> pair with USDT on Binance
-    return `BINANCE:${raw}USDT`;
+    cryptoSym = cryptoSym.replace(/\.P$/i, '').replace(/PERP$/i, '');
+    return `BINANCE:${cryptoSym}.P`;
   },
 
   /**
@@ -771,7 +770,8 @@ window.ScannerModule = {
   switchFullChartCoin: function (pair) {
     if (!pair) return;
     this.fullChartPair = pair;
-    const clean = pair.replace(/[\s\-_/]/g, '').toUpperCase();
+    let clean = pair.replace(/[\s\-_/]/g, '').toUpperCase();
+    if (!clean.endsWith('.P')) clean = `${clean}.P`;
     const titleEl = document.getElementById('full-chart-coin-title');
     if (titleEl) titleEl.innerText = clean;
     this.renderFullChart(pair, this.fullChartInterval);
@@ -801,12 +801,13 @@ window.ScannerModule = {
     const coinTitle = document.getElementById('full-chart-coin-title');
     const priceDisplay = document.getElementById('full-chart-price-display');
     if (coinTitle) {
-      const clean = pair.replace(/[\s\-_/]/g, '').toUpperCase();
+      let clean = pair.replace(/[\s\-_/]/g, '').toUpperCase();
+      if (!clean.endsWith('.P')) clean = `${clean}.P`;
       coinTitle.innerText = clean;
     }
     if (priceDisplay) {
       const tfLabel = intv === '5' ? '5-Minute' : intv === '15' ? '15-Minute' : '1-Hour';
-      priceDisplay.innerText = `Real-time ${tfLabel} Candles • Live Streaming`;
+      priceDisplay.innerText = `Futures ${tfLabel} Candles • Live Perpetual Engine`;
     }
 
     this.updateTimeframeButtonsUI(intv);

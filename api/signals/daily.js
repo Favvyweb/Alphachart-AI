@@ -302,11 +302,23 @@ async function fetchAndEvaluateDay(cleanPair, timeframe, dateKey, dayNames) {
   const warmupMs = 50 * intervalMs;
   const fetchStartMs = dayStartMs - warmupMs;
 
-  const binanceUrl = `https://data-api.binance.vision/api/v3/klines?symbol=${cleanPair}&interval=${timeframe}&startTime=${fetchStartMs}&endTime=${dayEndMs}&limit=1000`;
-  const binanceRes = await fetch(binanceUrl);
-  if (!binanceRes.ok) throw new Error(`Binance error ${binanceRes.status}`);
+  let raw = null;
+  // Query Binance USDⓈ-M Futures (fapi) as primary endpoint for genuine Futures signals
+  const futuresUrl = `https://fapi.binance.com/fapi/v1/klines?symbol=${cleanPair}&interval=${timeframe}&startTime=${fetchStartMs}&endTime=${dayEndMs}&limit=1000`;
+  try {
+    const fRes = await fetch(futuresUrl);
+    if (fRes.ok) {
+      const data = await fRes.json();
+      if (Array.isArray(data) && data.length > 5) raw = data;
+    }
+  } catch (e) { }
 
-  const raw = await binanceRes.json();
+  if (!raw) {
+    const binanceUrl = `https://data-api.binance.vision/api/v3/klines?symbol=${cleanPair}&interval=${timeframe}&startTime=${fetchStartMs}&endTime=${dayEndMs}&limit=1000`;
+    const binanceRes = await fetch(binanceUrl);
+    if (!binanceRes.ok) throw new Error(`Binance error ${binanceRes.status}`);
+    raw = await binanceRes.json();
+  }
   const candles = raw.map(k => ({
     time: Math.floor(k[0] / 1000),
     open: parseFloat(k[1]),

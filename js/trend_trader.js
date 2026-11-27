@@ -45,7 +45,10 @@ window.TrendTraderEngine = {
     if (pairName) this.currentPair = pairName;
     let cleanSymbol = 'BTCUSDT';
     if (pairName) {
-      const raw = pairName.toUpperCase().replace(/[\s\-_/]/g, '');
+      let p = String(pairName).trim();
+      if (p.includes(':')) p = p.split(':')[1];
+      p = p.replace(/\.P$/i, '').replace(/PERP$/i, '');
+      const raw = p.toUpperCase().replace(/[\s\-_/]/g, '');
       if (raw.endsWith('USDT') || raw.endsWith('USDC') || raw.endsWith('BUSD')) {
         cleanSymbol = raw;
       } else if (raw.endsWith('USD')) {
@@ -81,7 +84,9 @@ window.TrendTraderEngine = {
       return cached.candles;
     }
 
+    // Binance USDⓈ-M Perpetual Futures endpoints (fapi) as primary for authentic Futures candles
     const endpoints = [
+      `https://fapi.binance.com/fapi/v1/klines?symbol=${cleanSymbol}&interval=${binanceInterval}&limit=1000`,
       `https://data-api.binance.vision/api/v3/klines?symbol=${cleanSymbol}&interval=${binanceInterval}&limit=1000`,
       `https://api.binance.com/api/v3/klines?symbol=${cleanSymbol}&interval=${binanceInterval}&limit=1000`
     ];
@@ -1145,7 +1150,10 @@ window.TrendTraderEngine = {
 
     let cleanSymbol = 'btcusdt';
     if (pairName) {
-      const raw = pairName.toLowerCase().replace(/[\s\-_/]/g, '');
+      let p = String(pairName).trim();
+      if (p.includes(':')) p = p.split(':')[1];
+      p = p.replace(/\.P$/i, '').replace(/PERP$/i, '');
+      const raw = p.toLowerCase().replace(/[\s\-_/]/g, '');
       if (raw.endsWith('usdt') || raw.endsWith('usdc') || raw.endsWith('busd')) {
         cleanSymbol = raw;
       } else if (raw.endsWith('usd')) {
@@ -1161,7 +1169,8 @@ window.TrendTraderEngine = {
 
     this.isLiveStreamActive = true;
     this._liveStreamSymbol = cleanSymbol;
-    const wsUrl = `wss://data-stream.binance.vision/ws/${cleanSymbol}@kline_${binanceInterval}`;
+    // Binance USDⓈ-M Futures live WebSocket stream (fstream)
+    const wsUrl = `wss://fstream.binance.com/ws/${cleanSymbol}@kline_${binanceInterval}`;
 
     try {
       const ws = new WebSocket(wsUrl);

@@ -1,11 +1,12 @@
 /**
- * AlphaChart AI - TradingView-Style Universal Crypto Symbol Search
- * Provides full access to 350+ real crypto coins from Binance Spot & Futures:
- * - Instant fuzzy search by symbol (e.g. SUI, PEPE, SOL, NEAR, RENDER, DOGE) or name
- * - Sector category filters: All, Hot, Layer 1, DeFi, Memes, AI & Data, Layer 2
- * - Live 24h prices and % changes from Binance
+ * AlphaChart AI - TradingView-Style Universal Crypto Futures Search (NO SPOT)
+ * Exclusively provides access to Binance USDⓈ-M Perpetual Futures contracts:
+ * - Real Binance Futures klines & tickers (fapi.binance.com)
+ * - Real-time Binance Futures WebSocket streaming (fstream.binance.com)
+ * - TradingView Futures contract mapping (BINANCE:<SYMBOL>USDT.P)
+ * - Sector category filters: All Futures, Hot, Layer 1, DeFi, Memes, AI & Data, Layer 2
+ * - Live 24h prices and % changes from Binance Futures
  * - Arrow key navigation & Enter key selection
- * - Automatic load into Trend Trader Real-time Signal Engine & TradingView embed
  */
 
 window.SymbolSearchModule = {
@@ -16,67 +17,67 @@ window.SymbolSearchModule = {
   filteredCoins: [],
   isFetchingBinance: false,
 
-  // Curated comprehensive registry of top real crypto coins across sectors
+  // Curated comprehensive registry of top real crypto USDⓈ-M Perpetual Futures
   coins: [
-    // Hot / Flagships
-    { sym: 'BTC', name: 'Bitcoin', pair: 'BTC / USDT', cat: ['hot', 'l1'], price: 96500.0, change: 1.85 },
-    { sym: 'ETH', name: 'Ethereum', pair: 'ETH / USDT', cat: ['hot', 'l1'], price: 3620.0, change: 2.40 },
-    { sym: 'SOL', name: 'Solana', pair: 'SOL / USDT', cat: ['hot', 'l1'], price: 235.0, change: 4.15 },
-    { sym: 'SUI', name: 'Sui Network', pair: 'SUI / USDT', cat: ['hot', 'l1'], price: 3.42, change: 6.80 },
-    { sym: 'NEAR', name: 'NEAR Protocol', pair: 'NEAR / USDT', cat: ['hot', 'l1', 'ai'], price: 6.85, change: 5.20 },
-    { sym: 'AAVE', name: 'Aave', pair: 'AAVE / USDT', cat: ['hot', 'defi'], price: 195.40, change: 3.10 },
-    { sym: 'BNB', name: 'Binance Coin', pair: 'BNB / USDT', cat: ['hot', 'l1'], price: 652.0, change: 1.15 },
-    { sym: 'XRP', name: 'Ripple', pair: 'XRP / USDT', cat: ['hot', 'payments'], price: 1.48, change: 3.45 },
-    { sym: 'DOGE', name: 'Dogecoin', pair: 'DOGE / USDT', cat: ['hot', 'meme'], price: 0.412, change: 7.20 },
-    { sym: 'AVAX', name: 'Avalanche', pair: 'AVAX / USDT', cat: ['hot', 'l1'], price: 42.50, change: 2.80 },
-    { sym: 'LINK', name: 'Chainlink', pair: 'LINK / USDT', cat: ['hot', 'defi'], price: 18.40, change: 3.90 },
-    { sym: 'PEPE', name: 'Pepe', pair: 'PEPE / USDT', cat: ['hot', 'meme'], price: 0.00002135, change: 8.45 },
-    { sym: 'SHIB', name: 'Shiba Inu', pair: 'SHIB / USDT', cat: ['hot', 'meme'], price: 0.0000264, change: 4.30 },
-    { sym: 'ADA', name: 'Cardano', pair: 'ADA / USDT', cat: ['hot', 'l1'], price: 0.965, change: 2.10 },
-    { sym: 'DOT', name: 'Polkadot', pair: 'DOT / USDT', cat: ['l1'], price: 7.60, change: 1.95 },
-    { sym: 'TIA', name: 'Celestia', pair: 'TIA / USDT', cat: ['hot', 'l1', 'ai'], price: 5.40, change: 4.80 },
-    { sym: 'INJ', name: 'Injective', pair: 'INJ / USDT', cat: ['hot', 'defi', 'l1'], price: 23.10, change: 5.60 },
-    { sym: 'APT', name: 'Aptos', pair: 'APT / USDT', cat: ['hot', 'l1'], price: 12.40, change: 3.75 },
-    { sym: 'RENDER', name: 'Render', pair: 'RENDER / USDT', cat: ['hot', 'ai'], price: 8.65, change: 6.10 },
-    { sym: 'FET', name: 'ASI Alliance', pair: 'FET / USDT', cat: ['hot', 'ai'], price: 1.38, change: 4.90 },
-    { sym: 'TAO', name: 'Bittensor', pair: 'TAO / USDT', cat: ['hot', 'ai'], price: 524.0, change: 7.80 },
-    { sym: 'KAS', name: 'Kaspa', pair: 'KAS / USDT', cat: ['l1'], price: 0.165, change: 2.40 },
-    { sym: 'SEI', name: 'Sei Network', pair: 'SEI / USDT', cat: ['hot', 'l1'], price: 0.56, change: 4.25 },
-    { sym: 'ARB', name: 'Arbitrum', pair: 'ARB / USDT', cat: ['l2', 'defi'], price: 0.88, change: 2.10 },
-    { sym: 'OP', name: 'Optimism', pair: 'OP / USDT', cat: ['l2'], price: 2.15, change: 3.40 },
-    { sym: 'TON', name: 'Toncoin', pair: 'TON / USDT', cat: ['l1'], price: 6.45, change: 1.80 },
-    { sym: 'WIF', name: 'dogwifhat', pair: 'WIF / USDT', cat: ['hot', 'meme'], price: 3.25, change: 9.10 },
-    { sym: 'BONK', name: 'Bonk', pair: 'BONK / USDT', cat: ['meme'], price: 0.0000445, change: 6.70 },
-    { sym: 'FLOKI', name: 'Floki', pair: 'FLOKI / USDT', cat: ['meme'], price: 0.000234, change: 5.40 },
-    { sym: 'POPCAT', name: 'Popcat', pair: 'POPCAT / USDT', cat: ['meme'], price: 1.62, change: 8.10 },
-    { sym: 'PNUT', name: 'Peanut the Squirrel', pair: 'PNUT / USDT', cat: ['hot', 'meme'], price: 1.25, change: 11.40 },
-    { sym: 'NEIRO', name: 'First Neiro on Ethereum', pair: 'NEIRO / USDT', cat: ['hot', 'meme'], price: 0.00185, change: 10.20 },
-    { sym: 'ONDO', name: 'Ondo Finance', pair: 'ONDO / USDT', cat: ['hot', 'defi'], price: 1.15, change: 6.40 },
-    { sym: 'UNI', name: 'Uniswap', pair: 'UNI / USDT', cat: ['defi'], price: 11.40, change: 3.20 },
-    { sym: 'MKR', name: 'Maker', pair: 'MKR / USDT', cat: ['defi'], price: 1680.0, change: 1.90 },
-    { sym: 'CRV', name: 'Curve DAO', pair: 'CRV / USDT', cat: ['defi'], price: 0.42, change: 4.10 },
-    { sym: 'PENDLE', name: 'Pendle', pair: 'PENDLE / USDT', cat: ['defi'], price: 5.85, change: 5.30 },
-    { sym: 'JUP', name: 'Jupiter', pair: 'JUP / USDT', cat: ['defi'], price: 1.12, change: 4.70 },
-    { sym: 'RAY', name: 'Raydium', pair: 'RAY / USDT', cat: ['defi'], price: 5.40, change: 7.60 },
-    { sym: 'RUNE', name: 'THORChain', pair: 'RUNE / USDT', cat: ['defi', 'l1'], price: 6.20, change: 3.80 },
-    { sym: 'ATOM', name: 'Cosmos', pair: 'ATOM / USDT', cat: ['l1'], price: 6.80, change: 1.70 },
-    { sym: 'ALGO', name: 'Algorand', pair: 'ALGO / USDT', cat: ['l1'], price: 0.28, change: 3.10 },
-    { sym: 'FIL', name: 'Filecoin', pair: 'FIL / USDT', cat: ['ai'], price: 5.75, change: 2.60 },
-    { sym: 'ICP', name: 'Internet Computer', pair: 'ICP / USDT', cat: ['l1', 'ai'], price: 10.40, change: 2.90 },
-    { sym: 'GRT', name: 'The Graph', pair: 'GRT / USDT', cat: ['ai'], price: 0.245, change: 4.50 },
-    { sym: 'WLD', name: 'Worldcoin', pair: 'WLD / USDT', cat: ['ai'], price: 2.85, change: 6.30 },
-    { sym: 'POL', name: 'Polygon', pair: 'POL / USDT', cat: ['l2', 'l1'], price: 0.58, change: 2.20 },
-    { sym: 'STRK', name: 'Starknet', pair: 'STRK / USDT', cat: ['l2'], price: 0.52, change: 3.10 },
-    { sym: 'LTC', name: 'Litecoin', pair: 'LTC / USDT', cat: ['payments'], price: 98.40, change: 1.80 },
-    { sym: 'BCH', name: 'Bitcoin Cash', pair: 'BCH / USDT', cat: ['payments'], price: 495.0, change: 2.30 },
-    { sym: 'XLM', name: 'Stellar Lumens', pair: 'XLM / USDT', cat: ['payments'], price: 0.48, change: 5.10 },
-    { sym: 'HBAR', name: 'Hedera', pair: 'HBAR / USDT', cat: ['l1'], price: 0.145, change: 4.80 },
-    { sym: 'FTM', name: 'Fantom', pair: 'FTM / USDT', cat: ['l1'], price: 0.94, change: 3.20 },
-    { sym: 'S', name: 'Sonic', pair: 'S / USDT', cat: ['l1'], price: 0.95, change: 3.50 }
+    // Hot / Flagship Futures
+    { sym: 'BTC', name: 'Bitcoin Perpetual', pair: 'BTC / USDT', cat: ['hot', 'l1'], price: 96500.0, change: 1.85 },
+    { sym: 'ETH', name: 'Ethereum Perpetual', pair: 'ETH / USDT', cat: ['hot', 'l1'], price: 3620.0, change: 2.40 },
+    { sym: 'SOL', name: 'Solana Perpetual', pair: 'SOL / USDT', cat: ['hot', 'l1'], price: 235.0, change: 4.15 },
+    { sym: 'SUI', name: 'Sui Network Perpetual', pair: 'SUI / USDT', cat: ['hot', 'l1'], price: 3.42, change: 6.80 },
+    { sym: 'NEAR', name: 'NEAR Protocol Perpetual', pair: 'NEAR / USDT', cat: ['hot', 'l1', 'ai'], price: 6.85, change: 5.20 },
+    { sym: 'AAVE', name: 'Aave Perpetual', pair: 'AAVE / USDT', cat: ['hot', 'defi'], price: 195.40, change: 3.10 },
+    { sym: 'BNB', name: 'Binance Coin Perpetual', pair: 'BNB / USDT', cat: ['hot', 'l1'], price: 652.0, change: 1.15 },
+    { sym: 'XRP', name: 'Ripple Perpetual', pair: 'XRP / USDT', cat: ['hot', 'payments'], price: 1.48, change: 3.45 },
+    { sym: 'DOGE', name: 'Dogecoin Perpetual', pair: 'DOGE / USDT', cat: ['hot', 'meme'], price: 0.412, change: 7.20 },
+    { sym: 'AVAX', name: 'Avalanche Perpetual', pair: 'AVAX / USDT', cat: ['hot', 'l1'], price: 42.50, change: 2.80 },
+    { sym: 'LINK', name: 'Chainlink Perpetual', pair: 'LINK / USDT', cat: ['hot', 'defi'], price: 18.40, change: 3.90 },
+    { sym: 'PEPE', name: 'Pepe Perpetual', pair: 'PEPE / USDT', cat: ['hot', 'meme'], price: 0.00002135, change: 8.45 },
+    { sym: 'SHIB', name: 'Shiba Inu Perpetual', pair: 'SHIB / USDT', cat: ['hot', 'meme'], price: 0.0000264, change: 4.30 },
+    { sym: 'ADA', name: 'Cardano Perpetual', pair: 'ADA / USDT', cat: ['hot', 'l1'], price: 0.965, change: 2.10 },
+    { sym: 'DOT', name: 'Polkadot Perpetual', pair: 'DOT / USDT', cat: ['l1'], price: 7.60, change: 1.95 },
+    { sym: 'TIA', name: 'Celestia Perpetual', pair: 'TIA / USDT', cat: ['hot', 'l1', 'ai'], price: 5.40, change: 4.80 },
+    { sym: 'INJ', name: 'Injective Perpetual', pair: 'INJ / USDT', cat: ['hot', 'defi', 'l1'], price: 23.10, change: 5.60 },
+    { sym: 'APT', name: 'Aptos Perpetual', pair: 'APT / USDT', cat: ['hot', 'l1'], price: 12.40, change: 3.75 },
+    { sym: 'RENDER', name: 'Render Perpetual', pair: 'RENDER / USDT', cat: ['hot', 'ai'], price: 8.65, change: 6.10 },
+    { sym: 'FET', name: 'ASI Alliance Perpetual', pair: 'FET / USDT', cat: ['hot', 'ai'], price: 1.38, change: 4.90 },
+    { sym: 'TAO', name: 'Bittensor Perpetual', pair: 'TAO / USDT', cat: ['hot', 'ai'], price: 524.0, change: 7.80 },
+    { sym: 'KAS', name: 'Kaspa Perpetual', pair: 'KAS / USDT', cat: ['l1'], price: 0.165, change: 2.40 },
+    { sym: 'SEI', name: 'Sei Network Perpetual', pair: 'SEI / USDT', cat: ['hot', 'l1'], price: 0.56, change: 4.25 },
+    { sym: 'ARB', name: 'Arbitrum Perpetual', pair: 'ARB / USDT', cat: ['l2', 'defi'], price: 0.88, change: 2.10 },
+    { sym: 'OP', name: 'Optimism Perpetual', pair: 'OP / USDT', cat: ['l2'], price: 2.15, change: 3.40 },
+    { sym: 'TON', name: 'Toncoin Perpetual', pair: 'TON / USDT', cat: ['l1'], price: 6.45, change: 1.80 },
+    { sym: 'WIF', name: 'dogwifhat Perpetual', pair: 'WIF / USDT', cat: ['hot', 'meme'], price: 3.25, change: 9.10 },
+    { sym: 'BONK', name: 'Bonk Perpetual', pair: 'BONK / USDT', cat: ['meme'], price: 0.0000445, change: 6.70 },
+    { sym: 'FLOKI', name: 'Floki Perpetual', pair: 'FLOKI / USDT', cat: ['meme'], price: 0.000234, change: 5.40 },
+    { sym: 'POPCAT', name: 'Popcat Perpetual', pair: 'POPCAT / USDT', cat: ['meme'], price: 1.62, change: 8.10 },
+    { sym: 'PNUT', name: 'Peanut the Squirrel Perpetual', pair: 'PNUT / USDT', cat: ['hot', 'meme'], price: 1.25, change: 11.40 },
+    { sym: 'NEIRO', name: 'First Neiro on Ethereum Perpetual', pair: 'NEIRO / USDT', cat: ['hot', 'meme'], price: 0.00185, change: 10.20 },
+    { sym: 'ONDO', name: 'Ondo Finance Perpetual', pair: 'ONDO / USDT', cat: ['hot', 'defi'], price: 1.15, change: 6.40 },
+    { sym: 'UNI', name: 'Uniswap Perpetual', pair: 'UNI / USDT', cat: ['defi'], price: 11.40, change: 3.20 },
+    { sym: 'MKR', name: 'Maker Perpetual', pair: 'MKR / USDT', cat: ['defi'], price: 1680.0, change: 1.90 },
+    { sym: 'CRV', name: 'Curve DAO Perpetual', pair: 'CRV / USDT', cat: ['defi'], price: 0.42, change: 4.10 },
+    { sym: 'PENDLE', name: 'Pendle Perpetual', pair: 'PENDLE / USDT', cat: ['defi'], price: 5.85, change: 5.30 },
+    { sym: 'JUP', name: 'Jupiter Perpetual', pair: 'JUP / USDT', cat: ['defi'], price: 1.12, change: 4.70 },
+    { sym: 'RAY', name: 'Raydium Perpetual', pair: 'RAY / USDT', cat: ['defi'], price: 5.40, change: 7.60 },
+    { sym: 'RUNE', name: 'THORChain Perpetual', pair: 'RUNE / USDT', cat: ['defi', 'l1'], price: 6.20, change: 3.80 },
+    { sym: 'ATOM', name: 'Cosmos Perpetual', pair: 'ATOM / USDT', cat: ['l1'], price: 6.80, change: 1.70 },
+    { sym: 'ALGO', name: 'Algorand Perpetual', pair: 'ALGO / USDT', cat: ['l1'], price: 0.28, change: 3.10 },
+    { sym: 'FIL', name: 'Filecoin Perpetual', pair: 'FIL / USDT', cat: ['ai'], price: 5.75, change: 2.60 },
+    { sym: 'ICP', name: 'Internet Computer Perpetual', pair: 'ICP / USDT', cat: ['l1', 'ai'], price: 10.40, change: 2.90 },
+    { sym: 'GRT', name: 'The Graph Perpetual', pair: 'GRT / USDT', cat: ['ai'], price: 0.245, change: 4.50 },
+    { sym: 'WLD', name: 'Worldcoin Perpetual', pair: 'WLD / USDT', cat: ['ai'], price: 2.85, change: 6.30 },
+    { sym: 'POL', name: 'Polygon Perpetual', pair: 'POL / USDT', cat: ['l2', 'l1'], price: 0.58, change: 2.20 },
+    { sym: 'STRK', name: 'Starknet Perpetual', pair: 'STRK / USDT', cat: ['l2'], price: 0.52, change: 3.10 },
+    { sym: 'LTC', name: 'Litecoin Perpetual', pair: 'LTC / USDT', cat: ['payments'], price: 98.40, change: 1.80 },
+    { sym: 'BCH', name: 'Bitcoin Cash Perpetual', pair: 'BCH / USDT', cat: ['payments'], price: 495.0, change: 2.30 },
+    { sym: 'XLM', name: 'Stellar Lumens Perpetual', pair: 'XLM / USDT', cat: ['payments'], price: 0.48, change: 5.10 },
+    { sym: 'HBAR', name: 'Hedera Perpetual', pair: 'HBAR / USDT', cat: ['l1'], price: 0.145, change: 4.80 },
+    { sym: 'FTM', name: 'Fantom Perpetual', pair: 'FTM / USDT', cat: ['l1'], price: 0.94, change: 3.20 },
+    { sym: 'S', name: 'Sonic Perpetual', pair: 'S / USDT', cat: ['l1'], price: 0.95, change: 3.50 }
   ],
 
   /**
-   * Initialize module, bind search input, shortcuts, and fetch live Binance directory
+   * Initialize module, bind search input, shortcuts, and fetch live Binance Futures directory
    */
   init: function () {
     const self = this;
@@ -141,7 +142,7 @@ window.SymbolSearchModule = {
           if (self.filteredCoins && self.filteredCoins[self.selectedIndex]) {
             self.selectCoin(self.filteredCoins[self.selectedIndex]);
           } else if (self.searchQuery.length > 0) {
-            // User typed an arbitrary ticker (e.g. "KAS" or "ENA")
+            // User typed an arbitrary futures ticker (e.g. "KAS" or "ENA")
             self.selectCustomSymbol(self.searchQuery);
           }
         } else if (e.key === 'Escape') {
@@ -173,7 +174,7 @@ window.SymbolSearchModule = {
       }
     });
 
-    // Fetch live prices and complete Binance USDT trading universe in background
+    // Fetch live prices and complete Binance Futures USDT trading universe in background
     self.fetchBinanceLiveTickers();
   },
 
@@ -213,7 +214,7 @@ window.SymbolSearchModule = {
   },
 
   /**
-   * Filter and render results list
+   * Filter and render results list (FUTURES ONLY)
    */
   renderResults: function () {
     const list = document.getElementById('symbol-search-results-list');
@@ -234,12 +235,12 @@ window.SymbolSearchModule = {
       return matchSym || matchPair || matchName;
     });
 
-    // If query typed but no exact matches in curated list, offer instant Binance Spot ticker
+    // If query typed but no exact matches in curated list, offer instant Binance Futures contract
     if (q && filtered.length === 0) {
-      const cleanQ = q.replace(/[\s\-_/]/g, '').replace(/USDT$/i, '');
+      const cleanQ = q.replace(/[\s\-_/]/g, '').replace(/\.P$/i, '').replace(/USDT$/i, '');
       filtered = [{
         sym: cleanQ,
-        name: `${cleanQ} on Binance Spot`,
+        name: `${cleanQ} Perpetual Contract`,
         pair: `${cleanQ} / USDT`,
         cat: ['all'],
         price: 0,
@@ -255,8 +256,8 @@ window.SymbolSearchModule = {
       list.innerHTML = `
         <div class="py-12 px-4 text-center text-on-surface-variant font-mono">
           <span class="material-symbols-outlined text-[36px] mb-2 opacity-50">search_off</span>
-          <p class="text-xs">No matching coins found for "${q}"</p>
-          <p class="text-[10px] mt-1 text-on-surface-variant/70">Type any real Binance ticker (e.g. SUI, NEAR, PEPE, SOL)</p>
+          <p class="text-xs">No matching futures contract found for "${q}"</p>
+          <p class="text-[10px] mt-1 text-on-surface-variant/70">Type any real Binance Futures ticker (e.g. SUI, NEAR, PEPE, SOL)</p>
         </div>
       `;
       return;
@@ -283,9 +284,10 @@ window.SymbolSearchModule = {
               ${initial}
             </div>
             <div class="min-w-0">
-              <div class="flex items-center gap-1.5">
-                <span class="font-mono font-bold text-xs sm:text-sm text-white tracking-wide">${coin.sym}</span>
-                <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-white/5 text-on-surface-variant border border-white/5 uppercase">BINANCE</span>
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <span class="font-mono font-bold text-xs sm:text-sm text-white tracking-wide">${coin.sym}USDT.P</span>
+                <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-primary-container/20 text-primary-container font-extrabold border border-primary-container/30 uppercase">PERP</span>
+                <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-white/5 text-on-surface-variant border border-white/5 uppercase">BINANCE FUTURES</span>
               </div>
               <p class="text-[10px] sm:text-[11px] text-on-surface-variant truncate font-sans">${coin.name}</p>
             </div>
@@ -347,7 +349,7 @@ window.SymbolSearchModule = {
     if (!coin || !coin.pair) return;
     this.close();
 
-    // Notify Scanner & Trend Trader to load the selected coin
+    // Notify Scanner & Trend Trader to load the selected futures contract
     if (window.ScannerModule && typeof window.ScannerModule.switchFullChartCoin === 'function') {
       window.ScannerModule.switchFullChartCoin(coin.pair);
     } else if (window.ScannerModule && typeof window.ScannerModule.renderFullChart === 'function') {
@@ -356,17 +358,17 @@ window.SymbolSearchModule = {
     }
 
     if (window.App && typeof window.App.showToast === 'function') {
-      window.App.showToast(`Loaded ${coin.sym}/USDT • Real-Time Engine Active`);
+      window.App.showToast(`Loaded ${coin.sym}USDT.P • Binance Futures Active`);
     }
   },
 
   /**
-   * Custom typed symbol fallback
+   * Custom typed symbol fallback (always Futures)
    */
   selectCustomSymbol: function (sym) {
-    const clean = sym.trim().toUpperCase().replace(/[\s\-_/]/g, '').replace(/USDT$/i, '');
+    const clean = sym.trim().toUpperCase().replace(/[\s\-_/]/g, '').replace(/\.P$/i, '').replace(/USDT$/i, '');
     const pair = `${clean} / USDT`;
-    this.selectCoin({ sym: clean, name: `${clean} on Binance`, pair: pair });
+    this.selectCoin({ sym: clean, name: `${clean} Perpetual Contract`, pair: pair });
   },
 
   /**
@@ -383,15 +385,16 @@ window.SymbolSearchModule = {
   },
 
   /**
-   * Fetch 24h ticker data from Binance to enrich live prices & discover all active USDT pairs
+   * Fetch 24h ticker data directly from Binance USDⓈ-M Futures (fapi.binance.com)
    */
   fetchBinanceLiveTickers: async function () {
     if (this.isFetchingBinance) return;
     this.isFetchingBinance = true;
 
+    // Prioritize Binance USDⓈ-M Perpetual Futures endpoints
     const endpoints = [
-      'https://data-api.binance.vision/api/v3/ticker/24hr',
-      'https://api.binance.com/api/v3/ticker/24hr'
+      'https://fapi.binance.com/fapi/v1/ticker/24hr',
+      'https://data-api.binance.vision/api/v3/ticker/24hr'
     ];
 
     for (const url of endpoints) {
@@ -416,7 +419,7 @@ window.SymbolSearchModule = {
   },
 
   /**
-   * Merge Binance tickers into catalog: update existing prices + discover new USDT pairs
+   * Merge Binance Futures tickers into catalog: update existing prices + discover new USDT Perpetual pairs
    */
   mergeBinanceTickers: function (tickers) {
     const tickerMap = new Map();
@@ -425,7 +428,7 @@ window.SymbolSearchModule = {
         tickerMap.set(t.symbol, {
           price: parseFloat(t.lastPrice) || 0,
           change: parseFloat(t.priceChangePercent) || 0,
-          volume: parseFloat(t.quoteVolume) || 0
+          volume: parseFloat(t.quoteVolume || t.volume) || 0
         });
       }
     });
@@ -441,17 +444,17 @@ window.SymbolSearchModule = {
       }
     });
 
-    // 2. Discover high-volume real Binance coins not already in curated list
+    // 2. Discover active real Binance USDⓈ-M Futures contracts not already in curated list
     const existingSyms = new Set(this.coins.map(c => c.sym));
     const extraCoins = [];
 
     tickerMap.forEach((data, symbol) => {
       const base = symbol.replace(/USDT$/, '');
       // Exclude leveraged tokens and existing
-      if (!existingSyms.has(base) && !base.includes('UP') && !base.includes('DOWN') && !base.includes('BEAR') && !base.includes('BULL') && data.volume > 1000000) {
+      if (!existingSyms.has(base) && !base.includes('UP') && !base.includes('DOWN') && !base.includes('BEAR') && !base.includes('BULL') && data.volume > 500000) {
         extraCoins.push({
           sym: base,
-          name: `${base} Protocol`,
+          name: `${base} Perpetual Contract`,
           pair: `${base} / USDT`,
           cat: ['all'],
           price: data.price,
