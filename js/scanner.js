@@ -754,32 +754,52 @@ window.ScannerModule = {
       }
     }
 
-    // Crypto Perpetual Futures on Binance (always .P on TradingView, e.g. BINANCE:BTCUSDT.P)
-    let cryptoSym = raw;
-    if (cryptoSym.endsWith('USD') && !cryptoSym.endsWith('USDT') && !cryptoSym.endsWith('BUSD') && !cryptoSym.endsWith('USDC')) {
-      cryptoSym = `${cryptoSym.replace(/USD$/, '')}USDT`;
-    }
-    if (!cryptoSym.endsWith('USDT') && !cryptoSym.endsWith('BUSD') && !cryptoSym.endsWith('USDC')) {
+    // Crypto Multi-Exchange mapping (BYBIT, BINANCE, GATEIO, MEXC)
+    let cryptoSym = raw.replace(/\.P$/i, '').replace(/PERP$/i, '');
+    if (!cryptoSym.endsWith('USDT') && !cryptoSym.endsWith('USDC') && !cryptoSym.endsWith('USD')) {
       cryptoSym = `${cryptoSym}USDT`;
     }
-    cryptoSym = cryptoSym.replace(/\.P$/i, '').replace(/PERP$/i, '');
-    return `BINANCE:${cryptoSym}.P`;
+
+    const ex = (this.fullChartExchange || 'BYBIT').toUpperCase();
+    if (ex === 'BYBIT') return `BYBIT:${cryptoSym}.P`;
+    if (ex === 'BINANCE') return `BINANCE:${cryptoSym}.P`;
+    if (ex === 'GATEIO') return `GATEIO:${cryptoSym}`;
+    if (ex === 'MEXC') return `MEXC:${cryptoSym}`;
+    return `BYBIT:${cryptoSym}.P`;
+  },
+
+  getExchangeBadgeClass: function (exchange) {
+    const ex = (exchange || 'BYBIT').toUpperCase();
+    if (ex === 'BYBIT') return 'text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 font-extrabold border border-amber-500/30 uppercase shrink-0';
+    if (ex === 'BINANCE') return 'text-[9px] font-mono px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-400 font-extrabold border border-yellow-500/30 uppercase shrink-0';
+    if (ex === 'GATEIO') return 'text-[9px] font-mono px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-400 font-extrabold border border-cyan-500/30 uppercase shrink-0';
+    if (ex === 'MEXC') return 'text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-extrabold border border-emerald-500/30 uppercase shrink-0';
+    return 'text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 font-extrabold border border-amber-500/30 uppercase shrink-0';
   },
 
   /**
    * Switch full chart coin and update TradingView-style symbol title
    */
-  switchFullChartCoin: function (pair) {
+  switchFullChartCoin: function (pair, exchange, coinObj) {
     if (!pair) return;
-    let clean = pair.replace(/[\s\-_/]/g, '').toUpperCase();
-    if (clean.includes('EVAA')) {
-      pair = 'BTC / USDT';
-      clean = 'BTCUSDT.P';
-    }
     this.fullChartPair = pair;
-    if (!clean.endsWith('.P')) clean = `${clean}.P`;
+    if (exchange) this.fullChartExchange = exchange.toUpperCase();
+    if (coinObj) this.fullChartCoinObj = coinObj;
+
+    const ex = this.fullChartExchange || 'BYBIT';
+    let clean = pair.replace(/[\s\-_/]/g, '').toUpperCase();
+    if (!clean.endsWith('.P') && (ex === 'BYBIT' || ex === 'BINANCE')) {
+      clean = `${clean}.P`;
+    }
     const titleEl = document.getElementById('full-chart-coin-title');
     if (titleEl) titleEl.innerText = clean;
+
+    const exBadge = document.getElementById('full-chart-exchange-badge');
+    if (exBadge) {
+      exBadge.innerText = ex;
+      exBadge.className = this.getExchangeBadgeClass(ex);
+    }
+
     this.renderFullChart(pair, this.fullChartInterval);
   },
 
@@ -841,7 +861,7 @@ window.ScannerModule = {
       else tfCode = '5m';
 
       try {
-        const candles = await window.TrendTraderEngine.fetchCandles(pair, tfCode);
+        const candles = await window.TrendTraderEngine.fetchCandles(pair, tfCode, this.fullChartExchange);
         const analysis = window.TrendTraderEngine.analyzeCandles(candles);
         this.currentTTRAnalysis = analysis;
 

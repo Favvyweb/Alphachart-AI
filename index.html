@@ -572,11 +572,13 @@
               <div class="flex items-center gap-2 min-w-0 shrink-0">
                 <button id="btn-chart-symbol-search" type="button"
                   class="flex items-center gap-1.5 bg-[#121318] hover:bg-[#20232e] text-white border border-white/15 hover:border-primary-container/60 px-2.5 py-1 rounded-lg text-xs sm:text-sm font-mono font-bold transition-all cursor-pointer shadow-md group active:scale-95 shrink-0"
-                  title="Search any Binance USDⓈ-M Perpetual Futures contract (e.g. SUI, PEPE, SOL, NEAR, RENDER, DOGE)">
+                  title="Search any crypto coin across Bybit, Binance, Gate.io, and MEXC">
                   <span
                     class="material-symbols-outlined text-[15px] sm:text-[17px] text-primary-container group-hover:scale-110 transition-transform">search</span>
                   <span id="full-chart-coin-title"
                     class="font-extrabold text-xs sm:text-sm text-white group-hover:text-primary-container transition-colors tracking-wide uppercase">BTCUSDT.P</span>
+                  <span id="full-chart-exchange-badge"
+                    class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 font-extrabold border border-amber-500/30 uppercase shrink-0">BYBIT</span>
                   <span
                     class="material-symbols-outlined text-[14px] text-on-surface-variant group-hover:text-white transition-colors">expand_more</span>
                 </button>
@@ -1633,7 +1635,7 @@
       <div class="p-3 sm:p-4 border-b border-white/10 flex items-center gap-2.5 bg-[#181b27]">
         <span class="material-symbols-outlined text-[20px] text-primary-container shrink-0">search</span>
         <input id="symbol-search-input" type="text"
-          placeholder="Search any Futures coin (e.g. SUI, PEPE, SOL, NEAR, RENDER, DOGE)..." autocomplete="off"
+          placeholder="Search any coin across Bybit, Binance, Gate.io, MEXC (e.g. BTC, ETH, EVAA, SOL, SUI)..." autocomplete="off"
           spellcheck="false"
           class="bg-transparent text-sm sm:text-base font-mono text-white placeholder-on-surface-variant/70 focus:outline-none w-full uppercase font-bold">
         <button id="symbol-search-clear-btn" type="button"
@@ -1653,7 +1655,19 @@
         class="px-3 py-2 border-b border-white/5 flex items-center gap-1.5 overflow-x-auto hide-scrollbar bg-[#11131c] text-[11px] font-mono shrink-0">
         <button type="button"
           class="symbol-cat-tab active px-3 py-1 rounded-lg bg-primary-container text-black font-bold transition-all cursor-pointer whitespace-nowrap shadow-sm"
-          data-cat="all">All Futures</button>
+          data-cat="all">All Coins</button>
+        <button type="button"
+          class="symbol-cat-tab px-3 py-1 rounded-lg text-on-surface-variant hover:text-amber-400 hover:bg-white/5 font-semibold transition-all cursor-pointer whitespace-nowrap"
+          data-cat="bybit">Bybit</button>
+        <button type="button"
+          class="symbol-cat-tab px-3 py-1 rounded-lg text-on-surface-variant hover:text-yellow-400 hover:bg-white/5 font-semibold transition-all cursor-pointer whitespace-nowrap"
+          data-cat="binance">Binance</button>
+        <button type="button"
+          class="symbol-cat-tab px-3 py-1 rounded-lg text-on-surface-variant hover:text-cyan-400 hover:bg-white/5 font-semibold transition-all cursor-pointer whitespace-nowrap"
+          data-cat="gateio">Gate.io</button>
+        <button type="button"
+          class="symbol-cat-tab px-3 py-1 rounded-lg text-on-surface-variant hover:text-emerald-400 hover:bg-white/5 font-semibold transition-all cursor-pointer whitespace-nowrap"
+          data-cat="mexc">MEXC</button>
         <button type="button"
           class="symbol-cat-tab px-3 py-1 rounded-lg text-on-surface-variant hover:text-white hover:bg-white/5 font-semibold transition-all cursor-pointer whitespace-nowrap"
           data-cat="hot">🔥 Hot</button>
@@ -1677,7 +1691,7 @@
       <!-- Table Column Headers -->
       <div
         class="px-3 sm:px-4 py-1.5 bg-[#0d0f17] border-b border-white/5 flex items-center justify-between text-[10px] font-mono uppercase text-on-surface-variant tracking-wider shrink-0">
-        <span>Futures Contract / Project</span>
+        <span>Coin / Exchange & Market</span>
         <div class="flex items-center gap-5 sm:gap-8">
           <span class="w-16 text-right">24h Change</span>
           <span class="w-20 text-right">Live Price</span>
@@ -1695,7 +1709,7 @@
         class="px-3 sm:px-4 py-2 bg-[#0e1017] border-t border-white/5 flex items-center justify-between text-[10px] text-on-surface-variant font-mono shrink-0">
         <span class="flex items-center gap-1.5">
           <span class="w-1.5 h-1.5 rounded-full bg-primary-container"></span>
-          <span>Binance USDⓈ-M Perpetual Futures Engine (No Spot)</span>
+          <span>Multi-Exchange Real-Time Engine (Bybit • Binance • Gate.io • MEXC)</span>
         </span>
         <span class="hidden sm:inline">Use <kbd
             class="px-1.5 py-0.5 rounded bg-white/10 text-white font-mono text-[9px]">↑</kbd> <kbd
@@ -1709,9 +1723,9 @@
   <script src="js/chart_overlay.js"></script>
   <script src="js/ai_engine.js?v=38"></script>
   <script src="js/lightweight-charts.standalone.production.js"></script>
-  <script src="js/trend_trader.js?v=40"></script>
-  <script src="js/symbol_search.js?v=40"></script>
-  <script src="js/scanner.js?v=40"></script>
+  <script src="js/trend_trader.js?v=41"></script>
+  <script src="js/symbol_search.js?v=41"></script>
+  <script src="js/scanner.js?v=41"></script>
   <script src="js/journal.js?v=40"></script>
   <script src="js/coach.js?v=40"></script>
   <script src="js/auth.js?v=40"></script>
