@@ -1087,26 +1087,25 @@ window.TrendTraderEngine = {
       });
     }
 
-    // 2. Clean Progressive TP Milestones & SL/BE Markers across distinct candles
+    // 2. Clean Progressive TP Milestones & SL Markers across distinct candles
     // GUARANTEE: Exactly 1 marker per candle timestamp to eliminate vertical stacking and overlaps!
     if (prePerf && prePerf.evaluatedSignals) {
       for (const s of prePerf.evaluatedSignals) {
         if (!s.tpEvents || s.tpEvents.length === 0) continue;
 
         for (const ev of s.tpEvents) {
-          // Never place a TP or BE marker on the entry signal candle
+          // Never place a TP or SL marker on the entry signal candle
           if (ev.time === s.time) continue;
 
           const isTp = ev.level.startsWith('TP');
-          const isBe = ev.level === 'BE';
           const isSl = ev.level === 'SL';
 
           const newMarker = {
             time: ev.time,
             position: ev.isBuy ? (isTp ? 'aboveBar' : 'belowBar') : (isTp ? 'belowBar' : 'aboveBar'),
-            color: isTp ? '#a855f7' : (isBe ? '#38bdf8' : '#ff453a'), // Purple for TP, cyan for BE, red for SL
-            shape: isTp ? 'square' : (isBe ? 'square' : 'circle'),
-            text: isTp ? (ev.level || 'TP') : (isBe ? 'BE' : 'SL'),
+            color: isTp ? '#a855f7' : '#ff453a', // Purple for TP, red for SL
+            shape: isTp ? 'square' : 'circle',
+            text: isTp ? (ev.level || 'TP') : 'SL',
             size: 1.2,
             level: ev.level
           };
@@ -1117,8 +1116,8 @@ window.TrendTraderEngine = {
             if (existing.isEntry) continue;
 
             // Prioritize higher milestone if two events land on the same candle:
-            // TP3 > TP2 > TP1 > BE > SL
-            const priority = { 'TP3': 5, 'TP2': 4, 'TP1': 3, 'BE': 2, 'SL': 1 };
+            // TP3 > TP2 > TP1 > SL
+            const priority = { 'TP3': 4, 'TP2': 3, 'TP1': 2, 'SL': 1 };
             const existingPri = priority[existing.level] || 0;
             const newPri = priority[ev.level] || 0;
             if (newPri > existingPri) {
@@ -1838,7 +1837,6 @@ window.TrendTraderEngine = {
       let hitTp1 = false;
       let hitTp2 = false;
       let hitTp3 = false;
-      let tp1HitIndex = -1;
       let hitSL = false;
       let tradeClosed = false;
       let pnl = 0;
@@ -1890,40 +1888,18 @@ window.TrendTraderEngine = {
           maxDrawdownPct = curLowDrawdown;
         }
 
-        let tpRecordedOnThisCandle = false;
-
         // Progressive TP milestone triggers (10x Leverage: TP1 +2%, TP2 +10%, TP3 +30%):
-        // Only trigger the highest milestone reached on this specific candle so markers progress cleanly across time
-        if (curHighRoe >= 30.0 && !hitTp3) {
+        // Each milestone is claimed sequentially on the exact candle meeting the criteria.
+        // At most one milestone per candle to guarantee clean horizontal progression over time with zero vertical stacking.
+        if (!hitTp1 && curHighRoe >= 2.0) {
           hitTp1 = true;
-          hitTp2 = true;
-          hitTp3 = true;
-          if (tp1HitIndex === -1) tp1HitIndex = k;
-          tpEvents.push({ time: nextC.time, level: 'TP3', text: 'TP3 (+30%) • +$82.05', isBuy });
-          tpRecordedOnThisCandle = true;
-        } else if (curHighRoe >= 10.0 && !hitTp2) {
-          hitTp1 = true;
-          hitTp2 = true;
-          if (tp1HitIndex === -1) tp1HitIndex = k;
-          tpEvents.push({ time: nextC.time, level: 'TP2', text: 'TP2 (+10%) • +$30.30', isBuy });
-          tpRecordedOnThisCandle = true;
-        } else if (curHighRoe >= 2.0 && !hitTp1) {
-          hitTp1 = true;
-          tp1HitIndex = k;
           tpEvents.push({ time: nextC.time, level: 'TP1', text: 'TP1 (+2%) • +$10.06', isBuy });
-          tpRecordedOnThisCandle = true;
-        }
-
-        // Automated Breakeven Defense Lock:
-        // Once TP1 (+2% ROE) is hit, stop loss automatically trails to Entry Price ($0.00).
-        // Triggered ONLY on a SUBSEQUENT pullback candle (k > tp1HitIndex)
-        // and NEVER on the same candle that achieved a TP milestone.
-        if (hitTp1 && k > tp1HitIndex && !tpRecordedOnThisCandle && curLowDrawdown <= 0.0 && !hitSL) {
-          tradeClosed = true;
-          exitPrice = entryPrice;
-          tpEvents.push({ time: nextC.time, level: 'BE', text: 'Breakeven Locked (+0%)', isBuy });
-          reason = `Breakeven Exit after TP1 ($${exitPrice.toFixed(2)})`;
-          break;
+        } else if (hitTp1 && !hitTp2 && curHighRoe >= 10.0) {
+          hitTp2 = true;
+          tpEvents.push({ time: nextC.time, level: 'TP2', text: 'TP2 (+10%) • +$30.30', isBuy });
+        } else if (hitTp2 && !hitTp3 && curHighRoe >= 30.0) {
+          hitTp3 = true;
+          tpEvents.push({ time: nextC.time, level: 'TP3', text: 'TP3 (+30%) • +$82.05', isBuy });
         }
 
         // Stop Loss Check:
