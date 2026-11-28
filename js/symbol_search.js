@@ -212,10 +212,16 @@ window.SymbolSearchModule = {
 
   // Curated Multi-Exchange Registry (Bybit prioritized first, plus Gate.io, Binance, and MEXC)
   coins: [
+    // ENA Coin across available exchanges (Hot New Perpetual Listing)
+    { sym: 'ENA', name: 'Ethena Perpetual', pair: 'ENA / USDT', exchange: 'BYBIT', marketType: 'PERP', cat: ['new', 'defi', 'hot'], isNew: true, price: 0.1001, change: -5.8, volume: 38300000 },
+    { sym: 'ENA', name: 'Ethena Perpetual', pair: 'ENA / USDT', exchange: 'BINANCE', marketType: 'PERP', cat: ['new', 'defi', 'hot'], isNew: true, price: 0.1002, change: -5.8, volume: 12900000 },
+    { sym: 'ENA', name: 'Ethena Perpetual', pair: 'ENA / USDT', exchange: 'GATEIO', marketType: 'PERP', cat: ['new', 'defi', 'hot'], isNew: true, price: 0.1001, change: -5.8, volume: 8000000 },
+    { sym: 'ENA', name: 'Ethena Perpetual', pair: 'ENA / USDT', exchange: 'MEXC', marketType: 'PERP', cat: ['new', 'defi', 'hot'], isNew: true, price: 0.1001, change: -5.8, volume: 4500000 },
+
     // EVAA Coin across available exchanges (User Focus Coin)
-    { sym: 'EVAA', name: 'EVAA Perpetual', pair: 'EVAA / USDT', exchange: 'BYBIT', marketType: 'PERP', cat: ['bybit', 'defi'], price: 2.0668, change: 3.45, volume: 1450000 },
-    { sym: 'EVAA', name: 'EVAA Perpetual', pair: 'EVAA / USDT', exchange: 'GATEIO', marketType: 'PERP', cat: ['gateio', 'defi'], price: 2.0668, change: 2.80, volume: 1820000 },
-    { sym: 'EVAA', name: 'EVAA Perpetual', pair: 'EVAA / USDT', exchange: 'MEXC', marketType: 'PERP', cat: ['mexc', 'defi'], price: 2.0650, change: 2.40, volume: 950000 },
+    { sym: 'EVAA', name: 'EVAA Perpetual', pair: 'EVAA / USDT', exchange: 'BYBIT', marketType: 'PERP', cat: ['defi'], isNew: false, price: 2.0668, change: 3.45, volume: 1450000 },
+    { sym: 'EVAA', name: 'EVAA Perpetual', pair: 'EVAA / USDT', exchange: 'GATEIO', marketType: 'PERP', cat: ['defi'], isNew: false, price: 2.0668, change: 2.80, volume: 1820000 },
+    { sym: 'EVAA', name: 'EVAA Perpetual', pair: 'EVAA / USDT', exchange: 'MEXC', marketType: 'PERP', cat: ['defi'], isNew: false, price: 2.0650, change: 2.40, volume: 950000 },
 
     // BTC across exchanges (Bybit Prioritized First)
     { sym: 'BTC', name: 'Bitcoin Perpetual', pair: 'BTC / USDT', exchange: 'BYBIT', marketType: 'PERP', cat: ['bybit', 'hot', 'l1'], price: 96800.0, change: 1.85, volume: 9500000000 },
@@ -532,14 +538,10 @@ window.SymbolSearchModule = {
 
     // Filter coins by category and search query
     let filtered = this.coins.filter(c => {
-      // Exchange specific tabs
-      if (cat === 'bybit' && c.exchange !== 'BYBIT') return false;
-      if (cat === 'binance' && c.exchange !== 'BINANCE') return false;
-      if (cat === 'gateio' && c.exchange !== 'GATEIO') return false;
-      if (cat === 'mexc' && c.exchange !== 'MEXC') return false;
-
-      // Theme tabs (hot, defi, etc.)
-      if (cat !== 'all' && cat !== 'bybit' && cat !== 'binance' && cat !== 'gateio' && cat !== 'mexc') {
+      // New Coins category tab
+      if (cat === 'new') {
+        if (!c.isNew && (!c.cat || !c.cat.includes('new'))) return false;
+      } else if (cat !== 'all') {
         if (!c.cat || !c.cat.includes(cat)) return false;
       }
 
@@ -554,7 +556,7 @@ window.SymbolSearchModule = {
     // Multi-Exchange Sorting:
     // 1. Exact symbol match first
     // 2. Exchange priority: BYBIT (1) > BINANCE (2) > GATEIO (3) > MEXC (4)
-    // 3. Volume
+    // 3. Volume / Momentum
     const exchangePriority = { 'BYBIT': 1, 'BINANCE': 2, 'GATEIO': 3, 'MEXC': 4 };
 
     filtered.sort((a, b) => {
@@ -573,6 +575,11 @@ window.SymbolSearchModule = {
       const exA = exchangePriority[a.exchange] || 99;
       const exB = exchangePriority[b.exchange] || 99;
       if (exA !== exB) return exA - exB;
+
+      // In New tab, prioritize highest 24h momentum and volume
+      if (cat === 'new') {
+        return Math.abs(b.change || 0) - Math.abs(a.change || 0);
+      }
 
       return (b.volume || 0) - (a.volume || 0);
     });
@@ -615,6 +622,11 @@ window.SymbolSearchModule = {
       const starIcon = isFav ? 'star' : 'star_border';
       const starColor = isFav ? 'text-amber-400 font-bold' : 'text-white/20 hover:text-amber-400';
 
+      const isNewCoin = coin.isNew || (coin.cat && coin.cat.includes('new'));
+      const newBadge = isNewCoin
+        ? '<span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-extrabold border border-emerald-500/40 uppercase tracking-wider flex items-center gap-0.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>NEW</span>'
+        : '';
+
       html += `
         <div class="symbol-search-row ${rowBg} px-3 py-2.5 rounded-xl flex items-center justify-between cursor-pointer transition-all gap-2"
           data-index="${idx}" data-pair="${coin.pair}" data-exchange="${coin.exchange}">
@@ -625,6 +637,7 @@ window.SymbolSearchModule = {
             <div class="min-w-0">
               <div class="flex items-center gap-1.5 flex-wrap">
                 <span class="font-mono font-bold text-xs sm:text-sm text-white tracking-wide">${displaySym}</span>
+                ${newBadge}
                 <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-primary-container/20 text-primary-container font-extrabold border border-primary-container/30 uppercase">${coin.marketType || 'PERP'}</span>
                 ${exBadge}
               </div>
@@ -810,98 +823,149 @@ window.SymbolSearchModule = {
   },
 
   /**
-   * Merge Bybit Linear Futures Tickers into catalog
+   * Merge Bybit Linear Futures Tickers into catalog (with dynamic new coin discovery)
    */
   mergeBybitTickers: function (tickers) {
-    const map = new Map();
-    tickers.forEach(t => {
-      if (t.symbol && t.symbol.endsWith('USDT')) {
-        map.set(t.symbol, {
-          price: parseFloat(t.lastPrice) || 0,
-          change: parseFloat(t.price24hPcnt) * 100 || 0,
-          volume: parseFloat(t.turnover24h || t.volume24h) || 0
-        });
-      }
+    const existingBybit = new Set();
+    this.coins.forEach(c => {
+      if (c.exchange === 'BYBIT') existingBybit.add(c.sym.toUpperCase());
     });
 
-    this.coins.forEach(c => {
-      if (c.exchange === 'BYBIT') {
-        let symKey = `${c.sym}USDT`;
-        if (c.sym === 'PEPE') symKey = '1000PEPEUSDT';
-        else if (c.sym === 'BONK') symKey = '1000BONKUSDT';
-        else if (c.sym === 'FLOKI') symKey = '1000FLOKIUSDT';
-        else if (c.sym === 'SHIB') symKey = 'SHIB1000USDT';
+    const newCoinsToAdd = [];
+    tickers.forEach(t => {
+      if (t.symbol && t.symbol.endsWith('USDT')) {
+        let raw = t.symbol.replace(/USDT$/, '');
+        let clean = raw;
+        if (/^1000000[A-Z0-9]+$/i.test(raw)) clean = raw.replace(/^1000000/i, '');
+        else if (/^10000[A-Z0-9]+$/i.test(raw)) clean = raw.replace(/^10000/i, '');
+        else if (/^1000[A-Z0-9]+$/i.test(raw)) clean = raw.replace(/^1000/i, '');
+        else if (/^SHIB1000$/i.test(raw)) clean = 'SHIB';
 
-        const data = map.get(symKey) || map.get(`${c.sym}USDT`);
-        if (data) {
-          c.price = data.price;
-          c.change = data.change;
-          c.volume = data.volume;
+        const price = parseFloat(t.lastPrice) || 0;
+        const change = parseFloat(t.price24hPcnt) * 100 || 0;
+        const volume = parseFloat(t.turnover24h || t.volume24h) || 0;
+
+        const existing = this.coins.find(c => c.exchange === 'BYBIT' && (c.sym.toUpperCase() === clean.toUpperCase() || c.sym.toUpperCase() === raw.toUpperCase()));
+        if (existing) {
+          existing.price = price;
+          existing.change = change;
+          existing.volume = volume;
+        } else if (!existingBybit.has(clean.toUpperCase()) && volume > 10000) {
+          existingBybit.add(clean.toUpperCase());
+          const isHotOrNew = volume > 2000000;
+          newCoinsToAdd.push({
+            sym: clean.toUpperCase(),
+            rawSym: t.symbol,
+            name: `${clean.toUpperCase()} Perpetual`,
+            pair: `${clean.toUpperCase()} / USDT`,
+            exchange: 'BYBIT',
+            marketType: 'PERP',
+            cat: isHotOrNew ? ['all', 'new', 'hot'] : ['all', 'new'],
+            isNew: true,
+            price: price,
+            change: change,
+            volume: volume
+          });
         }
       }
     });
 
+    if (newCoinsToAdd.length > 0) {
+      this.coins = this.coins.concat(newCoinsToAdd);
+    }
     if (this.isOpen) this.renderResults();
   },
 
   /**
-   * Merge Gate.io Futures tickers into catalog
+   * Merge Gate.io Futures tickers into catalog (with dynamic new coin discovery)
    */
   mergeGateTickers: function (tickers) {
-    const gateMap = new Map();
+    const existingGate = new Set();
+    this.coins.forEach(c => {
+      if (c.exchange === 'GATEIO') existingGate.add(c.sym.toUpperCase());
+    });
+
+    const newCoinsToAdd = [];
     tickers.forEach(t => {
       const contract = t.contract || t.currency_pair;
       if (contract && contract.endsWith('_USDT')) {
-        gateMap.set(contract, {
-          price: parseFloat(t.last) || 0,
-          change: parseFloat(t.change_percentage) || 0,
-          volume: parseFloat(t.volume_24h_quote || t.quote_volume) || 0
-        });
-      }
-    });
+        const clean = contract.replace(/_USDT$/, '').toUpperCase();
+        const price = parseFloat(t.last) || 0;
+        const change = parseFloat(t.change_percentage) || 0;
+        const volume = parseFloat(t.volume_24h_quote || t.quote_volume) || 0;
 
-    this.coins.forEach(c => {
-      if (c.exchange === 'GATEIO') {
-        const pairKey = `${c.sym}_USDT`;
-        const data = gateMap.get(pairKey);
-        if (data) {
-          c.price = data.price;
-          c.change = data.change;
-          c.volume = data.volume;
+        const existing = this.coins.find(c => c.exchange === 'GATEIO' && c.sym.toUpperCase() === clean);
+        if (existing) {
+          existing.price = price;
+          existing.change = change;
+          existing.volume = volume;
+        } else if (!existingGate.has(clean) && volume > 10000) {
+          existingGate.add(clean);
+          newCoinsToAdd.push({
+            sym: clean,
+            name: `${clean} Perpetual`,
+            pair: `${clean} / USDT`,
+            exchange: 'GATEIO',
+            marketType: 'PERP',
+            cat: ['all', 'new'],
+            isNew: true,
+            price: price,
+            change: change,
+            volume: volume
+          });
         }
       }
     });
 
+    if (newCoinsToAdd.length > 0) {
+      this.coins = this.coins.concat(newCoinsToAdd);
+    }
     if (this.isOpen) this.renderResults();
   },
 
   /**
-   * Merge Binance Vision tickers
+   * Merge Binance Vision tickers (with dynamic new coin discovery)
    */
   mergeBinanceTickers: function (tickers) {
-    const tickerMap = new Map();
-    tickers.forEach(t => {
-      if (t.symbol && t.symbol.endsWith('USDT')) {
-        tickerMap.set(t.symbol, {
-          price: parseFloat(t.lastPrice) || 0,
-          change: parseFloat(t.priceChangePercent) || 0,
-          volume: parseFloat(t.quoteVolume || t.volume) || 0
-        });
-      }
+    const existingBinance = new Set();
+    this.coins.forEach(c => {
+      if (c.exchange === 'BINANCE') existingBinance.add(c.sym.toUpperCase());
     });
 
-    this.coins.forEach(c => {
-      if (c.exchange === 'BINANCE') {
-        const symUSDT = `${c.sym}USDT`;
-        const data = tickerMap.get(symUSDT);
-        if (data) {
-          c.price = data.price;
-          c.change = data.change;
-          c.volume = data.volume;
+    const newCoinsToAdd = [];
+    tickers.forEach(t => {
+      if (t.symbol && t.symbol.endsWith('USDT')) {
+        const clean = t.symbol.replace(/USDT$/, '').toUpperCase();
+        const price = parseFloat(t.lastPrice) || 0;
+        const change = parseFloat(t.priceChangePercent) || 0;
+        const volume = parseFloat(t.quoteVolume || t.volume) || 0;
+
+        const existing = this.coins.find(c => c.exchange === 'BINANCE' && c.sym.toUpperCase() === clean);
+        if (existing) {
+          existing.price = price;
+          existing.change = change;
+          existing.volume = volume;
+        } else if (!existingBinance.has(clean) && volume > 500000 && !clean.includes('UP') && !clean.includes('DOWN')) {
+          existingBinance.add(clean);
+          newCoinsToAdd.push({
+            sym: clean,
+            name: `${clean} Perpetual`,
+            pair: `${clean} / USDT`,
+            exchange: 'BINANCE',
+            marketType: 'PERP',
+            cat: ['all', 'new'],
+            isNew: true,
+            price: price,
+            change: change,
+            volume: volume
+          });
         }
       }
     });
 
+    if (newCoinsToAdd.length > 0) {
+      this.coins = this.coins.concat(newCoinsToAdd);
+    }
     if (this.isOpen) this.renderResults();
   }
 };
