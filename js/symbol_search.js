@@ -26,7 +26,9 @@ window.FavoritesManager = {
       if (stored) {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const cleaned = parsed.map(s => String(s).toUpperCase().trim()).filter(Boolean);
+          let cleaned = parsed.map(s => String(s).toUpperCase().trim()).filter(Boolean);
+          // Purge non-existent coins (e.g. EVAA)
+          cleaned = cleaned.filter(s => s !== 'EVAA');
           // BTC is the permanent anchor at position 0
           if (!cleaned.includes('BTC')) cleaned.unshift('BTC');
           else if (cleaned.indexOf('BTC') !== 0) {
@@ -34,7 +36,9 @@ window.FavoritesManager = {
             cleaned.splice(idx, 1);
             cleaned.unshift('BTC');
           }
-          return cleaned.slice(0, this.MAX_FAVORITES);
+          const res = cleaned.slice(0, this.MAX_FAVORITES);
+          localStorage.setItem(this.STORAGE_KEY, JSON.stringify(res));
+          return res;
         }
       }
     } catch (e) {
@@ -415,7 +419,7 @@ window.SymbolSearchModule = {
     const q = this.searchQuery;
     const cat = this.activeCategory;
 
-    // Filter coins by category and search query
+    // Filter coins by category and search query (STRICTLY REAL CONTRACTS ONLY - ZERO FAKE CONTRACTS)
     let filtered = this.coins.filter(c => {
       if (cat !== 'all') {
         if (!c.cat || !c.cat.includes(cat)) return false;
@@ -427,20 +431,6 @@ window.SymbolSearchModule = {
       return matchSym || matchPair || matchName;
     });
 
-    // If query typed but no exact matches in curated list, offer instant Binance Futures contract
-    if (q && filtered.length === 0) {
-      const cleanQ = q.replace(/[\s\-_/]/g, '').replace(/\.P$/i, '').replace(/USDT$/i, '');
-      filtered = [{
-        sym: cleanQ,
-        name: `${cleanQ} Perpetual Contract`,
-        pair: `${cleanQ} / USDT`,
-        cat: ['all'],
-        price: 0,
-        change: 0,
-        isDirect: true
-      }];
-    }
-
     this.filteredCoins = filtered;
     if (this.selectedIndex >= filtered.length) this.selectedIndex = 0;
 
@@ -448,8 +438,8 @@ window.SymbolSearchModule = {
       list.innerHTML = `
         <div class="py-12 px-4 text-center text-on-surface-variant font-mono">
           <span class="material-symbols-outlined text-[36px] mb-2 opacity-50">search_off</span>
-          <p class="text-xs">No matching futures contract found for "${q}"</p>
-          <p class="text-[10px] mt-1 text-on-surface-variant/70">Type any real Binance Futures ticker (e.g. SUI, NEAR, PEPE, SOL)</p>
+          <p class="text-xs">No matching Binance Futures contract found for "${q}"</p>
+          <p class="text-[10px] mt-1 text-on-surface-variant/70">Please search a real Binance ticker (e.g. SUI, NEAR, PEPE, SOL, BTC, ETH)</p>
         </div>
       `;
       return;
@@ -584,12 +574,18 @@ window.SymbolSearchModule = {
   },
 
   /**
-   * Custom typed symbol fallback (always Futures)
+   * Custom typed symbol fallback - validates against real Binance coin registry
    */
   selectCustomSymbol: function (sym) {
     const clean = sym.trim().toUpperCase().replace(/[\s\-_/]/g, '').replace(/\.P$/i, '').replace(/USDT$/i, '');
-    const pair = `${clean} / USDT`;
-    this.selectCoin({ sym: clean, name: `${clean} Perpetual Contract`, pair: pair });
+    const found = this.coins.find(c => c.sym.toUpperCase() === clean);
+    if (found) {
+      this.selectCoin(found);
+    } else {
+      if (window.App && typeof window.App.showToast === 'function') {
+        window.App.showToast(`"${clean}" is not an active Binance Futures contract. Select a coin from the list.`);
+      }
+    }
   },
 
   /**

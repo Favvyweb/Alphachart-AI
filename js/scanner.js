@@ -771,8 +771,12 @@ window.ScannerModule = {
    */
   switchFullChartCoin: function (pair) {
     if (!pair) return;
-    this.fullChartPair = pair;
     let clean = pair.replace(/[\s\-_/]/g, '').toUpperCase();
+    if (clean.includes('EVAA')) {
+      pair = 'BTC / USDT';
+      clean = 'BTCUSDT.P';
+    }
+    this.fullChartPair = pair;
     if (!clean.endsWith('.P')) clean = `${clean}.P`;
     const titleEl = document.getElementById('full-chart-coin-title');
     if (titleEl) titleEl.innerText = clean;
@@ -900,6 +904,20 @@ window.ScannerModule = {
 
       } catch (err) {
         console.warn('Error in TTR render:', err);
+        if (window.App && typeof window.App.showToast === 'function') {
+          window.App.showToast(`Unable to load chart for ${pair} (Contract unavailable on Binance). Reverting to BTC.`);
+        }
+        // Purge invalid coin from favorites
+        if (window.FavoritesManager) {
+          const badBase = (pair || '').replace(/[\s\-_/]/g, '').replace(/USDT$/i, '').replace(/\.P$/i, '').toUpperCase();
+          if (badBase !== 'BTC') {
+            window.FavoritesManager.removeFavorite(badBase);
+          }
+        }
+        // Automatically switch back to BTC
+        if (pair !== 'BTC / USDT') {
+          this.switchFullChartCoin('BTC / USDT');
+        }
       } finally {
         if (loader) {
           loader.style.opacity = '0';

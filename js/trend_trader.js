@@ -84,10 +84,10 @@ window.TrendTraderEngine = {
       return cached.candles;
     }
 
-    // Binance USDⓈ-M Perpetual Futures endpoints (fapi) as primary for authentic Futures candles
+    // Binance endpoints - prioritize high-speed global endpoint (binance.vision) that bypasses ISP blocks
     const endpoints = [
-      `https://fapi.binance.com/fapi/v1/klines?symbol=${cleanSymbol}&interval=${binanceInterval}&limit=1000`,
       `https://data-api.binance.vision/api/v3/klines?symbol=${cleanSymbol}&interval=${binanceInterval}&limit=1000`,
+      `https://fapi.binance.com/fapi/v1/klines?symbol=${cleanSymbol}&interval=${binanceInterval}&limit=1000`,
       `https://api.binance.com/api/v3/klines?symbol=${cleanSymbol}&interval=${binanceInterval}&limit=1000`
     ];
 
@@ -110,9 +110,22 @@ window.TrendTraderEngine = {
               volume: parseFloat(k[5])
             }));
           }
+        } else {
+          // If Binance explicitly rejects the symbol (e.g. 400 Invalid Symbol), identify it
+          try {
+            const errData = await res.json();
+            if (errData && errData.code === -1121) {
+              const err = new Error(`INVALID_SYMBOL:${cleanSymbol}`);
+              err.isInvalidSymbol = true;
+              throw err;
+            }
+          } catch (eInner) {
+            if (eInner && eInner.isInvalidSymbol) throw eInner;
+          }
         }
       } catch (err) {
         clearTimeout(timer);
+        if (err && err.isInvalidSymbol) throw err;
       }
       throw new Error(`Endpoint ${url} failed or timed out`);
     };
@@ -122,14 +135,13 @@ window.TrendTraderEngine = {
       this.candlesCache[cacheKey] = { timestamp: Date.now(), candles };
       return candles;
     } catch (e) {
-      // If we have any cached data (even if slightly stale), return it rather than showing fake candles
+      console.warn(`[TrendTrader] Failed to fetch live candles for ${cleanSymbol}:`, e);
+      // If we have cached real data for this symbol, return it
       if (cached && cached.candles && cached.candles.length >= 20) {
         return cached.candles;
       }
-      // Instant fallback candle model starting from 12:00 AM midnight
-      const fallback = this.generateFallbackCandles(cleanSymbol, binanceInterval, 288);
-      this.candlesCache[cacheKey] = { timestamp: Date.now(), candles: fallback };
-      return fallback;
+      // Re-throw so caller can safely notify user and revert to BTC instead of generating fake $100 mock candles
+      throw new Error(`Invalid or unreachable contract: ${cleanSymbol}`);
     }
   },
 
@@ -667,10 +679,12 @@ window.TrendTraderEngine = {
     });
     this.candleSeries.setData(candles);
 
-    // Add Volume Series (isolated overlay scale at bottom so it NEVER distorts candlestick price scale)
+    // Add Volume Series (isolated overlay scale at bottom with hidden price axis labels to prevent distortion)
     this.volumeSeries = addHistSeries(this.mainChart, {
       priceFormat: { type: 'volume' },
       priceScaleId: 'volume_overlay',
+      priceLineVisible: false,
+      lastValueVisible: false,
     });
     try {
       this.mainChart.priceScale('volume_overlay').applyOptions({
@@ -2499,10 +2513,23 @@ window.TrendTraderEngine = {
         return;
       }
 
-      const topHigh = Math.min(yHigh, yPremLow !== null ? yPremLow : yHigh);
-      const premHeight = Math.max(18, Math.abs((yPremLow !== null ? yPremLow : (yHigh + 24)) - yHigh));
-      const discTop = Math.min(yLow, yDiscHigh !== null ? yDiscHigh : yLow);
-      const discHeight = Math.max(18, Math.abs(yLow - (yDiscHigh !== null ? yDiscHigh : (yLow - 24))));
+      const topHigh = Math.max(4, Math.min(yHigh, yPremLow !== null ? yPremLow : yHigh));
+      const premHeight = Math.max(16, Math.min(65, Math.abs((yPremLow !== null ? yPremLow : (yHigh + 24)) - yHigh)));
+
+      // Clamp discount zone so it never collapses over bottom time axis or TradingView watermark
+      const containerH = (document.getElementById('tv-main-chart-container')?.clientHeight || 400);
+      const maxBottomY = Math.max(80, containerH - 34);
+
+      let discTop = Math.min(yLow, yDiscHigh !== null ? yDiscHigh : yLow);
+      let discHeight = Math.max(16, Math.abs(yLow - (yDiscHigh !== null ? yDiscHigh : (yLow - 24))));
+
+      if (discTop + discHeight > maxBottomY) {
+        discTop = Math.max(4, maxBottomY - discHeight);
+      }
+      if (discTop > maxBottomY - 18) {
+        discTop = maxBottomY - 18;
+        discHeight = 18;
+      }
       const eqTop = (yMid !== null) ? (yMid - 10) : 0;
 
       this.smcZonesOverlay.innerHTML = `
