@@ -1650,32 +1650,33 @@
         </button>
       </div>
 
-      <!-- Quick Filter Sector Category Tabs (Clean & Responsive) -->
-      <div
-        class="px-3 py-2 border-b border-white/5 flex items-center gap-1.5 overflow-x-auto hide-scrollbar bg-[#11131c] text-[11px] font-mono shrink-0">
+      <!-- Quick Filter Sector Category Tabs (Clean, Responsive & Smooth Scrollable) -->
+      <div id="symbol-cat-tabs-container"
+        class="px-3 py-2 border-b border-white/5 flex items-center gap-1.5 overflow-x-auto hide-scrollbar bg-[#11131c] text-[11px] font-mono shrink-0 select-none cursor-grab active:cursor-grabbing scroll-smooth pr-6"
+        style="-webkit-overflow-scrolling: touch; touch-action: pan-x; overscroll-behavior-x: contain;">
         <button type="button"
-          class="symbol-cat-tab active px-3 py-1 rounded-lg bg-primary-container text-black font-bold transition-all cursor-pointer whitespace-nowrap shadow-sm"
+          class="symbol-cat-tab active px-3 py-1 rounded-lg bg-primary-container text-black font-bold transition-all cursor-pointer whitespace-nowrap shadow-sm shrink-0"
           data-cat="all">All Futures</button>
         <button type="button"
-          class="symbol-cat-tab px-3 py-1 rounded-lg text-on-surface-variant hover:text-white hover:bg-white/5 font-semibold transition-all cursor-pointer whitespace-nowrap"
+          class="symbol-cat-tab px-3 py-1 rounded-lg text-on-surface-variant hover:text-white hover:bg-white/5 font-semibold transition-all cursor-pointer whitespace-nowrap shrink-0"
           data-cat="hot">🔥 Hot</button>
         <button type="button"
-          class="symbol-cat-tab px-3 py-1 rounded-lg text-on-surface-variant hover:text-primary-container hover:bg-white/5 font-semibold transition-all cursor-pointer whitespace-nowrap"
+          class="symbol-cat-tab px-3 py-1 rounded-lg text-on-surface-variant hover:text-primary-container hover:bg-white/5 font-semibold transition-all cursor-pointer whitespace-nowrap shrink-0"
           data-cat="new">✨ New</button>
         <button type="button"
-          class="symbol-cat-tab px-3 py-1 rounded-lg text-on-surface-variant hover:text-white hover:bg-white/5 font-semibold transition-all cursor-pointer whitespace-nowrap"
+          class="symbol-cat-tab px-3 py-1 rounded-lg text-on-surface-variant hover:text-white hover:bg-white/5 font-semibold transition-all cursor-pointer whitespace-nowrap shrink-0"
           data-cat="l1">Layer 1</button>
         <button type="button"
-          class="symbol-cat-tab px-3 py-1 rounded-lg text-on-surface-variant hover:text-white hover:bg-white/5 font-semibold transition-all cursor-pointer whitespace-nowrap"
+          class="symbol-cat-tab px-3 py-1 rounded-lg text-on-surface-variant hover:text-white hover:bg-white/5 font-semibold transition-all cursor-pointer whitespace-nowrap shrink-0"
           data-cat="defi">DeFi</button>
         <button type="button"
-          class="symbol-cat-tab px-3 py-1 rounded-lg text-on-surface-variant hover:text-white hover:bg-white/5 font-semibold transition-all cursor-pointer whitespace-nowrap"
+          class="symbol-cat-tab px-3 py-1 rounded-lg text-on-surface-variant hover:text-white hover:bg-white/5 font-semibold transition-all cursor-pointer whitespace-nowrap shrink-0"
           data-cat="meme">Memes</button>
         <button type="button"
-          class="symbol-cat-tab px-3 py-1 rounded-lg text-on-surface-variant hover:text-white hover:bg-white/5 font-semibold transition-all cursor-pointer whitespace-nowrap"
+          class="symbol-cat-tab px-3 py-1 rounded-lg text-on-surface-variant hover:text-white hover:bg-white/5 font-semibold transition-all cursor-pointer whitespace-nowrap shrink-0"
           data-cat="ai">AI & Data</button>
         <button type="button"
-          class="symbol-cat-tab px-3 py-1 rounded-lg text-on-surface-variant hover:text-white hover:bg-white/5 font-semibold transition-all cursor-pointer whitespace-nowrap"
+          class="symbol-cat-tab px-3 py-1 rounded-lg text-on-surface-variant hover:text-white hover:bg-white/5 font-semibold transition-all cursor-pointer whitespace-nowrap shrink-0"
           data-cat="l2">Layer 2</button>
       </div>
 
@@ -1714,9 +1715,9 @@
   <script src="js/chart_overlay.js"></script>
   <script src="js/ai_engine.js?v=38"></script>
   <script src="js/lightweight-charts.standalone.production.js"></script>
-  <script src="js/trend_trader.js?v=43"></script>
-  <script src="js/symbol_search.js?v=43"></script>
-  <script src="js/scanner.js?v=43"></script>
+  <script src="js/trend_trader.js?v=44"></script>
+  <script src="js/symbol_search.js?v=44"></script>
+  <script src="js/scanner.js?v=44"></script>
   <script src="js/journal.js?v=40"></script>
   <script src="js/coach.js?v=40"></script>
   <script src="js/auth.js?v=40"></script>

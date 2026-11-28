@@ -439,7 +439,7 @@ window.SymbolSearchModule = {
       });
     }
 
-    // Category & Exchange Tabs
+    // Category Tabs click listeners
     document.querySelectorAll('.symbol-cat-tab').forEach(tab => {
       tab.addEventListener('click', () => {
         document.querySelectorAll('.symbol-cat-tab').forEach(t => {
@@ -454,6 +454,53 @@ window.SymbolSearchModule = {
         self.renderResults();
       });
     });
+
+    // Smooth horizontal slide: mouse wheel + grab & drag scrolling for desktop/mobile
+    const tabsContainer = document.getElementById('symbol-cat-tabs-container');
+    if (tabsContainer) {
+      // Horizontal mouse wheel scrolling
+      tabsContainer.addEventListener('wheel', (e) => {
+        if (e.deltaY !== 0) {
+          e.preventDefault();
+          tabsContainer.scrollLeft += e.deltaY;
+        }
+      }, { passive: false });
+
+      // Mouse drag-to-slide
+      let isDown = false;
+      let startX = 0;
+      let scrollLeft = 0;
+      let hasDragged = false;
+
+      tabsContainer.addEventListener('mousedown', (e) => {
+        isDown = true;
+        hasDragged = false;
+        tabsContainer.classList.add('cursor-grabbing');
+        startX = e.pageX - tabsContainer.offsetLeft;
+        scrollLeft = tabsContainer.scrollLeft;
+      });
+
+      tabsContainer.addEventListener('mouseleave', () => {
+        isDown = false;
+        tabsContainer.classList.remove('cursor-grabbing');
+      });
+
+      tabsContainer.addEventListener('mouseup', () => {
+        isDown = false;
+        tabsContainer.classList.remove('cursor-grabbing');
+      });
+
+      tabsContainer.addEventListener('mousemove', (e) => {
+        if (!isDown) return;
+        const x = e.pageX - tabsContainer.offsetLeft;
+        const walk = (x - startX) * 1.5;
+        if (Math.abs(walk) > 4) {
+          hasDragged = true;
+          e.preventDefault();
+          tabsContainer.scrollLeft = scrollLeft - walk;
+        }
+      });
+    }
 
     // Global keyboard shortcut: Press Escape
     window.addEventListener('keydown', (e) => {
