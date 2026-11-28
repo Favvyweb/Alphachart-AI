@@ -81,8 +81,8 @@ window.TrendTraderEngine = {
       return cached.candles;
     }
 
-    // Helper timeout fetcher
-    const fetchJsonWithTimeout = async (url, ms = 4000) => {
+    // Helper timeout fetcher (ultra-fast 2500ms timeout)
+    const fetchJsonWithTimeout = async (url, ms = 2500) => {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), ms);
       try {
@@ -97,37 +97,30 @@ window.TrendTraderEngine = {
       return null;
     };
 
-    // 1. Gate.io Provider (Supports EVAA, TON ecosystem, all altcoins & majors)
-    const tryGateIO = async () => {
-      const urls = [
-        `https://api.gateio.ws/api/v4/futures/usdt/candlesticks?contract=${baseSymbol}_USDT&interval=${gateIntv}&limit=1000`,
-        `https://api.gateio.ws/api/v4/spot/candlesticks?currency_pair=${baseSymbol}_USDT&interval=${gateIntv}&limit=1000`
-      ];
-      for (const url of urls) {
-        const raw = await fetchJsonWithTimeout(url);
-        if (Array.isArray(raw) && raw.length >= 10) {
-          const candles = raw.map(k => ({
-            time: parseInt(k[0], 10),
-            open: parseFloat(k[5]),
-            high: parseFloat(k[3]),
-            low: parseFloat(k[4]),
-            close: parseFloat(k[2]),
-            volume: parseFloat(k[6] || k[1] || 0)
-          })).filter(c => !isNaN(c.close) && c.close > 0 && !isNaN(c.time));
-          if (candles.length >= 10) return { candles, exchange: 'GATEIO' };
-        }
-      }
-      return null;
-    };
-
-    // 2. Bybit Provider (Prioritized linear futures & spot)
+    // 1. Bybit Provider (Prioritized linear perpetual futures via official global mirror api.bytick.com + api.bybit.com)
     const tryBybit = async () => {
+      // Map multiplier contracts on Bybit Linear Futures (e.g. 1000PEPE, 1000BONK, SHIB1000)
+      let bybitSym = `${baseSymbol}USDT`;
+      if (baseSymbol === 'PEPE') bybitSym = '1000PEPEUSDT';
+      else if (baseSymbol === 'BONK') bybitSym = '1000BONKUSDT';
+      else if (baseSymbol === 'FLOKI') bybitSym = '1000FLOKIUSDT';
+      else if (baseSymbol === 'SHIB') bybitSym = 'SHIB1000USDT';
+      else if (baseSymbol === 'LUNC') bybitSym = '1000LUNCUSDT';
+      else if (baseSymbol === 'XEC') bybitSym = '1000XECUSDT';
+      else if (baseSymbol === 'RATS') bybitSym = '1000RATSUSDT';
+      else if (baseSymbol === 'SATS') bybitSym = '10000SATSUSDT';
+      else if (baseSymbol === 'CAT') bybitSym = '1000000CATUSDT';
+
       const urls = [
-        `https://api.bybit.com/v5/market/kline?category=linear&symbol=${baseSymbol}USDT&interval=${bybitIntv}&limit=1000`,
-        `https://api.bybit.com/v5/market/kline?category=spot&symbol=${baseSymbol}USDT&interval=${bybitIntv}&limit=1000`
+        `https://api.bytick.com/v5/market/kline?category=linear&symbol=${bybitSym}&interval=${bybitIntv}&limit=1000`,
+        `https://api.bybit.com/v5/market/kline?category=linear&symbol=${bybitSym}&interval=${bybitIntv}&limit=1000`
       ];
+      if (bybitSym !== `${baseSymbol}USDT`) {
+        urls.push(`https://api.bytick.com/v5/market/kline?category=linear&symbol=${baseSymbol}USDT&interval=${bybitIntv}&limit=1000`);
+      }
+
       for (const url of urls) {
-        const raw = await fetchJsonWithTimeout(url);
+        const raw = await fetchJsonWithTimeout(url, 2500);
         if (raw && raw.result && Array.isArray(raw.result.list) && raw.result.list.length >= 10) {
           const candles = raw.result.list.map(k => ({
             time: Math.floor(parseInt(k[0], 10) / 1000),
@@ -143,7 +136,7 @@ window.TrendTraderEngine = {
       return null;
     };
 
-    // 3. Binance Provider (Binance Vision + Futures + API)
+    // 2. Binance Provider (Binance Vision + Futures + API)
     const tryBinance = async () => {
       const urls = [
         `https://data-api.binance.vision/api/v3/klines?symbol=${baseSymbol}USDT&interval=${binanceIntv}&limit=1000`,
@@ -151,7 +144,7 @@ window.TrendTraderEngine = {
         `https://api.binance.com/api/v3/klines?symbol=${baseSymbol}USDT&interval=${binanceIntv}&limit=1000`
       ];
       for (const url of urls) {
-        const raw = await fetchJsonWithTimeout(url);
+        const raw = await fetchJsonWithTimeout(url, 2500);
         if (Array.isArray(raw) && raw.length >= 10) {
           const candles = raw.map(k => ({
             time: Math.floor(k[0] / 1000),
@@ -167,14 +160,51 @@ window.TrendTraderEngine = {
       return null;
     };
 
+    // 3. Gate.io Provider (Perpetual Futures First, with Spot support for special tokens)
+    const tryGateIO = async () => {
+      const urls = [
+        `https://api.gateio.ws/api/v4/futures/usdt/candlesticks?contract=${baseSymbol}_USDT&interval=${gateIntv}&limit=1000`,
+        `https://api.gateio.ws/api/v4/spot/candlesticks?currency_pair=${baseSymbol}_USDT&interval=${gateIntv}&limit=1000`
+      ];
+      for (const url of urls) {
+        const raw = await fetchJsonWithTimeout(url, 2500);
+        if (Array.isArray(raw) && raw.length >= 10) {
+          const candles = raw.map(k => {
+            // Gate.io futures returns objects { t, o, c, h, l, v }
+            if (typeof k === 'object' && !Array.isArray(k)) {
+              return {
+                time: parseInt(k.t, 10),
+                open: parseFloat(k.o),
+                high: parseFloat(k.h),
+                low: parseFloat(k.l),
+                close: parseFloat(k.c),
+                volume: parseFloat(k.v || 0)
+              };
+            }
+            // Gate.io spot returns arrays [ t, quote_vol, close, high, low, open, base_vol ]
+            return {
+              time: parseInt(k[0], 10),
+              open: parseFloat(k[5]),
+              high: parseFloat(k[3]),
+              low: parseFloat(k[4]),
+              close: parseFloat(k[2]),
+              volume: parseFloat(k[6] || k[1] || 0)
+            };
+          }).filter(c => !isNaN(c.close) && c.close > 0 && !isNaN(c.time));
+          if (candles.length >= 10) return { candles, exchange: 'GATEIO' };
+        }
+      }
+      return null;
+    };
+
     // 4. MEXC Provider
     const tryMEXC = async () => {
       const urls = [
-        `https://api.mexc.com/api/v3/klines?symbol=${baseSymbol}USDT&interval=${binanceIntv}&limit=1000`,
-        `https://contract.mexc.com/api/v1/contract/kline/${baseSymbol}_USDT?interval=Min${bybitIntv}`
+        `https://contract.mexc.com/api/v1/contract/kline/${baseSymbol}_USDT?interval=Min${bybitIntv}`,
+        `https://api.mexc.com/api/v3/klines?symbol=${baseSymbol}USDT&interval=${binanceIntv}&limit=1000`
       ];
       for (const url of urls) {
-        const raw = await fetchJsonWithTimeout(url);
+        const raw = await fetchJsonWithTimeout(url, 2500);
         if (Array.isArray(raw) && raw.length >= 10) {
           const candles = raw.map(k => ({
             time: Math.floor(k[0] / 1000),
@@ -191,10 +221,10 @@ window.TrendTraderEngine = {
     };
 
     // Determine exchange search order based on user preference
-    let providerChain = [tryBybit, tryGateIO, tryBinance, tryMEXC];
-    if (exPref === 'GATEIO') providerChain = [tryGateIO, tryBybit, tryBinance, tryMEXC];
-    else if (exPref === 'BINANCE') providerChain = [tryBinance, tryBybit, tryGateIO, tryMEXC];
-    else if (exPref === 'MEXC') providerChain = [tryMEXC, tryGateIO, tryBybit, tryBinance];
+    let providerChain = [tryBybit, tryBinance, tryGateIO, tryMEXC];
+    if (exPref === 'BINANCE') providerChain = [tryBinance, tryBybit, tryGateIO, tryMEXC];
+    else if (exPref === 'GATEIO') providerChain = [tryGateIO, tryBybit, tryBinance, tryMEXC];
+    else if (exPref === 'MEXC') providerChain = [tryMEXC, tryBybit, tryBinance, tryGateIO];
 
     // Execute provider chain with automatic fallback
     for (const provider of providerChain) {

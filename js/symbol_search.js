@@ -213,63 +213,63 @@ window.SymbolSearchModule = {
   // Curated Multi-Exchange Registry (Bybit prioritized first, plus Gate.io, Binance, and MEXC)
   coins: [
     // EVAA Coin across available exchanges (User Focus Coin)
-    { sym: 'EVAA', name: 'EVAA Protocol', pair: 'EVAA / USDT', exchange: 'BYBIT', marketType: 'SPOT', cat: ['bybit', 'defi'], price: 2.0668, change: 3.45, volume: 1450000 },
-    { sym: 'EVAA', name: 'EVAA Protocol', pair: 'EVAA / USDT', exchange: 'GATEIO', marketType: 'SPOT', cat: ['gateio', 'defi'], price: 2.0668, change: 2.80, volume: 1820000 },
-    { sym: 'EVAA', name: 'EVAA Protocol', pair: 'EVAA / USDT', exchange: 'MEXC', marketType: 'SPOT', cat: ['mexc', 'defi'], price: 2.0650, change: 2.40, volume: 950000 },
+    { sym: 'EVAA', name: 'EVAA Perpetual', pair: 'EVAA / USDT', exchange: 'BYBIT', marketType: 'PERP', cat: ['bybit', 'defi'], price: 2.0668, change: 3.45, volume: 1450000 },
+    { sym: 'EVAA', name: 'EVAA Perpetual', pair: 'EVAA / USDT', exchange: 'GATEIO', marketType: 'PERP', cat: ['gateio', 'defi'], price: 2.0668, change: 2.80, volume: 1820000 },
+    { sym: 'EVAA', name: 'EVAA Perpetual', pair: 'EVAA / USDT', exchange: 'MEXC', marketType: 'PERP', cat: ['mexc', 'defi'], price: 2.0650, change: 2.40, volume: 950000 },
 
     // BTC across exchanges (Bybit Prioritized First)
     { sym: 'BTC', name: 'Bitcoin Perpetual', pair: 'BTC / USDT', exchange: 'BYBIT', marketType: 'PERP', cat: ['bybit', 'hot', 'l1'], price: 96800.0, change: 1.85, volume: 9500000000 },
     { sym: 'BTC', name: 'Bitcoin Perpetual', pair: 'BTC / USDT', exchange: 'BINANCE', marketType: 'PERP', cat: ['binance', 'hot', 'l1'], price: 96820.0, change: 1.80, volume: 12500000000 },
-    { sym: 'BTC', name: 'Bitcoin / USDT', pair: 'BTC / USDT', exchange: 'GATEIO', marketType: 'SPOT', cat: ['gateio', 'hot', 'l1'], price: 96790.0, change: 1.82, volume: 620000000 },
-    { sym: 'BTC', name: 'Bitcoin / USDT', pair: 'BTC / USDT', exchange: 'MEXC', marketType: 'PERP', cat: ['mexc', 'hot', 'l1'], price: 96810.0, change: 1.84, volume: 780000000 },
+    { sym: 'BTC', name: 'Bitcoin Perpetual', pair: 'BTC / USDT', exchange: 'GATEIO', marketType: 'PERP', cat: ['gateio', 'hot', 'l1'], price: 96790.0, change: 1.82, volume: 620000000 },
+    { sym: 'BTC', name: 'Bitcoin Perpetual', pair: 'BTC / USDT', exchange: 'MEXC', marketType: 'PERP', cat: ['mexc', 'hot', 'l1'], price: 96810.0, change: 1.84, volume: 780000000 },
 
     // ETH across exchanges
     { sym: 'ETH', name: 'Ethereum Perpetual', pair: 'ETH / USDT', exchange: 'BYBIT', marketType: 'PERP', cat: ['bybit', 'hot', 'l1'], price: 3640.0, change: 2.50, volume: 4800000000 },
     { sym: 'ETH', name: 'Ethereum Perpetual', pair: 'ETH / USDT', exchange: 'BINANCE', marketType: 'PERP', cat: ['binance', 'hot', 'l1'], price: 3642.0, change: 2.45, volume: 6200000000 },
-    { sym: 'ETH', name: 'Ethereum / USDT', pair: 'ETH / USDT', exchange: 'GATEIO', marketType: 'SPOT', cat: ['gateio', 'hot', 'l1'], price: 3638.0, change: 2.48, volume: 380000000 },
-    { sym: 'ETH', name: 'Ethereum / USDT', pair: 'ETH / USDT', exchange: 'MEXC', marketType: 'PERP', cat: ['mexc', 'hot', 'l1'], price: 3641.0, change: 2.52, volume: 410000000 },
+    { sym: 'ETH', name: 'Ethereum Perpetual', pair: 'ETH / USDT', exchange: 'GATEIO', marketType: 'PERP', cat: ['gateio', 'hot', 'l1'], price: 3638.0, change: 2.48, volume: 380000000 },
+    { sym: 'ETH', name: 'Ethereum Perpetual', pair: 'ETH / USDT', exchange: 'MEXC', marketType: 'PERP', cat: ['mexc', 'hot', 'l1'], price: 3641.0, change: 2.52, volume: 410000000 },
 
     // SOL across exchanges
     { sym: 'SOL', name: 'Solana Perpetual', pair: 'SOL / USDT', exchange: 'BYBIT', marketType: 'PERP', cat: ['bybit', 'hot', 'l1'], price: 238.5, change: 4.60, volume: 2900000000 },
     { sym: 'SOL', name: 'Solana Perpetual', pair: 'SOL / USDT', exchange: 'BINANCE', marketType: 'PERP', cat: ['binance', 'hot', 'l1'], price: 238.8, change: 4.55, volume: 3800000000 },
-    { sym: 'SOL', name: 'Solana / USDT', pair: 'SOL / USDT', exchange: 'GATEIO', marketType: 'SPOT', cat: ['gateio', 'hot', 'l1'], price: 238.2, change: 4.50, volume: 240000000 },
-    { sym: 'SOL', name: 'Solana / USDT', pair: 'SOL / USDT', exchange: 'MEXC', marketType: 'PERP', cat: ['mexc', 'hot', 'l1'], price: 238.6, change: 4.62, volume: 310000000 },
+    { sym: 'SOL', name: 'Solana Perpetual', pair: 'SOL / USDT', exchange: 'GATEIO', marketType: 'PERP', cat: ['gateio', 'hot', 'l1'], price: 238.2, change: 4.50, volume: 240000000 },
+    { sym: 'SOL', name: 'Solana Perpetual', pair: 'SOL / USDT', exchange: 'MEXC', marketType: 'PERP', cat: ['mexc', 'hot', 'l1'], price: 238.6, change: 4.62, volume: 310000000 },
 
     // SUI across exchanges
     { sym: 'SUI', name: 'Sui Network Perpetual', pair: 'SUI / USDT', exchange: 'BYBIT', marketType: 'PERP', cat: ['bybit', 'hot', 'l1'], price: 3.48, change: 6.90, volume: 850000000 },
     { sym: 'SUI', name: 'Sui Network Perpetual', pair: 'SUI / USDT', exchange: 'BINANCE', marketType: 'PERP', cat: ['binance', 'hot', 'l1'], price: 3.49, change: 6.85, volume: 1100000000 },
-    { sym: 'SUI', name: 'Sui / USDT', pair: 'SUI / USDT', exchange: 'GATEIO', marketType: 'SPOT', cat: ['gateio', 'hot', 'l1'], price: 3.47, change: 6.75, volume: 95000000 },
-    { sym: 'SUI', name: 'Sui / USDT', pair: 'SUI / USDT', exchange: 'MEXC', marketType: 'PERP', cat: ['mexc', 'hot', 'l1'], price: 3.48, change: 6.88, volume: 120000000 },
+    { sym: 'SUI', name: 'Sui Network Perpetual', pair: 'SUI / USDT', exchange: 'GATEIO', marketType: 'PERP', cat: ['gateio', 'hot', 'l1'], price: 3.47, change: 6.75, volume: 95000000 },
+    { sym: 'SUI', name: 'Sui Network Perpetual', pair: 'SUI / USDT', exchange: 'MEXC', marketType: 'PERP', cat: ['mexc', 'hot', 'l1'], price: 3.48, change: 6.88, volume: 120000000 },
 
     // NEAR across exchanges
     { sym: 'NEAR', name: 'NEAR Protocol Perpetual', pair: 'NEAR / USDT', exchange: 'BYBIT', marketType: 'PERP', cat: ['bybit', 'hot', 'l1', 'ai'], price: 6.95, change: 5.40, volume: 420000000 },
     { sym: 'NEAR', name: 'NEAR Protocol Perpetual', pair: 'NEAR / USDT', exchange: 'BINANCE', marketType: 'PERP', cat: ['binance', 'hot', 'l1', 'ai'], price: 6.96, change: 5.35, volume: 560000000 },
-    { sym: 'NEAR', name: 'NEAR / USDT', pair: 'NEAR / USDT', exchange: 'GATEIO', marketType: 'SPOT', cat: ['gateio', 'hot', 'l1'], price: 6.93, change: 5.25, volume: 45000000 },
+    { sym: 'NEAR', name: 'NEAR Protocol Perpetual', pair: 'NEAR / USDT', exchange: 'GATEIO', marketType: 'PERP', cat: ['gateio', 'hot', 'l1'], price: 6.93, change: 5.25, volume: 45000000 },
 
     // AAVE across exchanges
     { sym: 'AAVE', name: 'Aave Perpetual', pair: 'AAVE / USDT', exchange: 'BYBIT', marketType: 'PERP', cat: ['bybit', 'hot', 'defi'], price: 196.8, change: 3.20, volume: 310000000 },
     { sym: 'AAVE', name: 'Aave Perpetual', pair: 'AAVE / USDT', exchange: 'BINANCE', marketType: 'PERP', cat: ['binance', 'hot', 'defi'], price: 197.1, change: 3.15, volume: 420000000 },
-    { sym: 'AAVE', name: 'Aave / USDT', pair: 'AAVE / USDT', exchange: 'GATEIO', marketType: 'SPOT', cat: ['gateio', 'defi'], price: 196.4, change: 3.10, volume: 32000000 },
+    { sym: 'AAVE', name: 'Aave Perpetual', pair: 'AAVE / USDT', exchange: 'GATEIO', marketType: 'PERP', cat: ['gateio', 'defi'], price: 196.4, change: 3.10, volume: 32000000 },
 
     // XRP across exchanges
     { sym: 'XRP', name: 'Ripple Perpetual', pair: 'XRP / USDT', exchange: 'BYBIT', marketType: 'PERP', cat: ['bybit', 'hot', 'payments'], price: 1.52, change: 4.10, volume: 1800000000 },
     { sym: 'XRP', name: 'Ripple Perpetual', pair: 'XRP / USDT', exchange: 'BINANCE', marketType: 'PERP', cat: ['binance', 'hot', 'payments'], price: 1.525, change: 4.05, volume: 2400000000 },
-    { sym: 'XRP', name: 'Ripple / USDT', pair: 'XRP / USDT', exchange: 'GATEIO', marketType: 'SPOT', cat: ['gateio', 'hot'], price: 1.518, change: 3.95, volume: 140000000 },
+    { sym: 'XRP', name: 'Ripple Perpetual', pair: 'XRP / USDT', exchange: 'GATEIO', marketType: 'PERP', cat: ['gateio', 'hot'], price: 1.518, change: 3.95, volume: 140000000 },
 
     // DOGE across exchanges
     { sym: 'DOGE', name: 'Dogecoin Perpetual', pair: 'DOGE / USDT', exchange: 'BYBIT', marketType: 'PERP', cat: ['bybit', 'hot', 'meme'], price: 0.425, change: 7.80, volume: 2100000000 },
     { sym: 'DOGE', name: 'Dogecoin Perpetual', pair: 'DOGE / USDT', exchange: 'BINANCE', marketType: 'PERP', cat: ['binance', 'hot', 'meme'], price: 0.426, change: 7.75, volume: 2900000000 },
-    { sym: 'DOGE', name: 'Dogecoin / USDT', pair: 'DOGE / USDT', exchange: 'GATEIO', marketType: 'SPOT', cat: ['gateio', 'hot', 'meme'], price: 0.423, change: 7.60, volume: 160000000 },
+    { sym: 'DOGE', name: 'Dogecoin Perpetual', pair: 'DOGE / USDT', exchange: 'GATEIO', marketType: 'PERP', cat: ['gateio', 'hot', 'meme'], price: 0.423, change: 7.60, volume: 160000000 },
 
     // BNB across exchanges
     { sym: 'BNB', name: 'Binance Coin Perpetual', pair: 'BNB / USDT', exchange: 'BYBIT', marketType: 'PERP', cat: ['bybit', 'hot', 'l1'], price: 658.0, change: 1.40, volume: 510000000 },
     { sym: 'BNB', name: 'Binance Coin Perpetual', pair: 'BNB / USDT', exchange: 'BINANCE', marketType: 'PERP', cat: ['binance', 'hot', 'l1'], price: 658.5, change: 1.35, volume: 850000000 },
-    { sym: 'BNB', name: 'BNB / USDT', pair: 'BNB / USDT', exchange: 'GATEIO', marketType: 'SPOT', cat: ['gateio', 'l1'], price: 657.2, change: 1.30, volume: 48000000 },
+    { sym: 'BNB', name: 'Binance Coin Perpetual', pair: 'BNB / USDT', exchange: 'GATEIO', marketType: 'PERP', cat: ['gateio', 'l1'], price: 657.2, change: 1.30, volume: 48000000 },
 
     // PEPE across exchanges
     { sym: 'PEPE', name: 'Pepe Perpetual', pair: 'PEPE / USDT', exchange: 'BYBIT', marketType: 'PERP', cat: ['bybit', 'hot', 'meme'], price: 0.0000218, change: 8.90, volume: 920000000 },
     { sym: 'PEPE', name: 'Pepe Perpetual', pair: 'PEPE / USDT', exchange: 'BINANCE', marketType: 'PERP', cat: ['binance', 'hot', 'meme'], price: 0.00002185, change: 8.85, volume: 1350000000 },
-    { sym: 'PEPE', name: 'Pepe / USDT', pair: 'PEPE / USDT', exchange: 'GATEIO', marketType: 'SPOT', cat: ['gateio', 'hot', 'meme'], price: 0.00002175, change: 8.60, volume: 82000000 },
+    { sym: 'PEPE', name: 'Pepe Perpetual', pair: 'PEPE / USDT', exchange: 'GATEIO', marketType: 'PERP', cat: ['gateio', 'hot', 'meme'], price: 0.00002175, change: 8.60, volume: 82000000 },
 
     // SHIB across exchanges
     { sym: 'SHIB', name: 'Shiba Inu Perpetual', pair: 'SHIB / USDT', exchange: 'BYBIT', marketType: 'PERP', cat: ['bybit', 'hot', 'meme'], price: 0.0000268, change: 4.50, volume: 480000000 },
@@ -285,7 +285,7 @@ window.SymbolSearchModule = {
 
     // POPCAT across exchanges
     { sym: 'POPCAT', name: 'Popcat Perpetual', pair: 'POPCAT / USDT', exchange: 'BYBIT', marketType: 'PERP', cat: ['bybit', 'meme'], price: 1.68, change: 9.20, volume: 280000000 },
-    { sym: 'POPCAT', name: 'Popcat / USDT', pair: 'POPCAT / USDT', exchange: 'GATEIO', marketType: 'SPOT', cat: ['gateio', 'meme'], price: 1.67, change: 9.05, volume: 45000000 },
+    { sym: 'POPCAT', name: 'Popcat Perpetual', pair: 'POPCAT / USDT', exchange: 'GATEIO', marketType: 'PERP', cat: ['gateio', 'meme'], price: 1.67, change: 9.05, volume: 45000000 },
 
     // WIF across exchanges
     { sym: 'WIF', name: 'dogwifhat Perpetual', pair: 'WIF / USDT', exchange: 'BYBIT', marketType: 'PERP', cat: ['bybit', 'hot', 'meme'], price: 3.32, change: 9.50, volume: 680000000 },
@@ -294,7 +294,7 @@ window.SymbolSearchModule = {
     // PNUT across exchanges
     { sym: 'PNUT', name: 'Peanut the Squirrel Perpetual', pair: 'PNUT / USDT', exchange: 'BYBIT', marketType: 'PERP', cat: ['bybit', 'hot', 'meme'], price: 1.32, change: 12.10, volume: 460000000 },
     { sym: 'PNUT', name: 'Peanut the Squirrel Perpetual', pair: 'PNUT / USDT', exchange: 'BINANCE', marketType: 'PERP', cat: ['binance', 'hot', 'meme'], price: 1.325, change: 12.00, volume: 680000000 },
-    { sym: 'PNUT', name: 'PNUT / USDT', pair: 'PNUT / USDT', exchange: 'GATEIO', marketType: 'SPOT', cat: ['gateio', 'meme'], price: 1.31, change: 11.80, volume: 38000000 },
+    { sym: 'PNUT', name: 'Peanut the Squirrel Perpetual', pair: 'PNUT / USDT', exchange: 'GATEIO', marketType: 'PERP', cat: ['gateio', 'meme'], price: 1.31, change: 11.80, volume: 38000000 },
 
     // NEIRO across exchanges
     { sym: 'NEIRO', name: 'First Neiro on Ethereum Perpetual', pair: 'NEIRO / USDT', exchange: 'BYBIT', marketType: 'PERP', cat: ['bybit', 'hot', 'meme'], price: 0.00192, change: 10.80, volume: 380000000 },
@@ -314,8 +314,8 @@ window.SymbolSearchModule = {
 
     // KAS across exchanges
     { sym: 'KAS', name: 'Kaspa Perpetual', pair: 'KAS / USDT', exchange: 'BYBIT', marketType: 'PERP', cat: ['bybit', 'l1'], price: 0.168, change: 2.60, volume: 180000000 },
-    { sym: 'KAS', name: 'Kaspa / USDT', pair: 'KAS / USDT', exchange: 'GATEIO', marketType: 'SPOT', cat: ['gateio', 'l1'], price: 0.167, change: 2.50, volume: 35000000 },
-    { sym: 'KAS', name: 'Kaspa / USDT', pair: 'KAS / USDT', exchange: 'MEXC', marketType: 'PERP', cat: ['mexc', 'l1'], price: 0.168, change: 2.55, volume: 42000000 },
+    { sym: 'KAS', name: 'Kaspa Perpetual', pair: 'KAS / USDT', exchange: 'GATEIO', marketType: 'PERP', cat: ['gateio', 'l1'], price: 0.167, change: 2.50, volume: 35000000 },
+    { sym: 'KAS', name: 'Kaspa Perpetual', pair: 'KAS / USDT', exchange: 'MEXC', marketType: 'PERP', cat: ['mexc', 'l1'], price: 0.168, change: 2.55, volume: 42000000 },
 
     // SEI across exchanges
     { sym: 'SEI', name: 'Sei Network Perpetual', pair: 'SEI / USDT', exchange: 'BYBIT', marketType: 'PERP', cat: ['bybit', 'hot', 'l1'], price: 0.58, change: 4.60, volume: 220000000 },
@@ -339,11 +339,11 @@ window.SymbolSearchModule = {
 
     // TON across exchanges
     { sym: 'TON', name: 'Toncoin Perpetual', pair: 'TON / USDT', exchange: 'BYBIT', marketType: 'PERP', cat: ['bybit', 'l1'], price: 6.55, change: 2.10, volume: 340000000 },
-    { sym: 'TON', name: 'Toncoin / USDT', pair: 'TON / USDT', exchange: 'GATEIO', marketType: 'SPOT', cat: ['gateio', 'l1'], price: 6.52, change: 2.05, volume: 62000000 },
+    { sym: 'TON', name: 'Toncoin Perpetual', pair: 'TON / USDT', exchange: 'GATEIO', marketType: 'PERP', cat: ['gateio', 'l1'], price: 6.52, change: 2.05, volume: 62000000 },
 
     // ONDO across exchanges
     { sym: 'ONDO', name: 'Ondo Finance Perpetual', pair: 'ONDO / USDT', exchange: 'BYBIT', marketType: 'PERP', cat: ['bybit', 'hot', 'defi'], price: 1.18, change: 6.80, volume: 270000000 },
-    { sym: 'ONDO', name: 'Ondo Finance / USDT', pair: 'ONDO / USDT', exchange: 'GATEIO', marketType: 'SPOT', cat: ['gateio', 'defi'], price: 1.17, change: 6.65, volume: 34000000 },
+    { sym: 'ONDO', name: 'Ondo Finance Perpetual', pair: 'ONDO / USDT', exchange: 'GATEIO', marketType: 'PERP', cat: ['gateio', 'defi'], price: 1.17, change: 6.65, volume: 34000000 },
 
     // PENDLE across exchanges
     { sym: 'PENDLE', name: 'Pendle Perpetual', pair: 'PENDLE / USDT', exchange: 'BYBIT', marketType: 'PERP', cat: ['bybit', 'defi'], price: 5.95, change: 5.60, volume: 180000000 },
@@ -603,10 +603,8 @@ window.SymbolSearchModule = {
       const initial = coin.sym.substring(0, 2);
       const exBadge = this.getExchangeBadgeHtml(coin.exchange);
 
-      // Suffix display: e.g. BTCUSDT.P for perp or BTC_USDT for spot
-      const displaySym = (coin.marketType === 'PERP' || coin.exchange === 'BYBIT' || coin.exchange === 'BINANCE')
-        ? `${coin.sym}USDT.P`
-        : `${coin.sym}_USDT`;
+      // Suffix display: strictly perpetual futures (.P)
+      const displaySym = `${coin.sym}USDT.P`;
 
       // Check if coin is favorited
       const isFav = window.FavoritesManager ? window.FavoritesManager.isFavorite(coin.sym) : false;
@@ -764,31 +762,47 @@ window.SymbolSearchModule = {
   },
 
   /**
-   * Fetch live tickers across Gate.io and Binance Vision to populate real prices and extra coins
+   * Fetch live tickers across Bybit, Gate.io, and Binance Vision to populate real prices
    */
   fetchMultiExchangeLiveTickers: async function () {
     if (this.isFetchingTickers) return;
     this.isFetchingTickers = true;
 
-    // 1. Fetch Gate.io Spot Tickers (2,000+ pairs, zero geo-blocking)
+    // Helper timeout fetcher (3000ms timeout)
+    const fetchFast = async (url) => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 3000);
+      try {
+        const res = await fetch(url, { signal: controller.signal });
+        clearTimeout(timer);
+        if (res.ok) return await res.json();
+      } catch (e) {
+        clearTimeout(timer);
+      }
+      return null;
+    };
+
+    // 1. Fetch Bybit Linear Futures Tickers via fast global mirror
     try {
-      const res = await fetch('https://api.gateio.ws/api/v4/spot/tickers');
-      if (res.ok) {
-        const gateTickers = await res.json();
-        if (Array.isArray(gateTickers) && gateTickers.length > 50) {
-          this.mergeGateTickers(gateTickers);
-        }
+      const bybitData = await fetchFast('https://api.bytick.com/v5/market/tickers?category=linear');
+      if (bybitData && bybitData.result && Array.isArray(bybitData.result.list)) {
+        this.mergeBybitTickers(bybitData.result.list);
       }
     } catch (e) { }
 
     // 2. Fetch Binance Vision Tickers
     try {
-      const res = await fetch('https://data-api.binance.vision/api/v3/ticker/24hr');
-      if (res.ok) {
-        const binanceTickers = await res.json();
-        if (Array.isArray(binanceTickers) && binanceTickers.length > 50) {
-          this.mergeBinanceTickers(binanceTickers);
-        }
+      const binanceTickers = await fetchFast('https://data-api.binance.vision/api/v3/ticker/24hr');
+      if (Array.isArray(binanceTickers) && binanceTickers.length > 50) {
+        this.mergeBinanceTickers(binanceTickers);
+      }
+    } catch (e) { }
+
+    // 3. Fetch Gate.io Futures Tickers
+    try {
+      const gateTickers = await fetchFast('https://api.gateio.ws/api/v4/futures/usdt/tickers');
+      if (Array.isArray(gateTickers) && gateTickers.length > 20) {
+        this.mergeGateTickers(gateTickers);
       }
     } catch (e) { }
 
@@ -796,21 +810,56 @@ window.SymbolSearchModule = {
   },
 
   /**
-   * Merge Gate.io tickers into catalog (e.g. EVAA_USDT, KAS_USDT, TON_USDT)
+   * Merge Bybit Linear Futures Tickers into catalog
    */
-  mergeGateTickers: function (tickers) {
-    const gateMap = new Map();
+  mergeBybitTickers: function (tickers) {
+    const map = new Map();
     tickers.forEach(t => {
-      if (t.currency_pair && t.currency_pair.endsWith('_USDT')) {
-        gateMap.set(t.currency_pair, {
-          price: parseFloat(t.last) || 0,
-          change: parseFloat(t.change_percentage) || 0,
-          volume: parseFloat(t.quote_volume) || 0
+      if (t.symbol && t.symbol.endsWith('USDT')) {
+        map.set(t.symbol, {
+          price: parseFloat(t.lastPrice) || 0,
+          change: parseFloat(t.price24hPcnt) * 100 || 0,
+          volume: parseFloat(t.turnover24h || t.volume24h) || 0
         });
       }
     });
 
-    // Update existing Gate.io coins
+    this.coins.forEach(c => {
+      if (c.exchange === 'BYBIT') {
+        let symKey = `${c.sym}USDT`;
+        if (c.sym === 'PEPE') symKey = '1000PEPEUSDT';
+        else if (c.sym === 'BONK') symKey = '1000BONKUSDT';
+        else if (c.sym === 'FLOKI') symKey = '1000FLOKIUSDT';
+        else if (c.sym === 'SHIB') symKey = 'SHIB1000USDT';
+
+        const data = map.get(symKey) || map.get(`${c.sym}USDT`);
+        if (data) {
+          c.price = data.price;
+          c.change = data.change;
+          c.volume = data.volume;
+        }
+      }
+    });
+
+    if (this.isOpen) this.renderResults();
+  },
+
+  /**
+   * Merge Gate.io Futures tickers into catalog
+   */
+  mergeGateTickers: function (tickers) {
+    const gateMap = new Map();
+    tickers.forEach(t => {
+      const contract = t.contract || t.currency_pair;
+      if (contract && contract.endsWith('_USDT')) {
+        gateMap.set(contract, {
+          price: parseFloat(t.last) || 0,
+          change: parseFloat(t.change_percentage) || 0,
+          volume: parseFloat(t.volume_24h_quote || t.quote_volume) || 0
+        });
+      }
+    });
+
     this.coins.forEach(c => {
       if (c.exchange === 'GATEIO') {
         const pairKey = `${c.sym}_USDT`;
@@ -823,10 +872,7 @@ window.SymbolSearchModule = {
       }
     });
 
-    // Re-render if modal currently open
-    if (this.isOpen) {
-      this.renderResults();
-    }
+    if (this.isOpen) this.renderResults();
   },
 
   /**
@@ -844,12 +890,11 @@ window.SymbolSearchModule = {
       }
     });
 
-    // Update existing Binance coins
     this.coins.forEach(c => {
-      if (c.exchange === 'BINANCE' || c.exchange === 'BYBIT') {
+      if (c.exchange === 'BINANCE') {
         const symUSDT = `${c.sym}USDT`;
         const data = tickerMap.get(symUSDT);
-        if (data && (!c.price || c.exchange === 'BINANCE')) {
+        if (data) {
           c.price = data.price;
           c.change = data.change;
           c.volume = data.volume;
@@ -857,10 +902,7 @@ window.SymbolSearchModule = {
       }
     });
 
-    // Re-render if modal currently open
-    if (this.isOpen) {
-      this.renderResults();
-    }
+    if (this.isOpen) this.renderResults();
   }
 };
 
